@@ -610,3 +610,73 @@ D:\00_Chen\spider\image_data_platform\backend_django\studies\api.py changed, rel
 Watching for file changes with StatReloader
 D:\00_Chen\spider\image_data_platform\backend_django\studies\api.py changed, reloading.
 Watching for file changes with StatReloader
+"GET /api/v1/docs HTTP/1.1" 500 59
+"GET /api/v1/docs HTTP/1.1" 500 59
+"GET /api/v1/docs HTTP/1.1" 500 59
+"GET /api/v1/docs HTTP/1.1" 500 59
+"GET /api/v1/docs HTTP/1.1" 500 59
+"GET /api/v1/docs HTTP/1.1" 500 59
+Watching for file changes with StatReloader
+Watching for file changes with StatReloader
+"GET / HTTP/1.1" 200 103
+Not Found: /favicon.ico
+"GET /favicon.ico HTTP/1.1" 404 2444
+"GET /api/v1/docs HTTP/1.1" 200 1006
+"GET /api/v1/openapi.json HTTP/1.1" 200 9426
+"GET /api/v1/health HTTP/1.1" 200 36
+"GET /api/v1/studies/search?start_date=2025-10-01&end_date=2025-10-02&sort=order_datetime_desc&limit=20&offset=0 HTTP/1.1" 200 7164870
+"GET /api/v1/docs HTTP/1.1" 200 1006
+"GET /api/v1/docs HTTP/1.1" 200 1006
+"GET /api/v1/docs HTTP/1.1" 200 1006
+"GET /api/v1/openapi.json HTTP/1.1" 200 9426
+"GET /api/v1/health HTTP/1.1" 200 36
+"GET /api/v1/studies/search?start_date=2025-10-01&end_date=2025-10-02&sort=order_datetime_desc&limit=20&offset=0 HTTP/1.1" 200 7164870
+"GET /api/v1/docs HTTP/1.1" 200 1006
+"GET /admin/ HTTP/1.1" 200 6176
+"GET /static/admin/css/base.css HTTP/1.1" 304 0
+"GET /static/admin/css/dark_mode.css HTTP/1.1" 304 0
+"GET /static/admin/css/responsive.css HTTP/1.1" 304 0
+"GET /static/admin/css/dashboard.css HTTP/1.1" 304 0
+"GET /static/admin/css/nav_sidebar.css HTTP/1.1" 304 0
+"GET /static/admin/js/nav_sidebar.js HTTP/1.1" 304 0
+"GET /static/admin/js/theme.js HTTP/1.1" 304 0
+"GET /static/admin/img/icon-addlink.svg HTTP/1.1" 304 0
+"GET /static/admin/img/icon-changelink.svg HTTP/1.1" 304 0
+"GET / HTTP/1.1" 200 103
+"GET /api/v1/docs HTTP/1.1" 200 1006
+"GET /api/v1/openapi.json HTTP/1.1" 200 9426
+"GET /admin/ HTTP/1.1" 200 6176
+"GET /admin/studies/ HTTP/1.1" 200 5080
+"GET /admin/studies/study/ HTTP/1.1" 200 42773
+"GET /static/admin/js/jquery.init.js HTTP/1.1" 304 0
+"GET /static/admin/css/changelists.css HTTP/1.1" 304 0
+"GET /static/admin/js/core.js HTTP/1.1" 304 0
+"GET /static/admin/js/vendor/jquery/jquery.js HTTP/1.1" 304 0
+"GET /static/admin/js/admin/RelatedObjectLookups.js HTTP/1.1" 304 0
+"GET /static/admin/js/actions.js HTTP/1.1" 304 0
+"GET /static/admin/js/urlify.js HTTP/1.1" 304 0
+"GET /static/admin/js/vendor/xregexp/xregexp.js HTTP/1.1" 304 0
+"GET /static/admin/js/prepopulate.js HTTP/1.1" 304 0
+"GET /static/admin/img/search.svg HTTP/1.1" 304 0
+"GET /static/admin/js/filters.js HTTP/1.1" 304 0
+"GET /admin/jsi18n/ HTTP/1.1" 200 8659
+"GET /static/admin/img/sorting-icons.svg HTTP/1.1" 304 0
+"GET /static/admin/img/icon-viewlink.svg HTTP/1.1" 304 0
+"GET /static/admin/img/tooltag-add.svg HTTP/1.1" 304 0
+"GET /admin/studies/study/31410280360/change/ HTTP/1.1" 200 20716
+"GET /static/admin/css/forms.css HTTP/1.1" 304 0
+"GET /static/admin/js/prepopulate_init.js HTTP/1.1" 304 0
+"GET /static/admin/css/widgets.css HTTP/1.1" 304 0
+"GET /static/admin/js/change_form.js HTTP/1.1" 304 0
+"GET /admin/jsi18n/ HTTP/1.1" 200 8659
+"GET /api/v1/studies/31410280360 HTTP/1.1" 200 659
+"GET /api/v1/studies/filters/options HTTP/1.1" 200 7154582
+"GET /api/v1/docs HTTP/1.1" 200 1006
+"GET /api/v1/openapi.json HTTP/1.1" 200 9426
+D:\00_Chen\spider\image_data_platform\backend_django\studies\services.py changed, reloading.
+Watching for file changes with StatReloader
+D:\00_Chen\spider\image_data_platform\backend_django\studies\services.py changed, reloading.
+Watching for file changes with StatReloader
+D:\00_Chen\spider\image_data_platform\backend_django\studies\services.py changed, reloading.
+Watching for file changes with StatReloader
+D:\00_Chen\spider\image_data_platform\backend_django\config\settings.py changed, reloading.
