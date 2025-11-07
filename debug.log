@@ -589,3 +589,24 @@ D:\00_Chen\spider\image_data_platform\backend_django\studies\schemas.py changed,
 Watching for file changes with StatReloader
 D:\00_Chen\spider\image_data_platform\backend_django\studies\services.py changed, reloading.
 Watching for file changes with StatReloader
+"GET /api/v1/docs HTTP/1.1" 200 1006
+"GET /api/v1/openapi.json HTTP/1.1" 200 9426
+"OPTIONS /api/v1/studies/filters/options HTTP/1.1" 200 0
+"OPTIONS /api/v1/studies/filters/options HTTP/1.1" 200 0
+"GET /api/v1/studies/filters/options HTTP/1.1" 200 5914906
+"GET /api/v1/studies/filters/options HTTP/1.1" 200 5915770
+"OPTIONS /api/v1/studies/search?q=test&page=1&page_size=20&sort=order_datetime_desc HTTP/1.1" 200 0
+"GET /api/v1/studies/search?q=test&page=1&page_size=20&sort=order_datetime_desc HTTP/1.1" 200 5924701
+D:\00_Chen\spider\image_data_platform\backend_django\config\settings.py changed, reloading.
+Watching for file changes with StatReloader
+"OPTIONS /api/v1/studies/search?q=300727239&page=1&page_size=20&sort=order_datetime_desc HTTP/1.1" 200 0
+"GET /api/v1/studies/search?q=300727239&page=1&page_size=20&sort=order_datetime_desc HTTP/1.1" 200 5959565
+D:\00_Chen\spider\image_data_platform\backend_django\studies\api.py changed, reloading.
+Watching for file changes with StatReloader
+D:\00_Chen\spider\image_data_platform\backend_django\studies\api.py changed, reloading.
+Watching for file changes with StatReloader
+Watching for file changes with StatReloader
+D:\00_Chen\spider\image_data_platform\backend_django\studies\api.py changed, reloading.
+Watching for file changes with StatReloader
+D:\00_Chen\spider\image_data_platform\backend_django\studies\api.py changed, reloading.
+Watching for file changes with StatReloader

@@ -7,6 +7,7 @@ Using Pydantic type hints ensures validation and correct serialization.
 from typing import Optional, List
 from ninja import Router, Query
 from ninja.pagination import paginate
+from django.http import Http404
 from .schemas import StudySearchResponse, StudyDetail, FilterOptions, StudyListItem
 from .pagination import StudyPagination
 from .services import StudyService
@@ -89,32 +90,26 @@ def search_studies(
 def get_study_detail(request, exam_id: str):
     """
     Get detailed study information by exam_id.
-    
+
     Path Parameters:
     - exam_id: The examination ID
-    
+
     Returns:
     Complete study record details (StudyDetail schema)
-    
+
     Raises:
     - 404: If study not found
     """
     try:
         study_dict = StudyService.get_study_detail(exam_id)
-        
+
         if not study_dict:
-            return StudyDetail(
-                exam_id=exam_id,
-                patient_name='',
-                exam_status='',
-                exam_source='',
-                exam_item='',
-                equipment_type='',
-                order_datetime=None,
-            )  # Should return 404 via error handling
-        
+            raise Http404(f"Study with exam_id '{exam_id}' not found")
+
         return StudyDetail(**study_dict)
-    
+
+    except Http404:
+        raise
     except Exception as e:
         logger.error(f'Failed to get study detail: {str(e)}')
         raise

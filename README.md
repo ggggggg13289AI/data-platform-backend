@@ -104,7 +104,7 @@ python manage.py migrate
 export DUCKDB_PATH=../backend/medical_imaging.duckdb
 
 # Run migration
-python migrate_from_duckdb.py
+python scripts/migrate_from_duckdb.py
 
 # Expected output:
 # ✓ DuckDB contains 1,250 examination records
