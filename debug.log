@@ -1,0 +1,591 @@
+Watching for file changes with StatReloader
+"GET / HTTP/1.1" 500 59
+"GET /favicon.ico HTTP/1.1" 500 59
+"GET / HTTP/1.1" 500 59
+"GET /favicon.ico HTTP/1.1" 500 59
+"GET /v1/docs HTTP/1.1" 500 59
+"GET /favicon.ico HTTP/1.1" 500 59
+D:\00_Chen\spider\image_data_platform\backend_django\config\settings.py changed, reloading.
+Watching for file changes with StatReloader
+Not Found: /v1/docs
+"GET /v1/docs HTTP/1.1" 404 179
+Not Found: /favicon.ico
+"GET /favicon.ico HTTP/1.1" 404 179
+Not Found: /v1/docs
+"GET /v1/docs HTTP/1.1" 404 179
+Not Found: /v1/docs
+"GET /v1/docs HTTP/1.1" 404 179
+Not Found: /v1/docs
+"GET /v1/docs HTTP/1.1" 404 179
+Not Found: /v1/docs
+"GET /v1/docs HTTP/1.1" 404 179
+Not Found: /v1/docs
+"GET /v1/docs HTTP/1.1" 404 179
+Not Found: /v1/docs
+"GET /v1/docs HTTP/1.1" 404 179
+Not Found: /v1/docs
+"GET /v1/docs HTTP/1.1" 404 179
+Not Found: /v1/docs
+"GET /v1/docs HTTP/1.1" 404 179
+Not Found: /v1/docs
+"GET /v1/docs HTTP/1.1" 404 179
+Not Found: /v1/docs
+"GET /v1/docs HTTP/1.1" 404 179
+Watching for file changes with StatReloader
+Internal Server Error: /api/v1/docs
+Traceback (most recent call last):
+  File "D:\00_Chen\spider\image_data_platform\backend_django\.venv\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\00_Chen\spider\image_data_platform\backend_django\.venv\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\00_Chen\spider\image_data_platform\backend_django\.venv\Lib\site-packages\ninja\openapi\views.py", line 26, in openapi_view
+    return docs.render_page(request, api, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\00_Chen\spider\image_data_platform\backend_django\.venv\Lib\site-packages\ninja\openapi\docs.py", line 55, in render_page
+    return render_template(request, self.template, self.template_cdn, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\00_Chen\spider\image_data_platform\backend_django\.venv\Lib\site-packages\ninja\openapi\docs.py", line 91, in render_template
+    return _render_cdn_template(request, template_cdn, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\00_Chen\spider\image_data_platform\backend_django\.venv\Lib\site-packages\ninja\openapi\docs.py", line 100, in _render_cdn_template
+    tpl = Template(Path(template_path).read_text())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\00_Chen\spider\image_data_platform\backend_django\.venv\Lib\site-packages\django\template\base.py", line 147, in __init__
+    engine = Engine.get_default()
+             ^^^^^^^^^^^^^^^^^^^^
+  File "D:\00_Chen\spider\image_data_platform\backend_django\.venv\Lib\site-packages\django\template\engine.py", line 110, in get_default
+    raise ImproperlyConfigured("No DjangoTemplates backend is configured.")
+django.core.exceptions.ImproperlyConfigured: No DjangoTemplates backend is configured.
+"GET /api/v1/docs HTTP/1.1" 500 145
+Watching for file changes with StatReloader
+Internal Server Error: /api/v1/docs
+Traceback (most recent call last):
+  File "D:\00_Chen\spider\image_data_platform\backend_django\.venv\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\00_Chen\spider\image_data_platform\backend_django\.venv\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\00_Chen\spider\image_data_platform\backend_django\.venv\Lib\site-packages\ninja\openapi\views.py", line 26, in openapi_view
+    return docs.render_page(request, api, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\00_Chen\spider\image_data_platform\backend_django\.venv\Lib\site-packages\ninja\openapi\docs.py", line 55, in render_page
+    return render_template(request, self.template, self.template_cdn, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\00_Chen\spider\image_data_platform\backend_django\.venv\Lib\site-packages\ninja\openapi\docs.py", line 91, in render_template
+    return _render_cdn_template(request, template_cdn, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\00_Chen\spider\image_data_platform\backend_django\.venv\Lib\site-packages\ninja\openapi\docs.py", line 100, in _render_cdn_template
+    tpl = Template(Path(template_path).read_text())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\00_Chen\spider\image_data_platform\backend_django\.venv\Lib\site-packages\django\template\base.py", line 147, in __init__
+    engine = Engine.get_default()
+             ^^^^^^^^^^^^^^^^^^^^
+  File "D:\00_Chen\spider\image_data_platform\backend_django\.venv\Lib\site-packages\django\template\engine.py", line 110, in get_default
+    raise ImproperlyConfigured("No DjangoTemplates backend is configured.")
+django.core.exceptions.ImproperlyConfigured: No DjangoTemplates backend is configured.
+"GET /api/v1/docs HTTP/1.1" 500 145
+Internal Server Error: /api/v1/docs
+Traceback (most recent call last):
+  File "D:\00_Chen\spider\image_data_platform\backend_django\.venv\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\00_Chen\spider\image_data_platform\backend_django\.venv\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\00_Chen\spider\image_data_platform\backend_django\.venv\Lib\site-packages\ninja\openapi\views.py", line 26, in openapi_view
+    return docs.render_page(request, api, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\00_Chen\spider\image_data_platform\backend_django\.venv\Lib\site-packages\ninja\openapi\docs.py", line 55, in render_page
+    return render_template(request, self.template, self.template_cdn, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\00_Chen\spider\image_data_platform\backend_django\.venv\Lib\site-packages\ninja\openapi\docs.py", line 91, in render_template
+    return _render_cdn_template(request, template_cdn, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\00_Chen\spider\image_data_platform\backend_django\.venv\Lib\site-packages\ninja\openapi\docs.py", line 100, in _render_cdn_template
+    tpl = Template(Path(template_path).read_text())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\00_Chen\spider\image_data_platform\backend_django\.venv\Lib\site-packages\django\template\base.py", line 147, in __init__
+    engine = Engine.get_default()
+             ^^^^^^^^^^^^^^^^^^^^
+  File "D:\00_Chen\spider\image_data_platform\backend_django\.venv\Lib\site-packages\django\template\engine.py", line 110, in get_default
+    raise ImproperlyConfigured("No DjangoTemplates backend is configured.")
+django.core.exceptions.ImproperlyConfigured: No DjangoTemplates backend is configured.
+"GET /api/v1/docs HTTP/1.1" 500 145
+D:\00_Chen\spider\image_data_platform\backend_django\config\settings.py changed, reloading.
+Watching for file changes with StatReloader
+"GET /api/v1/docs HTTP/1.1" 200 1006
+"GET /api/v1/openapi.json HTTP/1.1" 200 9030
+Not Found: /admin
+"GET /admin HTTP/1.1" 404 179
+Not Found: /admins
+"GET /admins HTTP/1.1" 404 179
+Not Found: /admin
+"GET /admin HTTP/1.1" 404 179
+Watching for file changes with StatReloader
+Not Found: /admin
+"GET /admin HTTP/1.1" 404 179
+Not Found: /admin
+"GET /admin HTTP/1.1" 404 179
+D:\00_Chen\spider\image_data_platform\backend_django\config\settings.py changed, reloading.
+Watching for file changes with StatReloader
+D:\00_Chen\spider\image_data_platform\backend_django\config\settings.py changed, reloading.
+Watching for file changes with StatReloader
+D:\00_Chen\spider\image_data_platform\backend_django\config\settings.py changed, reloading.
+Watching for file changes with StatReloader
+"GET /admin HTTP/1.1" 301 0
+"GET /admin/ HTTP/1.1" 302 0
+"GET /admin/login/?next=/admin/ HTTP/1.1" 200 4116
+"GET /admin/login/admin/css/base.css HTTP/1.1" 302 0
+"GET /admin/login/admin/css/dark_mode.css HTTP/1.1" 302 0
+"GET /admin/login/admin/css/nav_sidebar.css HTTP/1.1" 302 0
+"GET /admin/login/admin/css/login.css HTTP/1.1" 302 0
+"GET /admin/login/admin/css/responsive.css HTTP/1.1" 302 0
+"GET /admin/login/?next=/admin/login/admin/css/login.css HTTP/1.1" 200 4166
+"GET /admin/login/?next=/admin/login/admin/css/base.css HTTP/1.1" 200 4164
+"GET /admin/login/admin/js/theme.js HTTP/1.1" 302 0
+"GET /admin/login/admin/js/nav_sidebar.js HTTP/1.1" 302 0
+"GET /admin/login/?next=/admin/login/admin/css/nav_sidebar.css HTTP/1.1" 200 4178
+"GET /admin/login/?next=/admin/login/admin/css/responsive.css HTTP/1.1" 200 4176
+"GET /admin/login/?next=/admin/login/admin/css/dark_mode.css HTTP/1.1" 200 4174
+"GET /admin/login/?next=/admin/login/admin/js/theme.js HTTP/1.1" 200 4162
+"GET /admin/login/?next=/admin/login/admin/js/nav_sidebar.js HTTP/1.1" 200 4174
+"GET /admin/login/?next=/admin/ HTTP/1.1" 200 4116
+"GET /admin/login/admin/css/dark_mode.css HTTP/1.1" 302 0
+"GET /admin/login/admin/css/base.css HTTP/1.1" 302 0
+"GET /admin/login/admin/js/theme.js HTTP/1.1" 302 0
+"GET /admin/login/admin/css/login.css HTTP/1.1" 302 0
+"GET /admin/login/admin/css/responsive.css HTTP/1.1" 302 0
+"GET /admin/login/admin/css/nav_sidebar.css HTTP/1.1" 302 0
+"GET /admin/login/?next=/admin/login/admin/css/nav_sidebar.css HTTP/1.1" 200 4178
+"GET /admin/login/?next=/admin/login/admin/css/base.css HTTP/1.1" 200 4164
+"GET /admin/login/?next=/admin/login/admin/css/login.css HTTP/1.1" 200 4166
+"GET /admin/login/?next=/admin/login/admin/css/responsive.css HTTP/1.1" 200 4176
+"GET /admin/login/?next=/admin/login/admin/js/theme.js HTTP/1.1" 200 4162
+"GET /admin/login/?next=/admin/login/admin/css/dark_mode.css HTTP/1.1" 200 4174
+"GET /admin/login/admin/js/nav_sidebar.js HTTP/1.1" 302 0
+"GET /admin/login/?next=/admin/login/admin/js/nav_sidebar.js HTTP/1.1" 200 4174
+"GET /admin/ HTTP/1.1" 302 0
+"GET /admin/login/?next=/admin/ HTTP/1.1" 200 4116
+"GET /admin/login/admin/css/base.css HTTP/1.1" 302 0
+"GET /admin/login/admin/js/theme.js HTTP/1.1" 302 0
+"GET /admin/login/admin/css/responsive.css HTTP/1.1" 302 0
+"GET /admin/login/admin/css/nav_sidebar.css HTTP/1.1" 302 0
+"GET /admin/login/admin/css/dark_mode.css HTTP/1.1" 302 0
+"GET /admin/login/?next=/admin/login/admin/css/base.css HTTP/1.1" 200 4164
+"GET /admin/login/admin/css/login.css HTTP/1.1" 302 0
+"GET /admin/login/?next=/admin/login/admin/css/nav_sidebar.css HTTP/1.1" 200 4178
+"GET /admin/login/?next=/admin/login/admin/css/dark_mode.css HTTP/1.1" 200 4174
+"GET /admin/login/admin/js/nav_sidebar.js HTTP/1.1" 302 0
+"GET /admin/login/?next=/admin/login/admin/js/theme.js HTTP/1.1" 200 4162
+"GET /admin/login/?next=/admin/login/admin/css/login.css HTTP/1.1" 200 4166
+"GET /admin/login/?next=/admin/login/admin/css/responsive.css HTTP/1.1" 200 4176
+"GET /admin/login/?next=/admin/login/admin/js/nav_sidebar.js HTTP/1.1" 200 4174
+"GET /admin/login/?next=/admin/ HTTP/1.1" 200 4116
+"GET /admin/login/admin/css/nav_sidebar.css HTTP/1.1" 302 0
+"GET /admin/login/admin/css/login.css HTTP/1.1" 302 0
+"GET /admin/login/admin/css/responsive.css HTTP/1.1" 302 0
+"GET /admin/login/admin/js/theme.js HTTP/1.1" 302 0
+"GET /admin/login/admin/css/base.css HTTP/1.1" 302 0
+"GET /admin/login/admin/css/dark_mode.css HTTP/1.1" 302 0
+"GET /admin/login/?next=/admin/login/admin/css/base.css HTTP/1.1" 200 4164
+"GET /admin/login/?next=/admin/login/admin/css/nav_sidebar.css HTTP/1.1" 200 4178
+"GET /admin/login/?next=/admin/login/admin/css/login.css HTTP/1.1" 200 4166
+"GET /admin/login/?next=/admin/login/admin/css/dark_mode.css HTTP/1.1" 200 4174
+"GET /admin/login/?next=/admin/login/admin/js/theme.js HTTP/1.1" 200 4162
+"GET /admin/login/?next=/admin/login/admin/css/responsive.css HTTP/1.1" 200 4176
+"GET /admin/login/admin/js/nav_sidebar.js HTTP/1.1" 302 0
+"GET /admin/login/?next=/admin/login/admin/js/nav_sidebar.js HTTP/1.1" 200 4174
+"GET /admin/login/?next=/admin/ HTTP/1.1" 200 4116
+"GET /admin/login/admin/css/base.css HTTP/1.1" 302 0
+"GET /admin/login/admin/css/dark_mode.css HTTP/1.1" 302 0
+"GET /admin/login/admin/css/login.css HTTP/1.1" 302 0
+"GET /admin/login/admin/css/responsive.css HTTP/1.1" 302 0
+"GET /admin/login/admin/css/nav_sidebar.css HTTP/1.1" 302 0
+"GET /admin/login/?next=/admin/login/admin/css/dark_mode.css HTTP/1.1" 200 4174
+"GET /admin/login/?next=/admin/login/admin/css/base.css HTTP/1.1" 200 4164
+"GET /admin/login/admin/js/theme.js HTTP/1.1" 302 0
+"GET /admin/login/admin/js/nav_sidebar.js HTTP/1.1" 302 0
+"GET /admin/login/?next=/admin/login/admin/css/nav_sidebar.css HTTP/1.1" 200 4178
+"GET /admin/login/?next=/admin/login/admin/js/theme.js HTTP/1.1" 200 4162
+"GET /admin/login/?next=/admin/login/admin/css/login.css HTTP/1.1" 200 4166
+"GET /admin/login/?next=/admin/login/admin/css/responsive.css HTTP/1.1" 200 4176
+"GET /admin/login/?next=/admin/login/admin/js/nav_sidebar.js HTTP/1.1" 200 4174
+"GET /admin/ HTTP/1.1" 302 0
+"GET /admin/login/?next=/admin/ HTTP/1.1" 200 4116
+"GET /admin/login/admin/css/base.css HTTP/1.1" 302 0
+"GET /admin/login/admin/css/dark_mode.css HTTP/1.1" 302 0
+"GET /admin/login/admin/css/nav_sidebar.css HTTP/1.1" 302 0
+"GET /admin/login/admin/css/responsive.css HTTP/1.1" 302 0
+"GET /admin/login/admin/css/login.css HTTP/1.1" 302 0
+"GET /admin/login/admin/js/theme.js HTTP/1.1" 302 0
+"GET /admin/login/?next=/admin/login/admin/css/login.css HTTP/1.1" 200 4166
+"GET /admin/login/?next=/admin/login/admin/css/responsive.css HTTP/1.1" 200 4176
+"GET /admin/login/?next=/admin/login/admin/css/nav_sidebar.css HTTP/1.1" 200 4178
+"GET /admin/login/?next=/admin/login/admin/js/theme.js HTTP/1.1" 200 4162
+"GET /admin/login/?next=/admin/login/admin/css/dark_mode.css HTTP/1.1" 200 4174
+"GET /admin/login/?next=/admin/login/admin/css/base.css HTTP/1.1" 200 4164
+"GET /admin/login/admin/js/nav_sidebar.js HTTP/1.1" 302 0
+"GET /admin/login/?next=/admin/login/admin/js/nav_sidebar.js HTTP/1.1" 200 4174
+Watching for file changes with StatReloader
+"GET /admin/login/?next=/admin/ HTTP/1.1" 200 4116
+"GET /admin/login/admin/css/base.css HTTP/1.1" 302 0
+"GET /admin/login/admin/css/dark_mode.css HTTP/1.1" 302 0
+"GET /admin/login/admin/css/nav_sidebar.css HTTP/1.1" 302 0
+"GET /admin/login/admin/css/login.css HTTP/1.1" 302 0
+"GET /admin/login/?next=/admin/login/admin/css/dark_mode.css HTTP/1.1" 200 4174
+"GET /admin/login/admin/css/responsive.css HTTP/1.1" 302 0
+"GET /admin/login/?next=/admin/login/admin/css/login.css HTTP/1.1" 200 4166
+"GET /admin/login/admin/js/theme.js HTTP/1.1" 302 0
+"GET /admin/login/?next=/admin/login/admin/css/base.css HTTP/1.1" 200 4164
+"GET /admin/login/?next=/admin/login/admin/css/nav_sidebar.css HTTP/1.1" 200 4178
+"GET /admin/login/admin/js/nav_sidebar.js HTTP/1.1" 302 0
+"GET /admin/login/?next=/admin/login/admin/css/responsive.css HTTP/1.1" 200 4176
+"GET /admin/login/?next=/admin/login/admin/js/nav_sidebar.js HTTP/1.1" 200 4174
+"GET /admin/login/?next=/admin/login/admin/js/theme.js HTTP/1.1" 200 4162
+"GET /admin/login/?next=/admin/ HTTP/1.1" 200 4116
+"GET /admin/login/admin/css/dark_mode.css HTTP/1.1" 302 0
+"GET /admin/login/admin/css/responsive.css HTTP/1.1" 302 0
+"GET /admin/login/admin/js/theme.js HTTP/1.1" 302 0
+"GET /admin/login/admin/css/base.css HTTP/1.1" 302 0
+"GET /admin/login/admin/css/nav_sidebar.css HTTP/1.1" 302 0
+"GET /admin/login/admin/css/login.css HTTP/1.1" 302 0
+"GET /admin/login/?next=/admin/login/admin/css/dark_mode.css HTTP/1.1" 200 4174
+"GET /admin/login/?next=/admin/login/admin/js/theme.js HTTP/1.1" 200 4162
+"GET /admin/login/?next=/admin/login/admin/css/nav_sidebar.css HTTP/1.1" 200 4178
+"GET /admin/login/?next=/admin/login/admin/css/login.css HTTP/1.1" 200 4166
+"GET /admin/login/?next=/admin/login/admin/css/base.css HTTP/1.1" 200 4164
+"GET /admin/login/?next=/admin/login/admin/css/responsive.css HTTP/1.1" 200 4176
+"GET /admin/login/admin/js/nav_sidebar.js HTTP/1.1" 302 0
+"GET /admin/login/?next=/admin/login/admin/js/nav_sidebar.js HTTP/1.1" 200 4174
+"POST /admin/login/?next=/admin/ HTTP/1.1" 200 4266
+"GET /admin/login/admin/css/base.css HTTP/1.1" 302 0
+"GET /admin/login/admin/js/theme.js HTTP/1.1" 302 0
+"GET /admin/login/admin/css/nav_sidebar.css HTTP/1.1" 302 0
+"GET /admin/login/admin/css/responsive.css HTTP/1.1" 302 0
+"GET /admin/login/admin/css/dark_mode.css HTTP/1.1" 302 0
+"GET /admin/login/admin/css/login.css HTTP/1.1" 302 0
+"GET /admin/login/?next=/admin/login/admin/css/base.css HTTP/1.1" 200 4164
+"GET /admin/login/admin/js/nav_sidebar.js HTTP/1.1" 302 0
+"GET /admin/login/?next=/admin/login/admin/js/theme.js HTTP/1.1" 200 4162
+"GET /admin/login/?next=/admin/login/admin/css/responsive.css HTTP/1.1" 200 4176
+"GET /admin/login/?next=/admin/login/admin/css/dark_mode.css HTTP/1.1" 200 4174
+"GET /admin/login/?next=/admin/login/admin/css/nav_sidebar.css HTTP/1.1" 200 4178
+"GET /admin/login/?next=/admin/login/admin/css/login.css HTTP/1.1" 200 4166
+"GET /admin/login/?next=/admin/login/admin/js/nav_sidebar.js HTTP/1.1" 200 4174
+"POST /admin/login/?next=/admin/ HTTP/1.1" 302 0
+"GET /admin/ HTTP/1.1" 200 6120
+Not Found: /admin/admin/css/base.css
+"GET /admin/admin/css/base.css HTTP/1.1" 404 179
+Not Found: /admin/admin/css/responsive.css
+Not Found: /admin/admin/css/nav_sidebar.css
+Not Found: /admin/admin/css/dark_mode.css
+Not Found: /admin/admin/css/dashboard.css
+"GET /admin/admin/css/nav_sidebar.css HTTP/1.1" 404 179
+"GET /admin/admin/css/dark_mode.css HTTP/1.1" 404 179
+"GET /admin/admin/css/dashboard.css HTTP/1.1" 404 179
+"GET /admin/admin/css/responsive.css HTTP/1.1" 404 179
+Not Found: /admin/admin/js/theme.js
+"GET /admin/admin/js/theme.js HTTP/1.1" 404 179
+Not Found: /admin/admin/js/nav_sidebar.js
+"GET /admin/admin/js/nav_sidebar.js HTTP/1.1" 404 179
+D:\00_Chen\spider\image_data_platform\backend_django\config\settings.py changed, reloading.
+Watching for file changes with StatReloader
+"GET /api/v1/docs HTTP/1.1" 200 1006
+"GET /api/v1/openapi.json HTTP/1.1" 200 9030
+D:\00_Chen\spider\image_data_platform\backend_django\config\settings.py changed, reloading.
+Watching for file changes with StatReloader
+D:\00_Chen\spider\image_data_platform\backend_django\config\urls.py changed, reloading.
+Watching for file changes with StatReloader
+Watching for file changes with StatReloader
+"GET /admin/ HTTP/1.1" 302 0
+"GET /admin/ HTTP/1.1" 200 6176
+Not Found: /static/admin/css/base.css
+Not Found: /static/admin/css/nav_sidebar.css
+Not Found: /static/admin/css/dashboard.css
+Not Found: /static/admin/css/dark_mode.css
+"GET /static/admin/css/nav_sidebar.css HTTP/1.1" 404 179
+"GET /static/admin/css/base.css HTTP/1.1" 404 179
+"GET /static/admin/css/dashboard.css HTTP/1.1" 404 179
+Not Found: /static/admin/css/responsive.css
+Not Found: /static/admin/js/nav_sidebar.js
+"GET /static/admin/css/dark_mode.css HTTP/1.1" 404 179
+Not Found: /static/admin/js/theme.js
+"GET /static/admin/css/responsive.css HTTP/1.1" 404 179
+"GET /static/admin/js/theme.js HTTP/1.1" 404 179
+"GET /static/admin/js/nav_sidebar.js HTTP/1.1" 404 179
+D:\00_Chen\spider\image_data_platform\backend_django\config\urls.py changed, reloading.
+Watching for file changes with StatReloader
+Watching for file changes with StatReloader
+Watching for file changes with StatReloader
+"GET /admin/ HTTP/1.1" 200 6176
+"GET /static/admin/css/dark_mode.css HTTP/1.1" 200 2682
+"GET /static/admin/js/nav_sidebar.js HTTP/1.1" 200 3063
+"GET /static/admin/css/base.css HTTP/1.1" 200 21544
+"GET /static/admin/js/theme.js HTTP/1.1" 200 1943
+"GET /static/admin/css/dashboard.css HTTP/1.1" 200 441
+"GET /static/admin/css/nav_sidebar.css HTTP/1.1" 200 2810
+"GET /static/admin/css/responsive.css HTTP/1.1" 200 17905
+"GET /static/admin/img/icon-changelink.svg HTTP/1.1" 200 380
+"GET /static/admin/img/icon-addlink.svg HTTP/1.1" 200 331
+Internal Server Error: /admin/studies/study/
+Traceback (most recent call last):
+  File "D:\00_Chen\spider\image_data_platform\backend_django\.venv\Lib\site-packages\django\db\backends\utils.py", line 105, in _execute
+    return self.cursor.execute(sql, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+psycopg2.errors.UndefinedTable: relation "medical_examinations_fact" does not exist
+LINE 1: SELECT COUNT(*) AS "__count" FROM "medical_examinations_fact...
+                                          ^
+
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "D:\00_Chen\spider\image_data_platform\backend_django\.venv\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\00_Chen\spider\image_data_platform\backend_django\.venv\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\00_Chen\spider\image_data_platform\backend_django\.venv\Lib\site-packages\django\contrib\admin\options.py", line 714, in wrapper
+    return self.admin_site.admin_view(view)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\00_Chen\spider\image_data_platform\backend_django\.venv\Lib\site-packages\django\utils\decorators.py", line 188, in _view_wrapper
+    result = _process_exception(request, e)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\00_Chen\spider\image_data_platform\backend_django\.venv\Lib\site-packages\django\utils\decorators.py", line 186, in _view_wrapper
+    response = view_func(request, *args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\00_Chen\spider\image_data_platform\backend_django\.venv\Lib\site-packages\django\views\decorators\cache.py", line 80, in _view_wrapper
+    response = view_func(request, *args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\00_Chen\spider\image_data_platform\backend_django\.venv\Lib\site-packages\django\contrib\admin\sites.py", line 240, in inner
+    return view(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\00_Chen\spider\image_data_platform\backend_django\.venv\Lib\site-packages\django\utils\decorators.py", line 48, in _wrapper
+    return bound_method(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\00_Chen\spider\image_data_platform\backend_django\.venv\Lib\site-packages\django\utils\decorators.py", line 188, in _view_wrapper
+    result = _process_exception(request, e)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\00_Chen\spider\image_data_platform\backend_django\.venv\Lib\site-packages\django\utils\decorators.py", line 186, in _view_wrapper
+    response = view_func(request, *args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\00_Chen\spider\image_data_platform\backend_django\.venv\Lib\site-packages\django\contrib\admin\options.py", line 1981, in changelist_view
+    cl = self.get_changelist_instance(request)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\00_Chen\spider\image_data_platform\backend_django\.venv\Lib\site-packages\django\contrib\admin\options.py", line 862, in get_changelist_instance
+    return ChangeList(
+           ^^^^^^^^^^^
+  File "D:\00_Chen\spider\image_data_platform\backend_django\.venv\Lib\site-packages\django\contrib\admin\views\main.py", line 145, in __init__
+    self.get_results(request)
+  File "D:\00_Chen\spider\image_data_platform\backend_django\.venv\Lib\site-packages\django\contrib\admin\views\main.py", line 312, in get_results
+    result_count = paginator.count
+                   ^^^^^^^^^^^^^^^
+  File "D:\00_Chen\spider\image_data_platform\backend_django\.venv\Lib\site-packages\django\utils\functional.py", line 47, in __get__
+    res = instance.__dict__[self.name] = self.func(instance)
+                                         ^^^^^^^^^^^^^^^^^^^
+  File "D:\00_Chen\spider\image_data_platform\backend_django\.venv\Lib\site-packages\django\core\paginator.py", line 110, in count
+    return c()
+           ^^^
+  File "D:\00_Chen\spider\image_data_platform\backend_django\.venv\Lib\site-packages\django\db\models\query.py", line 618, in count
+    return self.query.get_count(using=self.db)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\00_Chen\spider\image_data_platform\backend_django\.venv\Lib\site-packages\django\db\models\sql\query.py", line 616, in get_count
+    return obj.get_aggregation(using, {"__count": Count("*")})["__count"]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\00_Chen\spider\image_data_platform\backend_django\.venv\Lib\site-packages\django\db\models\sql\query.py", line 602, in get_aggregation
+    result = compiler.execute_sql(SINGLE)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\00_Chen\spider\image_data_platform\backend_django\.venv\Lib\site-packages\django\db\models\sql\compiler.py", line 1562, in execute_sql
+    cursor.execute(sql, params)
+  File "D:\00_Chen\spider\image_data_platform\backend_django\.venv\Lib\site-packages\django\db\backends\utils.py", line 122, in execute
+    return super().execute(sql, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\00_Chen\spider\image_data_platform\backend_django\.venv\Lib\site-packages\django\db\backends\utils.py", line 79, in execute
+    return self._execute_with_wrappers(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\00_Chen\spider\image_data_platform\backend_django\.venv\Lib\site-packages\django\db\backends\utils.py", line 92, in _execute_with_wrappers
+    return executor(sql, params, many, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\00_Chen\spider\image_data_platform\backend_django\.venv\Lib\site-packages\django\db\backends\utils.py", line 100, in _execute
+    with self.db.wrap_database_errors:
+  File "D:\00_Chen\spider\image_data_platform\backend_django\.venv\Lib\site-packages\django\db\utils.py", line 91, in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+  File "D:\00_Chen\spider\image_data_platform\backend_django\.venv\Lib\site-packages\django\db\backends\utils.py", line 105, in _execute
+    return self.cursor.execute(sql, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+django.db.utils.ProgrammingError: relation "medical_examinations_fact" does not exist
+LINE 1: SELECT COUNT(*) AS "__count" FROM "medical_examinations_fact...
+                                          ^
+
+"GET /admin/studies/study/ HTTP/1.1" 500 194725
+"GET /admin/ HTTP/1.1" 200 6176
+"GET /admin/ HTTP/1.1" 200 6176
+"GET /admin/ HTTP/1.1" 200 6176
+"GET /admin/studies/study/ HTTP/1.1" 200 9704
+"GET /static/admin/css/changelists.css HTTP/1.1" 200 6811
+"GET /static/admin/js/jquery.init.js HTTP/1.1" 200 347
+"GET /static/admin/js/admin/RelatedObjectLookups.js HTTP/1.1" 200 9042
+"GET /static/admin/js/core.js HTTP/1.1" 200 6208
+"GET /static/admin/js/actions.js HTTP/1.1" 200 8067
+"GET /static/admin/js/urlify.js HTTP/1.1" 200 7887
+"GET /static/admin/js/vendor/jquery/jquery.js HTTP/1.1" 200 285314
+"GET /static/admin/js/prepopulate.js HTTP/1.1" 200 1531
+"GET /static/admin/js/vendor/xregexp/xregexp.js HTTP/1.1" 200 325171
+"GET /static/admin/img/search.svg HTTP/1.1" 200 458
+"GET /static/admin/js/filters.js HTTP/1.1" 200 978
+"GET /admin/jsi18n/ HTTP/1.1" 200 8659
+"GET /static/admin/img/tooltag-add.svg HTTP/1.1" 200 331
+"GET /static/admin/img/icon-viewlink.svg HTTP/1.1" 200 581
+"GET /admin/studies/study/?_facets=True HTTP/1.1" 200 9998
+"GET /admin/jsi18n/ HTTP/1.1" 200 8659
+"GET /static/admin/img/icon-hidelink.svg HTTP/1.1" 200 784
+"GET /admin/studies/study/? HTTP/1.1" 200 9704
+"GET /admin/jsi18n/ HTTP/1.1" 200 8659
+"GET /admin/studies/study/?_facets=True HTTP/1.1" 200 9998
+"GET /admin/jsi18n/ HTTP/1.1" 200 8659
+"GET /admin/studies/study/? HTTP/1.1" 200 9704
+"GET /admin/jsi18n/ HTTP/1.1" 200 8659
+"GET /admin/studies/study/?_facets=True HTTP/1.1" 200 9998
+"GET /admin/jsi18n/ HTTP/1.1" 200 8659
+"GET /admin/studies/study/?_facets=True HTTP/1.1" 200 9998
+"GET /admin/jsi18n/ HTTP/1.1" 200 8659
+"GET /admin/studies/study/ HTTP/1.1" 200 9704
+"GET /admin/jsi18n/ HTTP/1.1" 200 8659
+"GET /admin/studies/study/ HTTP/1.1" 200 9704
+"GET /admin/jsi18n/ HTTP/1.1" 200 8659
+Watching for file changes with StatReloader
+"GET /api/v1/docs HTTP/1.1" 200 1006
+"GET /api/v1/openapi.json HTTP/1.1" 200 9030
+"GET /api/v1/health HTTP/1.1" 200 36
+"GET /api/v1/studies/31410280360 HTTP/1.1" 200 659
+"GET /api/v1/studies/search?exam_source=%E6%80%A5%E8%A8%BA&page=1&page_size=20&sort=order_datetime_desc HTTP/1.1" 200 757060
+"GET /api/v1/studies/search?exam_source=%E6%80%A5%E8%A8%BA&start_date=2025-01-01&end_date=2025-10-01&page=1&page_size=20&sort=order_datetime_desc HTTP/1.1" 200 904759
+D:\00_Chen\spider\image_data_platform\backend_django\studies\schemas.py changed, reloading.
+Watching for file changes with StatReloader
+D:\00_Chen\spider\image_data_platform\backend_django\studies\api.py changed, reloading.
+Watching for file changes with StatReloader
+D:\00_Chen\spider\image_data_platform\backend_django\studies\services.py changed, reloading.
+Watching for file changes with StatReloader
+D:\00_Chen\spider\image_data_platform\backend_django\studies\services.py changed, reloading.
+Watching for file changes with StatReloader
+D:\00_Chen\spider\image_data_platform\backend_django\studies\pagination.py changed, reloading.
+Watching for file changes with StatReloader
+"GET /admin/studies/study/ HTTP/1.1" 200 42766
+"GET /static/admin/css/base.css HTTP/1.1" 304 0
+"GET /static/admin/css/nav_sidebar.css HTTP/1.1" 304 0
+"GET /static/admin/css/changelists.css HTTP/1.1" 304 0
+"GET /static/admin/css/dark_mode.css HTTP/1.1" 304 0
+"GET /static/admin/js/vendor/jquery/jquery.js HTTP/1.1" 304 0
+"GET /static/admin/css/responsive.css HTTP/1.1" 304 0
+"GET /static/admin/js/admin/RelatedObjectLookups.js HTTP/1.1" 304 0
+"GET /static/admin/js/core.js HTTP/1.1" 304 0
+"GET /static/admin/js/actions.js HTTP/1.1" 304 0
+"GET /static/admin/js/urlify.js HTTP/1.1" 304 0
+"GET /static/admin/js/prepopulate.js HTTP/1.1" 304 0
+"GET /static/admin/js/jquery.init.js HTTP/1.1" 304 0
+"GET /static/admin/js/vendor/xregexp/xregexp.js HTTP/1.1" 304 0
+"GET /static/admin/img/search.svg HTTP/1.1" 304 0
+"GET /static/admin/js/theme.js HTTP/1.1" 304 0
+"GET /static/admin/js/nav_sidebar.js HTTP/1.1" 304 0
+"GET /admin/jsi18n/ HTTP/1.1" 200 8659
+"GET /static/admin/js/filters.js HTTP/1.1" 304 0
+"GET /static/admin/img/tooltag-add.svg HTTP/1.1" 304 0
+"GET /static/admin/img/icon-addlink.svg HTTP/1.1" 304 0
+"GET /static/admin/img/icon-viewlink.svg HTTP/1.1" 304 0
+"GET /static/admin/img/sorting-icons.svg HTTP/1.1" 200 1097
+"GET /admin/studies/study/ HTTP/1.1" 200 42766
+"GET /admin/jsi18n/ HTTP/1.1" 200 8659
+"GET /admin/studies/study/?exam_status__exact=completed HTTP/1.1" 200 11486
+"GET /admin/jsi18n/ HTTP/1.1" 200 8659
+"GET /admin/studies/study/?exam_status__exact=pending HTTP/1.1" 200 11452
+"GET /admin/jsi18n/ HTTP/1.1" 200 8659
+"GET /admin/studies/study/? HTTP/1.1" 200 42766
+"GET /admin/jsi18n/ HTTP/1.1" 200 8659
+"GET /admin/studies/study/?equipment_type=CT HTTP/1.1" 200 45629
+"GET /admin/jsi18n/ HTTP/1.1" 200 8659
+Watching for file changes with StatReloader
+'Output' object is not subscriptable
+Traceback (most recent call last):
+  File "D:\00_Chen\spider\image_data_platform\backend_django\.venv\Lib\site-packages\ninja\operation.py", line 120, in run
+    result = self.view_func(request, **values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\00_Chen\spider\image_data_platform\backend_django\.venv\Lib\site-packages\ninja\pagination.py", line 232, in view_with_pagination
+    result[paginator.items_attribute]
+    ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: 'Output' object is not subscriptable
+Internal Server Error: /api/v1/studies/search
+"GET /api/v1/studies/search?limit=10&offset=0 HTTP/1.1" 500 517
+D:\00_Chen\spider\image_data_platform\backend_django\studies\pagination.py changed, reloading.
+Watching for file changes with StatReloader
+"GET /api/v1/studies/search?limit=10&offset=0 HTTP/1.1" 200 2956092
+"GET /api/v1/studies/search?limit=10&offset=0 HTTP/1.1" 200 2961514
+"GET /api/v1/studies/search?limit=5&offset=0 HTTP/1.1" 200 2999018
+- Broken pipe from ('127.0.0.1', 61426)
+"GET /api/v1/studies/search?limit=2&offset=0 HTTP/1.1" 200 3003062
+"GET /api/v1/studies/search HTTP/1.1" 200 3020232
+"GET /api/v1/studies/search?q=chest&limit=5 HTTP/1.1" 200 3013032
+"GET /api/v1/studies/search?limit=5&offset=10 HTTP/1.1" 200 3013500
+"GET /api/v1/studies/search?limit=200 HTTP/1.1" 200 3021790
+"GET /admin/studies/study/?equipment_type=CT HTTP/1.1" 200 45633
+"GET /static/admin/css/base.css HTTP/1.1" 304 0
+"GET /static/admin/css/nav_sidebar.css HTTP/1.1" 304 0
+"GET /static/admin/css/changelists.css HTTP/1.1" 304 0
+"GET /static/admin/js/jquery.init.js HTTP/1.1" 304 0
+"GET /static/admin/css/dark_mode.css HTTP/1.1" 304 0
+"GET /static/admin/js/vendor/jquery/jquery.js HTTP/1.1" 304 0
+"GET /static/admin/js/admin/RelatedObjectLookups.js HTTP/1.1" 304 0
+"GET /static/admin/js/actions.js HTTP/1.1" 304 0
+"GET /static/admin/css/responsive.css HTTP/1.1" 304 0
+"GET /static/admin/js/vendor/xregexp/xregexp.js HTTP/1.1" 304 0
+"GET /static/admin/js/core.js HTTP/1.1" 304 0
+"GET /static/admin/js/urlify.js HTTP/1.1" 304 0
+"GET /static/admin/js/prepopulate.js HTTP/1.1" 304 0
+"GET /static/admin/img/search.svg HTTP/1.1" 304 0
+"GET /admin/jsi18n/ HTTP/1.1" 200 8659
+"GET /static/admin/js/theme.js HTTP/1.1" 304 0
+"GET /static/admin/js/nav_sidebar.js HTTP/1.1" 304 0
+"GET /static/admin/img/sorting-icons.svg HTTP/1.1" 304 0
+"GET /static/admin/img/tooltag-add.svg HTTP/1.1" 304 0
+"GET /static/admin/js/filters.js HTTP/1.1" 304 0
+"GET /static/admin/img/icon-viewlink.svg HTTP/1.1" 304 0
+"GET /static/admin/img/icon-addlink.svg HTTP/1.1" 304 0
+"GET /api/v1/docs HTTP/1.1" 200 1006
+"GET /api/v1/openapi.json HTTP/1.1" 200 9366
+"GET /admin/studies/study/31410280184/change/?_changelist_filters=equipment_type%3DCT HTTP/1.1" 200 20850
+"GET /admin/jsi18n/ HTTP/1.1" 200 8659
+"GET /static/admin/css/forms.css HTTP/1.1" 200 9048
+"GET /static/admin/js/prepopulate_init.js HTTP/1.1" 200 586
+"GET /static/admin/css/widgets.css HTTP/1.1" 200 11800
+"GET /static/admin/js/change_form.js HTTP/1.1" 200 606
+"OPTIONS /api/v1/studies/filters/options HTTP/1.1" 200 0
+"OPTIONS /api/v1/studies/filters/options HTTP/1.1" 200 0
+"GET /api/v1/studies/filters/options HTTP/1.1" 200 4228092
+"GET /api/v1/studies/filters/options HTTP/1.1" 200 4228625
+"OPTIONS /api/v1/studies/search?q=300707001&page=1&page_size=20&sort=order_datetime_desc HTTP/1.1" 200 0
+"GET /api/v1/studies/search?q=300707001&page=1&page_size=20&sort=order_datetime_desc HTTP/1.1" 200 4245187
+"OPTIONS /api/v1/studies/search?q=31410280184&page=1&page_size=20&sort=order_datetime_desc HTTP/1.1" 200 0
+"GET /api/v1/studies/search?q=31410280184&page=1&page_size=20&sort=order_datetime_desc HTTP/1.1" 200 4284475
+"GET /admin/studies/study/ HTTP/1.1" 200 42858
+"GET /admin/jsi18n/ HTTP/1.1" 200 8659
+"OPTIONS /api/v1/studies/search?q=31410280355&page=1&page_size=20&sort=order_datetime_desc HTTP/1.1" 200 0
+"GET /api/v1/studies/search?q=31410280355&page=1&page_size=20&sort=order_datetime_desc HTTP/1.1" 200 4327900
+"GET /api/v1/studies/search?q=31410280355&page=1&page_size=20&sort=order_datetime_desc HTTP/1.1" 200 4333265
+"OPTIONS /api/v1/studies/search?q=%E7%8E%8B%E9%B4%BB&page=1&page_size=20&sort=order_datetime_desc HTTP/1.1" 200 0
+"GET /api/v1/studies/search?q=%E7%8E%8B%E9%B4%BB&page=1&page_size=20&sort=order_datetime_desc HTTP/1.1" 200 4372455
+"GET /admin/studies/study/31410280360/change/ HTTP/1.1" 200 20716
+"GET /admin/jsi18n/ HTTP/1.1" 200 8659
+"GET /admin/studies/study/ HTTP/1.1" 200 42770
+"OPTIONS /api/v1/studies/search?q=300707016&page=1&page_size=20&sort=order_datetime_desc HTTP/1.1" 200 0
+"GET /api/v1/studies/search?q=300707016&page=1&page_size=20&sort=order_datetime_desc HTTP/1.1" 200 4412369
+D:\00_Chen\spider\image_data_platform\backend_django\studies\api.py changed, reloading.
+Watching for file changes with StatReloader
+D:\00_Chen\spider\image_data_platform\backend_django\studies\schemas.py changed, reloading.
+Watching for file changes with StatReloader
+D:\00_Chen\spider\image_data_platform\backend_django\studies\schemas.py changed, reloading.
+Watching for file changes with StatReloader
+D:\00_Chen\spider\image_data_platform\backend_django\studies\services.py changed, reloading.
+Watching for file changes with StatReloader
