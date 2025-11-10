@@ -26,26 +26,38 @@ def search_studies(
     q: str = Query(default=''),
     exam_status: Optional[str] = Query(None),
     exam_source: Optional[str] = Query(None),
-    exam_item: Optional[str] = Query(None),
+    exam_equipment: Optional[List[str]] = Query(None),
+    application_order_no: Optional[str] = Query(None),
+    patient_gender: Optional[List[str]] = Query(None),
+    exam_description: Optional[List[str]] = Query(None),
+    exam_room: Optional[List[str]] = Query(None),
+    patient_age_min: Optional[int] = Query(None),
+    patient_age_max: Optional[int] = Query(None),
     start_date: Optional[str] = Query(None),
     end_date: Optional[str] = Query(None),
     sort: str = Query('order_datetime_desc'),
 ):
     """
     Search medical studies with filters and pagination.
-    
+
     CRITICAL: Response format must match ../docs/api/API_CONTRACT.md exactly.
-    
+
     This endpoint uses Django Ninja's @paginate decorator with custom
     StudyPagination class that supports filter context.
-    
+
     Query Parameters:
-    - q: Text search query (searched in patient_name, exam_description, exam_item)
+    - q: Text search query (searched across 9 fields: exam_id, medical_record_no, etc.)
     - exam_status: Filter by exam status (pending, completed, cancelled)
     - exam_source: Filter by exam source (CT, MRI, X-ray, etc.)
-    - exam_item: Filter by exam item/type
-    - start_date: Order datetime from (ISO 8601)
-    - end_date: Order datetime to (ISO 8601)
+    - exam_equipment: Filter by equipment (multi-select array)
+    - application_order_no: Filter by application order number (exact match)
+    - patient_gender: Filter by patient gender (multi-select array)
+    - exam_description: Filter by exam description (multi-select array)
+    - exam_room: Filter by exam room (multi-select array)
+    - patient_age_min: Filter by minimum patient age
+    - patient_age_max: Filter by maximum patient age
+    - start_date: Check-in datetime from (YYYY-MM-DD format)
+    - end_date: Check-in datetime to (YYYY-MM-DD format)
     - limit: Items per page (default: 20, max: 100)
     - offset: Number of items to skip (default: 0)
     - sort: Sort order (order_datetime_desc, order_datetime_asc, patient_name_asc)
@@ -67,18 +79,52 @@ def search_studies(
     - /api/v1/studies/search?exam_status=completed&limit=20&offset=20
     """
     try:
+        # CRITICAL FIX: Handle array parameters with brackets (e.g., patient_gender[]=F)
+        # Frontend sends patient_gender[]=F, but Django Ninja Query expects patient_gender=F
+        # We need to manually extract from request.GET to support both formats
+
+        def get_array_param(param_name: str) -> Optional[List[str]]:
+            """
+            Extract array parameter supporting both formats:
+            - patient_gender[]=F (frontend format)
+            - patient_gender=F&patient_gender=M (Django Ninja format)
+            """
+            # Try bracket format first
+            bracket_values = request.GET.getlist(f'{param_name}[]')
+            if bracket_values:
+                return [v for v in bracket_values if v]  # Filter empty strings
+
+            # Try standard format
+            standard_values = request.GET.getlist(param_name)
+            if standard_values:
+                return [v for v in standard_values if v]  # Filter empty strings
+
+            return None
+
+        # Extract array parameters with bracket support
+        exam_equipment_array = get_array_param('exam_equipment') or exam_equipment
+        patient_gender_array = get_array_param('patient_gender') or patient_gender
+        exam_description_array = get_array_param('exam_description') or exam_description
+        exam_room_array = get_array_param('exam_room') or exam_room
+
         # Call service to get filtered queryset
         # Service no longer handles pagination - that's done by @paginate decorator
         queryset = StudyService.get_studies_queryset(
             q=q if q else None,
             exam_status=exam_status,
             exam_source=exam_source,
-            exam_item=exam_item,
+            exam_equipment=exam_equipment_array,
+            application_order_no=application_order_no,
+            patient_gender=patient_gender_array,
+            exam_description=exam_description_array,
+            exam_room=exam_room_array,
+            patient_age_min=patient_age_min,
+            patient_age_max=patient_age_max,
             start_date=start_date,
             end_date=end_date,
             sort=sort,
         )
-        
+
         return queryset
     
     except Exception as e:

@@ -28,7 +28,13 @@ class StudyService:
         q: Optional[str] = None,
         exam_status: Optional[str] = None,
         exam_source: Optional[str] = None,
-        exam_item: Optional[str] = None,
+        exam_equipment: Optional[List[str]] = None,
+        application_order_no: Optional[str] = None,
+        patient_gender: Optional[List[str]] = None,
+        exam_description: Optional[List[str]] = None,
+        exam_room: Optional[List[str]] = None,
+        patient_age_min: Optional[int] = None,
+        patient_age_max: Optional[int] = None,
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
         sort: str = 'order_datetime_desc',
@@ -44,12 +50,19 @@ class StudyService:
         2. Applying LIMIT/OFFSET to paginate results
 
         Args:
-            q: Text search in patient_name, exam_description, exam_item
+            q: Text search across 9 fields (exam_id, medical_record_no, application_order_no,
+               patient_name, exam_description, exam_item, exam_room, exam_equipment, certified_physician)
             exam_status: Filter by status (pending, completed, cancelled)
             exam_source: Filter by source (CT, MRI, X-ray, etc.)
-            exam_item: Filter by exam type
-            start_date: Check-in datetime from (ISO format)
-            end_date: Check-in datetime to (ISO format)
+            exam_equipment: Filter by equipment (multi-select array, uses IN clause)
+            application_order_no: Filter by application order number (exact match)
+            patient_gender: Filter by gender (multi-select array, uses IN clause)
+            exam_description: Filter by description (multi-select array, uses IN clause)
+            exam_room: Filter by room (multi-select array, uses IN clause)
+            patient_age_min: Filter by minimum patient age (inclusive)
+            patient_age_max: Filter by maximum patient age (inclusive)
+            start_date: Check-in datetime from (YYYY-MM-DD format)
+            end_date: Check-in datetime to (YYYY-MM-DD format)
             sort: Sort order (order_datetime_desc, order_datetime_asc, patient_name_asc)
 
         Returns:
@@ -62,15 +75,24 @@ class StudyService:
         conditions = []
         params = []
 
-        # Text search: search in 3 fields with OR
+        # Text search: comprehensive multi-field search with OR
+        # Searches across all major identifying and descriptive fields
         if q and q.strip():
             search_term = f"%{q}%"
             conditions.append(
-                "(patient_name ILIKE %s OR exam_description ILIKE %s OR exam_item ILIKE %s)"
+                "(exam_id ILIKE %s OR "
+                "medical_record_no ILIKE %s OR "
+                "application_order_no ILIKE %s OR "
+                "patient_name ILIKE %s OR "
+                "exam_description ILIKE %s OR "
+                "exam_item ILIKE %s OR "
+                "exam_room ILIKE %s OR "
+                "exam_equipment ILIKE %s OR "
+                "certified_physician ILIKE %s)"
             )
-            params.extend([search_term, search_term, search_term])
+            params.extend([search_term] * 9)  # 9 search fields
 
-        # Filters
+        # Filters - exact match
         if exam_status:
             conditions.append("exam_status = %s")
             params.append(exam_status)
@@ -79,9 +101,40 @@ class StudyService:
             conditions.append("exam_source = %s")
             params.append(exam_source)
 
-        if exam_item:
-            conditions.append("exam_item = %s")
-            params.append(exam_item)
+        # Multi-select filters - use IN clause for array values
+        if exam_equipment and len(exam_equipment) > 0:
+            placeholders = ','.join(['%s'] * len(exam_equipment))
+            conditions.append(f"exam_equipment IN ({placeholders})")
+            params.extend(exam_equipment)
+
+        if patient_gender and len(patient_gender) > 0:
+            placeholders = ','.join(['%s'] * len(patient_gender))
+            conditions.append(f"patient_gender IN ({placeholders})")
+            params.extend(patient_gender)
+
+        if exam_description and len(exam_description) > 0:
+            placeholders = ','.join(['%s'] * len(exam_description))
+            conditions.append(f"exam_description IN ({placeholders})")
+            params.extend(exam_description)
+
+        if exam_room and len(exam_room) > 0:
+            placeholders = ','.join(['%s'] * len(exam_room))
+            conditions.append(f"exam_room IN ({placeholders})")
+            params.extend(exam_room)
+
+        # Text filter - exact match for order number
+        if application_order_no:
+            conditions.append("application_order_no = %s")
+            params.append(application_order_no)
+
+        # Age range filters
+        if patient_age_min is not None:
+            conditions.append("patient_age >= %s")
+            params.append(patient_age_min)
+
+        if patient_age_max is not None:
+            conditions.append("patient_age <= %s")
+            params.append(patient_age_max)
 
         # Date range: filter on check_in_datetime (matches user's reference SQL)
         if start_date:
@@ -182,14 +235,6 @@ class StudyService:
             )
             exam_sources = [row[0] for row in cursor.fetchall()]
 
-            # Get distinct exam_items
-            cursor.execute(
-                "SELECT DISTINCT exam_item FROM medical_examinations_fact "
-                "WHERE exam_item IS NOT NULL AND exam_item != '' "
-                "ORDER BY exam_item"
-            )
-            exam_items = [row[0] for row in cursor.fetchall()]
-
             # Get distinct equipment_types
             cursor.execute(
                 "SELECT DISTINCT equipment_type FROM medical_examinations_fact "
@@ -198,11 +243,37 @@ class StudyService:
             )
             equipment_types = [row[0] for row in cursor.fetchall()]
 
+            # Get distinct exam_rooms
+            cursor.execute(
+                "SELECT DISTINCT exam_room FROM medical_examinations_fact "
+                "WHERE exam_room IS NOT NULL AND exam_room != '' "
+                "ORDER BY exam_room"
+            )
+            exam_rooms = [row[0] for row in cursor.fetchall()]
+
+            # Get distinct exam_equipments
+            cursor.execute(
+                "SELECT DISTINCT exam_equipment FROM medical_examinations_fact "
+                "WHERE exam_equipment IS NOT NULL AND exam_equipment != '' "
+                "ORDER BY exam_equipment"
+            )
+            exam_equipments = [row[0] for row in cursor.fetchall()]
+
+            # Get distinct exam_descriptions (limit to top 100 most common)
+            cursor.execute(
+                "SELECT DISTINCT exam_description FROM medical_examinations_fact "
+                "WHERE exam_description IS NOT NULL AND exam_description != '' "
+                "ORDER BY exam_description LIMIT 100"
+            )
+            exam_descriptions = [row[0] for row in cursor.fetchall()]
+
         return FilterOptions(
             exam_statuses=exam_statuses,
             exam_sources=exam_sources,
-            exam_items=exam_items,
             equipment_types=equipment_types,
+            exam_rooms=exam_rooms,
+            exam_equipments=exam_equipments,
+            exam_descriptions=exam_descriptions,
         )
 
     @staticmethod

@@ -70,14 +70,16 @@ class StudyListItem(BaseModel):
 
 class FilterOptions(BaseModel):
     """Available filter options for searches.
-    
+
     MUST match ../docs/api/API_CONTRACT.md filters specification.
     All values from database, sorted, no duplicates.
     """
     exam_statuses: List[str]
     exam_sources: List[str]
-    exam_items: List[str]
     equipment_types: List[str]
+    exam_rooms: List[str]  # Examination room options
+    exam_equipments: List[str]  # Specific equipment options
+    exam_descriptions: List[str]  # Exam description options (limited to common values)
 
 
 class StudySearchResponse(BaseModel):

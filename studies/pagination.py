@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel
 from ninja.pagination import PaginationBase
 from django.db.models import QuerySet
+from django.db import connection
 
 from .schemas import FilterOptions
 from .services import StudyService
@@ -18,13 +19,13 @@ from .services import StudyService
 
 class StudyPaginationInput(BaseModel):
     """Input parameters for study pagination.
-    
-    Follows LimitOffsetPagination pattern:
-    - limit: Items per page (max 100)
-    - offset: Number of items to skip
+
+    Follows Page-based pagination pattern:
+    - page: Page number (1-based, default 1)
+    - page_size: Items per page (default 20, max 100)
     """
-    limit: int = 20  # Default page size
-    offset: int = 0  # Default start at first item
+    page: int = 1  # Default to first page
+    page_size: int = 20  # Default page size
 
 
 class StudyPaginationOutput(BaseModel):
@@ -43,23 +44,24 @@ class StudyPaginationOutput(BaseModel):
 class StudyPagination(PaginationBase):
     """
     Custom pagination class for studies endpoint.
-    
+
     This implements Django Ninja's PaginationBase to provide:
-    1. LimitOffsetPagination parameters (limit, offset)
+    1. Page-based pagination parameters (page, page_size)
     2. Standard pagination output (items, count)
     3. Additional filter context (filters)
-    
+
     Usage in API:
         @api.get('/search', response=StudySearchResponse)
         @paginate(StudyPagination)
         def search_studies(request, ...):
             return Study.objects.filter(...)
-    
+
     The paginate decorator will:
-    1. Extract limit and offset from query parameters
-    2. Apply pagination to the queryset
-    3. Call paginate_queryset() with the paginated data
-    4. Return StudyPaginationOutput format
+    1. Extract page and page_size from query parameters
+    2. Calculate offset: (page - 1) * page_size
+    3. Apply pagination to the queryset
+    4. Call paginate_queryset() with the paginated data
+    5. Return StudyPaginationOutput format
     """
     
     class Input(StudyPaginationInput):
@@ -78,30 +80,58 @@ class StudyPagination(PaginationBase):
     ) -> Dict[str, Any]:
         """
         Paginate the queryset and return formatted output.
-        
+
         Args:
             queryset: Django QuerySet to paginate
-            pagination: Input parameters (limit, offset)
+            pagination: Input parameters (page, page_size)
             **params: Additional parameters from the request
-        
+
         Returns:
             Dictionary with paginated items and metadata
         """
         # Get total count before pagination
-        total_count = queryset.count()
+        # Handle RawQuerySet (from raw SQL) vs regular QuerySet
+        if hasattr(queryset, 'count'):
+            # Regular QuerySet has count() method
+            total_count = queryset.count()
+        else:
+            # RawQuerySet doesn't support count()
+            # Need to execute a separate COUNT query with same WHERE clause
+            # Extract raw_query and params from RawQuerySet
+            try:
+                # Access the raw SQL and params from RawQuerySet
+                raw_sql = queryset.raw_query
+                params = queryset.params or []
+
+                # Convert SELECT * to SELECT COUNT(*)
+                # Find the position after FROM clause
+                count_sql = raw_sql.replace('SELECT *', 'SELECT COUNT(*)', 1)
+                # Remove ORDER BY for count query (optimization)
+                if 'ORDER BY' in count_sql:
+                    count_sql = count_sql[:count_sql.index('ORDER BY')]
+
+                with connection.cursor() as cursor:
+                    cursor.execute(count_sql, params)
+                    total_count = cursor.fetchone()[0]
+            except (AttributeError, Exception):
+                # Fallback: count by iterating (less efficient but works)
+                total_count = len(list(queryset))
         
-        # Apply offset and limit
-        offset = pagination.offset
-        limit = pagination.limit
-        
+        # Extract page and page_size from pagination input
+        page = pagination.page
+        page_size = pagination.page_size
+
         # Validate pagination parameters
-        if offset < 0:
-            offset = 0
-        if limit < 1 or limit > 100:
-            limit = 20
-        
+        if page < 1:
+            page = 1
+        if page_size < 1 or page_size > 100:
+            page_size = 20
+
+        # Calculate offset from page and page_size
+        offset = (page - 1) * page_size
+
         # Get paginated items
-        paginated_items = queryset[offset : offset + limit]
+        paginated_items = queryset[offset : offset + page_size]
         
         # Convert queryset to list of dicts for schema conversion
         items = [item.to_dict() for item in paginated_items]
