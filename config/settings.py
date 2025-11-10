@@ -39,6 +39,7 @@ MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.middleware.common.CommonMiddleware',
+    'studies.middleware.RequestTimingMiddleware',  # Request timing logging
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -66,6 +67,34 @@ DATABASES = {
         'PORT': os.getenv('DB_PORT', '5432'),
     }
 }
+
+# Cache configuration - environment-aware
+CACHE_BACKEND = os.getenv('CACHE_BACKEND', 'locmem')
+
+if CACHE_BACKEND == 'redis':
+    # Production: Redis cache
+    CACHES = {
+        'default': {
+            'BACKEND': 'django_redis.cache.RedisCache',
+            'LOCATION': os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/1'),
+            'OPTIONS': {
+                'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+                'CONNECTION_POOL_KWARGS': {
+                    'max_connections': 50,
+                    'retry_on_timeout': True
+                }
+            }
+        }
+    }
+else:
+    # Development: Local memory cache (default)
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'study_cache',
+            'OPTIONS': {'MAX_ENTRIES': 1000}
+        }
+    }
 
 # Authentication
 AUTH_PASSWORD_VALIDATORS = [
@@ -133,6 +162,10 @@ LOGGING = {
         'studies': {
             'handlers': ['console', 'file'],
             'level': 'DEBUG',
+        },
+        'request_timing': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
         },
     },
 }
