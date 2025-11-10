@@ -8,9 +8,10 @@ from typing import Optional, List
 from ninja import Router, Query
 from ninja.pagination import paginate
 from django.http import Http404
-from .schemas import StudySearchResponse, StudyDetail, FilterOptions, StudyListItem
+from .schemas import StudyDetail, FilterOptions, StudyListItem
 from .pagination import StudyPagination
 from .services import StudyService
+from .exceptions import StudyNotFoundError, DatabaseQueryError
 import logging
 
 logger = logging.getLogger(__name__)
@@ -145,19 +146,21 @@ def get_study_detail(request, exam_id: str):
 
     Raises:
     - 404: If study not found
+    - 500: If database error occurs
     """
     try:
         study_dict = StudyService.get_study_detail(exam_id)
-
-        if not study_dict:
-            raise Http404(f"Study with exam_id '{exam_id}' not found")
-
         return StudyDetail(**study_dict)
 
-    except Http404:
+    except StudyNotFoundError as e:
+        # Convert domain exception to HTTP 404
+        raise Http404(str(e))
+    except DatabaseQueryError as e:
+        # Log database errors and let Django Ninja handle as 500
+        logger.error(f'Database error in get_study_detail: {str(e)}')
         raise
     except Exception as e:
-        logger.error(f'Failed to get study detail: {str(e)}')
+        logger.error(f'Unexpected error in get_study_detail: {str(e)}')
         raise
 
 
@@ -165,21 +168,30 @@ def get_study_detail(request, exam_id: str):
 def get_filter_options(request):
     """
     Get available filter options for search.
-    
+
     Returns all distinct values for filter fields:
     - exam_statuses
     - exam_sources
     - exam_items
     - equipment_types
-    
+
     All values are sorted alphabetically and have no duplicates.
     Matches ../docs/api/API_CONTRACT.md specification.
-    
+
     Returns:
     FilterOptions with all available filter values
+
+    Raises:
+    - 500: If database error occurs
+
+    Note: Cache failures are logged but don't affect response (graceful degradation)
     """
     try:
         return StudyService.get_filter_options()
+    except DatabaseQueryError as e:
+        # Log database errors and let Django Ninja handle as 500
+        logger.error(f'Database error in get_filter_options: {str(e)}')
+        raise
     except Exception as e:
-        logger.error(f'Failed to get filter options: {str(e)}')
+        logger.error(f'Unexpected error in get_filter_options: {str(e)}')
         raise

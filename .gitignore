@@ -42,3 +42,4 @@ Thumbs.db
 # Claude-generated documentation and development artifacts
 claudedocs/
 .claude/
+.serena/
