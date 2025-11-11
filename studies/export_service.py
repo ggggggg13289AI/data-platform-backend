@@ -47,7 +47,7 @@ class ExportService:
                     'application_order_no': study.application_order_no or '',
                     'patient_name': study.patient_name or '',
                     'patient_gender': study.patient_gender or '',
-                    'patient_birth_date': study.patient_birth_date.isoformat() if study.patient_birth_date else '',
+                    'patient_birth_date': study.patient_birth_date or '',
                     'patient_age': study.patient_age if study.patient_age is not None else '',
                     'exam_status': study.exam_status or '',
                     'exam_source': study.exam_source or '',

@@ -63,6 +63,46 @@ class ExportServiceTests(TestCase):
         self.assertEqual(export_data[1]['exam_id'], 'TEST002')
         self.assertEqual(export_data[1]['patient_name'], 'Jane Smith')
 
+    def test_patient_birth_date_export(self):
+        """Test that patient_birth_date (CharField) exports correctly without calling .isoformat()."""
+        # Create a study with patient_birth_date value
+        Study.objects.create(
+            exam_id='BIRTHDATE001',
+            medical_record_no='MR_BD001',
+            patient_name='Birth Date Test',
+            patient_birth_date='1990-05-15',  # String value, not date object
+            patient_gender='M',
+            patient_age=34,
+            exam_status='completed',
+            exam_source='CT',
+            exam_description='Birth Date Test CT',
+            exam_room='Room 1',
+            exam_equipment='Test Equipment',
+            equipment_type='CT Scanner',
+            order_datetime=timezone.make_aware(datetime(2025, 1, 1, 10, 0, 0)),
+            certified_physician='Dr. Test'
+        )
+
+        queryset = Study.objects.filter(exam_id='BIRTHDATE001')
+        export_data = ExportService.prepare_export_data(queryset)
+
+        # Verify the birth_date is correctly exported as string
+        self.assertEqual(len(export_data), 1)
+        self.assertEqual(export_data[0]['patient_birth_date'], '1990-05-15')
+        self.assertIsInstance(export_data[0]['patient_birth_date'], str)
+
+        # Test CSV export with birth date
+        csv_content = ExportService.export_to_csv(queryset)
+        df = pd.read_csv(BytesIO(csv_content))
+        self.assertEqual(len(df), 1)
+        self.assertEqual(df.iloc[0]['patient_birth_date'], '1990-05-15')
+
+        # Test Excel export with birth date
+        excel_content = ExportService.export_to_excel(queryset)
+        df_excel = pd.read_excel(BytesIO(excel_content), sheet_name='Studies Export')
+        self.assertEqual(len(df_excel), 1)
+        self.assertEqual(df_excel.iloc[0]['patient_birth_date'], '1990-05-15')
+
     def test_export_to_csv(self):
         """Test CSV export generation."""
         queryset = Study.objects.all().order_by('exam_id')
