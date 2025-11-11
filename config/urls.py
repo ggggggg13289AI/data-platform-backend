@@ -10,16 +10,18 @@ from django.http import JsonResponse
 from django.conf import settings
 from django.conf.urls.static import static
 from studies.api import router as studies_router
+from studies.report_api import report_router
 
 # Create Ninja API
 api = NinjaAPI(
     title='医疗影像管理系统 API',  # Medical Imaging Management System API
-    version='1.0.0',
-    description='REST API for medical imaging examination management',
+    version='1.1.0',
+    description='REST API for medical imaging examination and report management',
 )
 
 # Include routers with prefixes
 api.add_router('/studies', studies_router, tags=['studies'])
+api.add_router('/reports', report_router, tags=['reports'])
 
 # Health check endpoint
 @api.get('/health')
