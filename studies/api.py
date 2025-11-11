@@ -7,10 +7,11 @@ Using Pydantic type hints ensures validation and correct serialization.
 from typing import Optional, List
 from ninja import Router, Query
 from ninja.pagination import paginate
-from django.http import Http404
+from django.http import Http404, HttpResponse
 from .schemas import StudyDetail, FilterOptions, StudyListItem
 from .pagination import StudyPagination
 from .services import StudyService
+from .export_service import ExportService, ExportConfig
 from .exceptions import StudyNotFoundError, DatabaseQueryError
 import logging
 
@@ -130,6 +131,124 @@ def search_studies(
     
     except Exception as e:
         logger.error(f'Search failed: {str(e)}')
+        raise
+
+
+@router.get('/export', response={200: None})
+def export_studies(
+    request,
+    format: str = Query('csv', description="Export format: csv or xlsx"),
+    q: str = Query(default=''),
+    exam_status: Optional[str] = Query(None),
+    exam_source: Optional[str] = Query(None),
+    exam_equipment: Optional[List[str]] = Query(None),
+    application_order_no: Optional[str] = Query(None),
+    patient_gender: Optional[List[str]] = Query(None),
+    exam_description: Optional[List[str]] = Query(None),
+    exam_room: Optional[List[str]] = Query(None),
+    patient_age_min: Optional[int] = Query(None),
+    patient_age_max: Optional[int] = Query(None),
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
+    sort: str = Query('order_datetime_desc'),
+):
+    """
+    Export filtered studies as CSV or Excel file.
+
+    This endpoint supports the same filters as the search endpoint but returns
+    a downloadable file instead of JSON response.
+
+    Query Parameters:
+    - format: Export format ('csv' or 'xlsx', default: 'csv')
+    - q: Text search query (searched across 9 fields)
+    - exam_status: Filter by exam status
+    - exam_source: Filter by exam source
+    - exam_equipment: Filter by equipment (multi-select array)
+    - application_order_no: Filter by application order number
+    - patient_gender: Filter by patient gender (multi-select array)
+    - exam_description: Filter by exam description (multi-select array)
+    - exam_room: Filter by exam room (multi-select array)
+    - patient_age_min: Filter by minimum patient age
+    - patient_age_max: Filter by maximum patient age
+    - start_date: Check-in datetime from (YYYY-MM-DD format)
+    - end_date: Check-in datetime to (YYYY-MM-DD format)
+    - sort: Sort order (order_datetime_desc, order_datetime_asc, patient_name_asc)
+
+    Returns:
+    File download response:
+    - CSV: text/csv with UTF-8 BOM encoding
+    - Excel: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+
+    Note: Export is limited to 10,000 records to prevent memory issues.
+
+    Example requests:
+    - /api/v1/studies/export?format=csv&q=chest
+    - /api/v1/studies/export?format=xlsx&exam_status=completed
+    """
+    try:
+        # Validate export format
+        if format not in ExportConfig.ALLOWED_EXPORT_FORMATS:
+            format = ExportConfig.DEFAULT_EXPORT_FORMAT
+
+        # Handle array parameters with bracket support (same as search endpoint)
+        def get_array_param(param_name: str) -> Optional[List[str]]:
+            """Extract array parameter supporting both bracket and standard formats."""
+            bracket_values = request.GET.getlist(f'{param_name}[]')
+            if bracket_values:
+                return [v for v in bracket_values if v]
+            standard_values = request.GET.getlist(param_name)
+            if standard_values:
+                return [v for v in standard_values if v]
+            return None
+
+        # Extract array parameters with bracket support
+        exam_equipment_array = get_array_param('exam_equipment') or exam_equipment
+        patient_gender_array = get_array_param('patient_gender') or patient_gender
+        exam_description_array = get_array_param('exam_description') or exam_description
+        exam_room_array = get_array_param('exam_room') or exam_room
+
+        # Get filtered queryset (reusing search logic)
+        queryset = StudyService.get_studies_queryset(
+            q=q if q else None,
+            exam_status=exam_status,
+            exam_source=exam_source,
+            exam_equipment=exam_equipment_array,
+            application_order_no=application_order_no,
+            patient_gender=patient_gender_array,
+            exam_description=exam_description_array,
+            exam_room=exam_room_array,
+            patient_age_min=patient_age_min,
+            patient_age_max=patient_age_max,
+            start_date=start_date,
+            end_date=end_date,
+            sort=sort,
+        )
+
+        # Generate export based on format
+        if format == 'xlsx':
+            content = ExportService.export_to_excel(queryset)
+            content_type = ExportService.get_content_type('xlsx')
+            filename = ExportService.generate_export_filename('xlsx')
+        else:  # Default to CSV
+            content = ExportService.export_to_csv(queryset)
+            content_type = ExportService.get_content_type('csv')
+            filename = ExportService.generate_export_filename('csv')
+
+        # Create HTTP response with file download
+        response = HttpResponse(content, content_type=content_type)
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+
+        # Add CORS headers if needed
+        response['Access-Control-Expose-Headers'] = 'Content-Disposition'
+
+        logger.info(f'Export generated: {filename} ({len(content)} bytes)')
+        return response
+
+    except DatabaseQueryError as e:
+        logger.error(f'Database error in export_studies: {str(e)}')
+        raise
+    except Exception as e:
+        logger.error(f'Export failed: {str(e)}')
         raise
 
 

@@ -88,18 +88,26 @@ GRANT ALL PRIVILEGES ON DATABASE medical_imaging TO medical_user;
 
 ### 3. 安裝相依套件
 
+> ⚠️ **重要**: 本專案使用 **UV** 作為包管理器，請勿使用 `pip` 以避免汙染本地環境。
+
 ```bash
-# 建立虛擬環境
-python -m venv venv
+# 使用 UV 安裝所有依賴
+uv sync
 
-# 啟動虛擬環境
-# Windows:
-venv\Scripts\activate
-# macOS/Linux:
-source venv/bin/activate
+# UV 會自動：
+# 1. 讀取 pyproject.toml 和 uv.lock
+# 2. 建立虛擬環境（如果不存在）
+# 3. 安裝所有相依套件
+# 4. 確保版本一致性
+```
 
-# 安裝套件
-pip install -r requirements.txt
+**UV 常用命令**:
+```bash
+uv sync              # 安裝所有依賴（首次設置）
+uv add package       # 添加新套件到 pyproject.toml
+uv remove package    # 移除套件
+uv pip install pkg   # 臨時安裝套件（不更新 pyproject.toml）
+uv run python script # 在 UV 環境中執行腳本
 ```
 
 ### 4. 初始化資料庫結構

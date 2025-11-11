@@ -88,18 +88,26 @@ GRANT ALL PRIVILEGES ON DATABASE medical_imaging TO medical_user;
 
 ### 3. Install Dependencies
 
+> ⚠️ **Important**: This project uses **UV** as package manager. Do NOT use `pip` to avoid polluting the local environment.
+
 ```bash
-# Create virtual environment
-python -m venv venv
+# Install all dependencies using UV
+uv sync
 
-# Activate virtual environment
-# Windows:
-venv\Scripts\activate
-# macOS/Linux:
-source venv/bin/activate
+# UV will automatically:
+# 1. Read pyproject.toml and uv.lock
+# 2. Create virtual environment (if not exists)
+# 3. Install all dependencies
+# 4. Ensure version consistency
+```
 
-# Install packages
-pip install -r requirements.txt
+**UV Common Commands**:
+```bash
+uv sync              # Install all dependencies (initial setup)
+uv add package       # Add new package to pyproject.toml
+uv remove package    # Remove package
+uv pip install pkg   # Temporarily install package (don't update pyproject.toml)
+uv run python script # Run script in UV environment
 ```
 
 ### 4. Initialize Database Schema
