@@ -580,6 +580,19 @@ GET /api/v1/studies/export?format=csv&q=chest&patient_gender[]=M&start_date=2025
 GET /api/v1/studies/export?format=xlsx&exam_status=completed&exam_equipment[]=CT-001&exam_equipment[]=CT-002&patient_age_min=30&patient_age_max=60
 ```
 
+### Important: Field Type Handling
+
+**Patient Birth Date Field**:
+- **Type**: String (YYYY-MM-DD format)
+- **Storage**: CharField in database
+- **Export**: Returns string value directly (not parsed as date object)
+- **Latest Fix** (v1.1.0): Corrected export handling to properly treat as string field (prevents AttributeError)
+
+**DateTime Fields** (exported as ISO 8601 strings):
+- `order_datetime` - String format: "2025-11-06T10:30:00"
+- `check_in_datetime` - String format: "2025-11-06T11:00:00"
+- `report_certification_datetime` - String format: "2025-11-06T14:30:00"
+
 ### Limitations
 
 - **Maximum Records**: 10,000 records per export (prevents memory issues)
@@ -993,11 +1006,18 @@ For production deployment with external access:
 
 ## Version History
 
+### v1.1.1 (2025-11-11)
+- ✅ **CRITICAL FIX**: Corrected patient_birth_date export handling (CharField vs .isoformat())
+- ✅ Added comprehensive test case for birth_date field export (test_patient_birth_date_export)
+- ✅ Updated field type documentation with proper handling clarifications
+- ✅ Test coverage: 16 tests passing (100% success rate)
+
 ### v1.1.0 (2025-11-10)
 - ✅ Added comprehensive exception handling
 - ✅ Centralized configuration management
 - ✅ Request timing middleware
 - ✅ 63 test cases (~85% coverage)
+- ✅ Export functionality implementation
 - ✅ Production-ready status
 
 ### v1.0.0 (2025-11-06)
@@ -1016,6 +1036,6 @@ For API issues or questions:
 
 ---
 
-**Last Updated**: 2025-11-10
+**Last Updated**: 2025-11-11 (Bug fix for patient_birth_date export handling)
 **Maintainer**: Medical Imaging Team
-**API Version**: 1.1.0
+**API Version**: 1.1.1
