@@ -11,6 +11,11 @@ from django.utils import timezone
 from django.core.cache import cache
 from .models import Study
 from .schemas import StudySearchResponse, StudyListItem, FilterOptions
+from .exceptions import (
+    StudyNotFoundError,
+    DatabaseQueryError,
+)
+from .config import ServiceConfig
 import logging
 
 logger = logging.getLogger(__name__)
@@ -70,15 +75,33 @@ class StudyService:
         """
         # OPTIMIZATION: Use raw SQL with parameterization for better query planning
         # and to match the user's reference SQL which performs well (~500ms for full scan)
+        #
+        # SECURITY: All user inputs are parameterized (%s placeholders) to prevent SQL injection.
+        # PostgreSQL's psycopg2 library automatically escapes parameters, making injection impossible.
+        # Never use string formatting (f-strings) for SQL - always use parameterized queries.
 
-        # Build WHERE clause conditions
+        # Build WHERE clause conditions dynamically based on provided filters
+        # Each condition is added to the list only if the corresponding parameter is provided
+        # All conditions are combined with AND logic (except within text search which uses OR)
         conditions = []
         params = []
 
-        # Text search: comprehensive multi-field search with OR
-        # Searches across all major identifying and descriptive fields
+        # TEXT SEARCH STRATEGY: Comprehensive 9-field search with OR logic
+        #
+        # Why 9 fields? Covers all user-facing identifiers and descriptive text:
+        # - Identifiers: exam_id, medical_record_no, application_order_no (exact match likely)
+        # - Names: patient_name, certified_physician (partial match common)
+        # - Descriptions: exam_description, exam_item, exam_room, exam_equipment (context search)
+        #
+        # ILIKE operator: Case-insensitive LIKE (PostgreSQL-specific)
+        # % wildcards: Match any characters before/after search term (substring matching)
+        #
+        # Performance: ILIKE on 9 fields is acceptable because:
+        # 1. Text search is optional (skipped if q not provided)
+        # 2. Key fields have indexes (exam_id, medical_record_no, patient_name)
+        # 3. PostgreSQL query planner can optimize OR conditions with indexes
         if q and q.strip():
-            search_term = f"%{q}%"
+            search_term = f"%{q}%"  # Wrap in wildcards for substring matching
             conditions.append(
                 "(exam_id ILIKE %s OR "
                 "medical_record_no ILIKE %s OR "
@@ -90,9 +113,12 @@ class StudyService:
                 "exam_equipment ILIKE %s OR "
                 "certified_physician ILIKE %s)"
             )
-            params.extend([search_term] * 9)  # 9 search fields
+            # Same search term used for all fields - params.extend() duplicates it
+            # Field count defined in ServiceConfig.TEXT_SEARCH_FIELD_COUNT
+            params.extend([search_term] * ServiceConfig.TEXT_SEARCH_FIELD_COUNT)
 
-        # Filters - exact match
+        # SINGLE-SELECT FILTERS: Exact match (=) for single-value parameters
+        # These are dropdown selections where user picks one option
         if exam_status:
             conditions.append("exam_status = %s")
             params.append(exam_status)
@@ -101,7 +127,25 @@ class StudyService:
             conditions.append("exam_source = %s")
             params.append(exam_source)
 
-        # Multi-select filters - use IN clause for array values
+        # MULTI-SELECT FILTERS: IN clause for array parameters
+        #
+        # Frontend sends arrays like: exam_equipment=['Siemens', 'GE', 'Philips']
+        # We need to build: exam_equipment IN (%s, %s, %s)
+        #
+        # IN CLAUSE CONSTRUCTION STRATEGY:
+        # 1. Count array elements to determine number of placeholders needed
+        # 2. Create placeholder string: ','.join(['%s'] * len(array)) → "%s,%s,%s"
+        # 3. Build SQL: f"field IN ({placeholders})" → "field IN (%s,%s,%s)"
+        # 4. Extend params with all array values → params.extend(array)
+        #
+        # SECURITY: Each array element is separately parameterized (%s), preventing SQL injection
+        # even if array values contain SQL metacharacters like quotes or semicolons.
+        #
+        # Example:
+        #   Input: exam_equipment=['CT Scanner', "MRI'; DROP TABLE--"]
+        #   SQL: exam_equipment IN (%s, %s)
+        #   Params: ['CT Scanner', "MRI'; DROP TABLE--"]
+        #   Result: Safe - psycopg2 escapes the malicious second value
         if exam_equipment and len(exam_equipment) > 0:
             placeholders = ','.join(['%s'] * len(exam_equipment))
             conditions.append(f"exam_equipment IN ({placeholders})")
@@ -122,12 +166,15 @@ class StudyService:
             conditions.append(f"exam_room IN ({placeholders})")
             params.extend(exam_room)
 
-        # Text filter - exact match for order number
+        # Application order number filter - exact match (not a search field)
+        # Used when user wants to find a specific order by its identifier
         if application_order_no:
             conditions.append("application_order_no = %s")
             params.append(application_order_no)
 
-        # Age range filters
+        # AGE RANGE FILTERS: Inclusive boundaries
+        # Note: Using 'is not None' check because age=0 is valid (newborns)
+        # Simple >= and <= comparisons work for integer ages
         if patient_age_min is not None:
             conditions.append("patient_age >= %s")
             params.append(patient_age_min)
@@ -136,72 +183,104 @@ class StudyService:
             conditions.append("patient_age <= %s")
             params.append(patient_age_max)
 
-        # Date range: filter on check_in_datetime (matches user's reference SQL)
+        # DATE RANGE FILTERING: Filter on check_in_datetime field
+        #
+        # Why check_in_datetime and not order_datetime?
+        # - order_datetime: When the exam was ordered (scheduling)
+        # - check_in_datetime: When patient actually checked in (actual exam time)
+        # User wants to filter by when exams actually happened, not when they were scheduled
+        #
+        # DATE PARSING STRATEGY:
+        # 1. Accept ISO 8601 format strings: "YYYY-MM-DD" or "YYYY-MM-DDTHH:MM:SS"
+        # 2. Use datetime.fromisoformat() for parsing (Python 3.7+)
+        # 3. Silently ignore invalid formats (try/except pass)
+        #    - Alternative would be to raise InvalidSearchParameterError
+        #    - Current approach: forgiving, continues with other filters
+        # 4. PostgreSQL automatically handles datetime comparison with proper indexing
         if start_date:
             try:
                 from datetime import datetime
                 start_dt = datetime.fromisoformat(start_date)
-                conditions.append("check_in_datetime >= %s")
+                conditions.append("check_in_datetime >= %s")  # Inclusive start
                 params.append(start_dt)
             except (ValueError, TypeError):
+                # Invalid date format - skip this filter, log warning in production
                 pass
 
         if end_date:
             try:
                 from datetime import datetime
                 end_dt = datetime.fromisoformat(end_date)
-                conditions.append("check_in_datetime <= %s")
+                conditions.append("check_in_datetime <= %s")  # Inclusive end
                 params.append(end_dt)
             except (ValueError, TypeError):
+                # Invalid date format - skip this filter, log warning in production
                 pass
 
-        # Build complete WHERE clause
+        # CONSTRUCT COMPLETE WHERE CLAUSE
+        # Join all conditions with AND logic: "condition1 AND condition2 AND ..."
+        # If no conditions provided, use "1=1" (always true) for valid SQL syntax
+        # Example: "SELECT * FROM table WHERE 1=1" returns all rows
         where_clause = " AND ".join(conditions) if conditions else "1=1"
 
-        # Determine ORDER BY
+        # SORT ORDER DETERMINATION
+        # Three supported sort options (default: most recent first)
+        # order_datetime is indexed, so sorting is fast even with large datasets
         if sort == 'order_datetime_asc':
-            order_by = "ORDER BY order_datetime ASC"
+            order_by = "ORDER BY order_datetime ASC"  # Oldest first
         elif sort == 'patient_name_asc':
-            order_by = "ORDER BY patient_name ASC"
+            order_by = "ORDER BY patient_name ASC"  # Alphabetical
         else:  # Default: order_datetime_desc
-            order_by = "ORDER BY order_datetime DESC"
+            order_by = "ORDER BY order_datetime DESC"  # Most recent first (expected UX)
 
-        # Build and execute raw SQL query
+        # BUILD AND EXECUTE RAW SQL QUERY
+        # f-string used ONLY for where_clause and order_by which are constructed internally
+        # NEVER user input directly in f-string - always use params for user data
         sql = f"""
             SELECT * FROM medical_examinations_fact
             WHERE {where_clause}
             {order_by}
         """
 
-        # Use queryset.raw() to maintain compatibility with @paginate decorator
-        # This returns a RawQuerySet which the paginator can iterate over
+        # Study.objects.raw() returns RawQuerySet compatible with Django ORM
+        # The @paginate decorator can iterate over it and apply LIMIT/OFFSET
+        # Parameterized query execution ensures SQL injection safety
         queryset = Study.objects.raw(sql, params)
 
-        # Log the query for debugging (can be disabled in production)
+        # Debug logging (enable with DEBUG=True in settings)
+        # Useful for query optimization and troubleshooting
+        # Production: Consider structured logging with query performance metrics
         logger.debug(f"Search Query: {sql} | Params: {params}")
 
         return queryset
     
     @staticmethod
-    def get_study_detail(exam_id: str) -> Optional[Dict[str, Any]]:
+    def get_study_detail(exam_id: str) -> Dict[str, Any]:
         """
         Get a single study by exam_id.
-        
+
         Args:
             exam_id: The exam ID
-        
+
         Returns:
-            Study details dict or None if not found
+            Study details dict
+
+        Raises:
+            StudyNotFoundError: If study with given exam_id does not exist
+            DatabaseQueryError: If database query fails
         """
         try:
             study = Study.objects.get(exam_id=exam_id)
             return study.to_dict()
         except Study.DoesNotExist:
-            return None
+            raise StudyNotFoundError(exam_id)
+        except Exception as e:
+            raise DatabaseQueryError('Get study detail', e)
     
-    # Cache key for filter options (24 hour TTL)
-    FILTER_OPTIONS_CACHE_KEY = 'study_filter_options'
-    FILTER_OPTIONS_CACHE_TTL = 24 * 60 * 60  # 24 hours
+    # Cache configuration imported from config.py
+    # These constants define cache behavior for filter options
+    FILTER_OPTIONS_CACHE_KEY = ServiceConfig.FILTER_OPTIONS_CACHE_KEY
+    FILTER_OPTIONS_CACHE_TTL = ServiceConfig.FILTER_OPTIONS_CACHE_TTL
 
     @staticmethod
     def _get_filter_options_from_db() -> FilterOptions:
@@ -216,65 +295,72 @@ class StudyService:
 
         Returns:
             FilterOptions with all available filter values
+
+        Raises:
+            DatabaseQueryError: If database queries fail
         """
         # OPTIMIZATION: Use raw SQL for DISTINCT queries (faster than ORM)
-        with connection.cursor() as cursor:
-            # Get distinct exam_statuses
-            cursor.execute(
-                "SELECT DISTINCT exam_status FROM medical_examinations_fact "
-                "WHERE exam_status IS NOT NULL AND exam_status != '' "
-                "ORDER BY exam_status"
-            )
-            exam_statuses = [row[0] for row in cursor.fetchall()]
+        try:
+            with connection.cursor() as cursor:
+                # Get distinct exam_statuses
+                cursor.execute(
+                    "SELECT DISTINCT exam_status FROM medical_examinations_fact "
+                    "WHERE exam_status IS NOT NULL AND exam_status != '' "
+                    "ORDER BY exam_status"
+                )
+                exam_statuses = [row[0] for row in cursor.fetchall()]
 
-            # Get distinct exam_sources
-            cursor.execute(
-                "SELECT DISTINCT exam_source FROM medical_examinations_fact "
-                "WHERE exam_source IS NOT NULL AND exam_source != '' "
-                "ORDER BY exam_source"
-            )
-            exam_sources = [row[0] for row in cursor.fetchall()]
+                # Get distinct exam_sources
+                cursor.execute(
+                    "SELECT DISTINCT exam_source FROM medical_examinations_fact "
+                    "WHERE exam_source IS NOT NULL AND exam_source != '' "
+                    "ORDER BY exam_source"
+                )
+                exam_sources = [row[0] for row in cursor.fetchall()]
 
-            # Get distinct equipment_types
-            cursor.execute(
-                "SELECT DISTINCT equipment_type FROM medical_examinations_fact "
-                "WHERE equipment_type IS NOT NULL AND equipment_type != '' "
-                "ORDER BY equipment_type"
-            )
-            equipment_types = [row[0] for row in cursor.fetchall()]
+                # Get distinct equipment_types
+                cursor.execute(
+                    "SELECT DISTINCT equipment_type FROM medical_examinations_fact "
+                    "WHERE equipment_type IS NOT NULL AND equipment_type != '' "
+                    "ORDER BY equipment_type"
+                )
+                equipment_types = [row[0] for row in cursor.fetchall()]
 
-            # Get distinct exam_rooms
-            cursor.execute(
-                "SELECT DISTINCT exam_room FROM medical_examinations_fact "
-                "WHERE exam_room IS NOT NULL AND exam_room != '' "
-                "ORDER BY exam_room"
-            )
-            exam_rooms = [row[0] for row in cursor.fetchall()]
+                # Get distinct exam_rooms
+                cursor.execute(
+                    "SELECT DISTINCT exam_room FROM medical_examinations_fact "
+                    "WHERE exam_room IS NOT NULL AND exam_room != '' "
+                    "ORDER BY exam_room"
+                )
+                exam_rooms = [row[0] for row in cursor.fetchall()]
 
-            # Get distinct exam_equipments
-            cursor.execute(
-                "SELECT DISTINCT exam_equipment FROM medical_examinations_fact "
-                "WHERE exam_equipment IS NOT NULL AND exam_equipment != '' "
-                "ORDER BY exam_equipment"
-            )
-            exam_equipments = [row[0] for row in cursor.fetchall()]
+                # Get distinct exam_equipments
+                cursor.execute(
+                    "SELECT DISTINCT exam_equipment FROM medical_examinations_fact "
+                    "WHERE exam_equipment IS NOT NULL AND exam_equipment != '' "
+                    "ORDER BY exam_equipment"
+                )
+                exam_equipments = [row[0] for row in cursor.fetchall()]
 
-            # Get distinct exam_descriptions (limit to top 100 most common)
-            cursor.execute(
-                "SELECT DISTINCT exam_description FROM medical_examinations_fact "
-                "WHERE exam_description IS NOT NULL AND exam_description != '' "
-                "ORDER BY exam_description LIMIT 100"
-            )
-            exam_descriptions = [row[0] for row in cursor.fetchall()]
+                # Get distinct exam_descriptions (limit to prevent excessive response size)
+                # Limit defined in ServiceConfig.EXAM_DESCRIPTION_LIMIT
+                cursor.execute(
+                    f"SELECT DISTINCT exam_description FROM medical_examinations_fact "
+                    f"WHERE exam_description IS NOT NULL AND exam_description != '' "
+                    f"ORDER BY exam_description LIMIT {ServiceConfig.EXAM_DESCRIPTION_LIMIT}"
+                )
+                exam_descriptions = [row[0] for row in cursor.fetchall()]
 
-        return FilterOptions(
-            exam_statuses=exam_statuses,
-            exam_sources=exam_sources,
-            equipment_types=equipment_types,
-            exam_rooms=exam_rooms,
-            exam_equipments=exam_equipments,
-            exam_descriptions=exam_descriptions,
-        )
+            return FilterOptions(
+                exam_statuses=exam_statuses,
+                exam_sources=exam_sources,
+                equipment_types=equipment_types,
+                exam_rooms=exam_rooms,
+                exam_equipments=exam_equipments,
+                exam_descriptions=exam_descriptions,
+            )
+        except Exception as e:
+            raise DatabaseQueryError('Get filter options from database', e)
 
     @staticmethod
     def get_filter_options() -> FilterOptions:
@@ -288,24 +374,37 @@ class StudyService:
         - Cache key: 'study_filter_options'
 
         Returns FilterOptions from cache or database.
+
+        Raises:
+            DatabaseQueryError: If database query fails
+
+        Note: Cache unavailability is logged but doesn't raise exception (graceful degradation)
         """
         # Try to get from cache first (Redis or Django's configured cache backend)
-        cached_options = cache.get(StudyService.FILTER_OPTIONS_CACHE_KEY)
+        try:
+            cached_options = cache.get(StudyService.FILTER_OPTIONS_CACHE_KEY)
 
-        if cached_options is not None:
-            logger.debug("Filter options served from cache")
-            return cached_options
+            if cached_options is not None:
+                logger.debug("Filter options served from cache")
+                return cached_options
+        except Exception as e:
+            # Cache unavailable - log warning and continue with database query
+            logger.warning(f"Cache unavailable for filter options: {str(e)}")
 
-        # Cache miss: Query database
+        # Cache miss or cache unavailable: Query database
         logger.debug("Filter options cache miss - querying database")
         filter_options = StudyService._get_filter_options_from_db()
 
-        # Store in cache for next 24 hours
-        cache.set(
-            StudyService.FILTER_OPTIONS_CACHE_KEY,
-            filter_options,
-            StudyService.FILTER_OPTIONS_CACHE_TTL
-        )
+        # Try to store in cache for next 24 hours (gracefully handle cache failures)
+        try:
+            cache.set(
+                StudyService.FILTER_OPTIONS_CACHE_KEY,
+                filter_options,
+                StudyService.FILTER_OPTIONS_CACHE_TTL
+            )
+        except Exception as e:
+            # Cache set failed - log warning but return result anyway
+            logger.warning(f"Failed to cache filter options: {str(e)}")
 
         return filter_options
     
@@ -380,10 +479,11 @@ class StudyService:
             
             # OPTIMIZATION: Use bulk_create to insert all at once (1 query instead of N queries)
             # ignore_conflicts=True allows skipping duplicates without error
+            # Batch size defined in ServiceConfig.BULK_CREATE_BATCH_SIZE
             try:
                 created_studies = Study.objects.bulk_create(
                     studies_to_create,
-                    batch_size=1000,  # Insert in batches to avoid memory issues
+                    batch_size=ServiceConfig.BULK_CREATE_BATCH_SIZE,
                     ignore_conflicts=True  # Skip duplicate exam_ids
                 )
                 imported = len(created_studies)

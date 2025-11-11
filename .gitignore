@@ -38,3 +38,8 @@ Thumbs.db
 *.tmp
 *.temp
 *.bak
+
+# Claude-generated documentation and development artifacts
+claudedocs/
+.claude/
+.serena/
