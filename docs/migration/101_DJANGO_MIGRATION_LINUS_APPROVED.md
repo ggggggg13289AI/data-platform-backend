@@ -324,7 +324,7 @@ from django.urls import path
 from ninja import NinjaAPI
 from studies.api import router as studies_router
 
-api = NinjaAPI(title="Medical Imaging API", version="1.0")
+api = NinjaAPI(title="Medical Imaging API", version="1.1.0")
 api.add_router("/", studies_router)
 
 urlpatterns = [
