@@ -834,6 +834,169 @@ class IntegrationTestCase(TestCase):
             self.assertEqual(data['page_size'], 25)
 
 
+
+# ====== PHASE 5.3: Performance Benchmark Tests ======
+
+import time
+from django.test.utils import override_settings
+from django.db import reset_queries, connection
+
+
+@override_settings(DEBUG=True)
+class PerformanceBenchmarkTestCase(TestCase):
+    """Performance benchmark tests for pagination with various page sizes."""
+
+    @classmethod
+    def setUpTestData(cls):
+        """Create 1000 test reports for performance testing."""
+        reports = [
+            Report(
+                uid=f'perf_test_{i:04d}',
+                report_id=f'REP-{i:06d}',
+                title=f'Performance Test Report {i}',
+                content_raw=f'Test content {i} ' * 100,
+                report_type='PDF' if i % 2 == 0 else 'HTML',
+                source_url=f'https://example.com/report/{i}',
+                version_number=1,
+                is_latest=True,
+                verified_at=timezone.now(),
+            )
+            for i in range(1000)
+        ]
+        Report.objects.bulk_create(reports, batch_size=100)
+
+    def setUp(self):
+        reset_queries()
+        self.client = Client()
+
+    def test_pagination_performance_page_size_10(self):
+        """Benchmark pagination with page_size=10."""
+        reset_queries()
+        start_time = time.time()
+
+        queryset = Report.objects.all().order_by('-verified_at')
+        paginator = ReportPagination(queryset, page=1, page_size=10)
+        items = paginator.get_items()
+
+        elapsed = time.time() - start_time
+        query_count = len(connection.queries)
+
+        self.assertEqual(len(items), 10)
+        self.assertLess(elapsed, 0.1)
+        self.assertLess(query_count, 5)
+
+    def test_pagination_performance_page_size_100(self):
+        """Benchmark pagination with page_size=100."""
+        reset_queries()
+        start_time = time.time()
+
+        queryset = Report.objects.all().order_by('-verified_at')
+        paginator = ReportPagination(queryset, page=1, page_size=100)
+        items = paginator.get_items()
+
+        elapsed = time.time() - start_time
+        query_count = len(connection.queries)
+
+        self.assertEqual(len(items), 100)
+        self.assertLess(elapsed, 0.3)
+        self.assertLess(query_count, 5)
+
+    def test_pagination_deep_page_performance(self):
+        """Benchmark pagination on deep pages (page 9)."""
+        reset_queries()
+        start_time = time.time()
+
+        queryset = Report.objects.all().order_by('-verified_at')
+        paginator = ReportPagination(queryset, page=9, page_size=100)
+        items = paginator.get_items()
+
+        elapsed = time.time() - start_time
+        query_count = len(connection.queries)
+
+        self.assertEqual(len(items), 100)
+        self.assertLess(elapsed, 0.3)
+        self.assertLess(query_count, 5)
+
+    def test_query_efficiency_no_n_plus_one(self):
+        """Verify no N+1 query problems."""
+        reset_queries()
+        
+        queryset = Report.objects.all()
+        paginator = ReportPagination(queryset, page=1, page_size=50)
+        items = list(paginator.get_items())
+        
+        query_count = len(connection.queries)
+        self.assertLess(query_count, 5)
+
+    def test_filtered_pagination_performance(self):
+        """Benchmark pagination with filter (report_type=PDF)."""
+        reset_queries()
+        start_time = time.time()
+
+        queryset = Report.objects.filter(report_type='PDF').order_by('-verified_at')
+        paginator = ReportPagination(queryset, page=1, page_size=50)
+        items = paginator.get_items()
+
+        elapsed = time.time() - start_time
+        query_count = len(connection.queries)
+
+        self.assertEqual(len(items), 50)
+        self.assertLess(elapsed, 0.2)
+        self.assertLess(query_count, 5)
+
+    def test_endpoint_performance_page_size_10(self):
+        """Benchmark HTTP endpoint with page_size=10."""
+        reset_queries()
+        start_time = time.time()
+
+        response = self.client.get('/api/v1/reports/search/paginated?page=1&page_size=10')
+        elapsed = time.time() - start_time
+        query_count = len(connection.queries)
+
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertEqual(len(data['items']), 10)
+        self.assertLess(elapsed, 0.2)
+
+    def test_endpoint_performance_page_size_100(self):
+        """Benchmark HTTP endpoint with page_size=100."""
+        reset_queries()
+        start_time = time.time()
+
+        response = self.client.get('/api/v1/reports/search/paginated?page=1&page_size=100')
+        elapsed = time.time() - start_time
+
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertEqual(len(data['items']), 100)
+        self.assertLess(elapsed, 0.3)
+
+    def test_pagination_total_count_consistency(self):
+        """Verify pagination total count is consistent across page sizes."""
+        queryset = Report.objects.all()
+        total_from_count = queryset.count()
+
+        for page_size in [10, 20, 50, 100]:
+            paginator = ReportPagination(queryset, page=1, page_size=page_size)
+            self.assertEqual(paginator.total, total_from_count)
+
+    def test_pagination_pages_calculation(self):
+        """Verify total pages calculation accuracy."""
+        queryset = Report.objects.all()
+        
+        test_cases = [
+            (1000, 10, 100),
+            (1000, 100, 10),
+            (1000, 99, 11),
+        ]
+
+        for total, page_size, expected_pages in test_cases:
+            paginator = ReportPagination(queryset, page=1, page_size=page_size)
+            self.assertEqual(paginator.get_total_pages(), expected_pages)
+
+
+
+
 if __name__ == '__main__':
     import unittest
     unittest.main()
