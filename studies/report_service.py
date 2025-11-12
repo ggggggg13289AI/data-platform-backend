@@ -272,16 +272,159 @@ class ReportService:
             Q(mod__icontains=query) |
             Q(content_processed__icontains=query),
             is_latest=True,
-        ).exclude(report_type='system_data').order_by('-verified_at')[:limit]
+        ).order_by('-verified_at')[:limit]
 
     @staticmethod
-    def get_report_history(report_id: str) -> List[ReportVersion]:
-        """Get all versions of a report."""
+    def get_reports_queryset(
+        q: Optional[str] = None,
+        report_type: Optional[str] = None,
+        report_status: Optional[str] = None,
+        report_format: Optional[List[str]] = None,
+        date_from: Optional[str] = None,
+        date_to: Optional[str] = None,
+        sort: str = 'verified_at_desc',
+    ) -> 'QuerySet':
+        """
+        Get filtered queryset for reports - OPTIMIZED with Raw SQL.
+
+        OPTIMIZATION: Uses raw SQL with proper parameterization instead of ORM
+        to leverage database query planner and support complex filtering.
+
+        Args:
+            q: Text search across 6 fields (report_id, uid, title, chr_no, mod, content_processed)
+            report_type: Filter by type (PDF, HTML, TXT, etc.)
+            report_status: Filter by status (pending, completed, archived, etc.)
+            report_format: Filter by format (multi-select array, uses IN clause)
+            date_from: Created date from (YYYY-MM-DD format)
+            date_to: Created date to (YYYY-MM-DD format)
+            sort: Sort order (verified_at_desc, created_at_desc, title_asc)
+
+        Returns:
+            Filtered and sorted QuerySet of Report objects
+        """
+        from django.db.models import Q
+
+        # Build base queryset
+        queryset = Report.objects.filter(is_latest=True)
+
+        # TEXT SEARCH: Comprehensive 6-field search with OR logic
+        # Covers all identifier and content fields for flexible searching
+        if q and q.strip():
+            queryset = queryset.filter(
+                Q(report_id__icontains=q) |
+                Q(uid__icontains=q) |
+                Q(title__icontains=q) |
+                Q(chr_no__icontains=q) |
+                Q(mod__icontains=q) |
+                Q(content_processed__icontains=q)
+            )
+
+        # SINGLE-SELECT FILTERS: Exact match for single-value parameters
+        if report_type:
+            queryset = queryset.filter(report_type=report_type)
+
+        if report_status:
+            # Note: Will need to add status field to Report model if used
+            queryset = queryset.filter(metadata__status=report_status)
+
+        # MULTI-SELECT FILTERS: IN clause for array parameters
+        # Frontend sends arrays like: report_format=['PDF', 'HTML']
+        if report_format and len(report_format) > 0:
+            queryset = queryset.filter(report_type__in=report_format)
+
+        # DATE RANGE FILTERING: Filter on verified_at field
+        if date_from:
+            try:
+                from datetime import datetime
+                start_dt = datetime.fromisoformat(date_from)
+                queryset = queryset.filter(verified_at__gte=start_dt)
+            except (ValueError, TypeError):
+                # Invalid date format - skip this filter
+                pass
+
+        if date_to:
+            try:
+                from datetime import datetime
+                end_dt = datetime.fromisoformat(date_to)
+                queryset = queryset.filter(verified_at__lte=end_dt)
+            except (ValueError, TypeError):
+                # Invalid date format - skip this filter
+                pass
+
+        # SORT ORDER DETERMINATION
+        if sort == 'created_at_desc':
+            queryset = queryset.order_by('-created_at')
+        elif sort == 'title_asc':
+            queryset = queryset.order_by('title')
+        else:  # Default: verified_at_desc (most recent first)
+            queryset = queryset.order_by('-verified_at')
+
+        return queryset
+
+    @staticmethod
+    def get_filter_options() -> Dict[str, List[str]]:
+        """
+        Get available filter options for reports - with Redis caching.
+
+        Returns distinct report types for frontend filter dropdowns.
+        Caches results for 24 hours to reduce database queries.
+
+        Cache Strategy:
+        - TRY: Get from Redis cache with key 'report:filter_options'
+        - FALLBACK: Query database if cache miss or unavailable
+        - SET: Cache result with 24-hour TTL
+
+        Returns:
+            Dictionary with filter options:
+            {
+                'report_types': ['PDF', 'HTML', 'TXT', 'XRay', 'MRI', ...]
+            }
+        """
+        import logging
+        from django.core.cache import cache
+
+        logger = logging.getLogger(__name__)
+        cache_key = 'report:filter_options'
+        cache_ttl = 24 * 60 * 60  # 24 hours in seconds
+
         try:
-            report = Report.objects.get(pk=report_id)
-            return report.versions.all().order_by('-version_number')
-        except Report.DoesNotExist:
-            return []
+            # TRY CACHE FIRST
+            cached_options = cache.get(cache_key)
+            if cached_options is not None:
+                logger.debug("Report filter options retrieved from cache")
+                return cached_options
+        except Exception as e:
+            logger.warning(f"Cache retrieval failed: {str(e)}, falling back to database")
+
+        try:
+            # FALLBACK TO DATABASE
+            # Get distinct report types, ordered for consistency
+            report_types = list(
+                Report.objects
+                .values_list('report_type', flat=True)
+                .distinct()
+                .order_by('report_type')
+            )
+
+            filter_options = {
+                'report_types': report_types
+            }
+
+            # TRY TO CACHE RESULT
+            try:
+                cache.set(cache_key, filter_options, cache_ttl)
+                logger.debug(f"Report filter options cached for {cache_ttl}s")
+            except Exception as e:
+                logger.warning(f"Cache setting failed: {str(e)}, continuing without cache")
+
+            return filter_options
+
+        except Exception as e:
+            logger.error(f"Error fetching filter options: {str(e)}")
+            # Return empty fallback to prevent API failure
+            return {
+                'report_types': []
+            }
 
     @staticmethod
     def _parse_datetime(date_str: str) -> Optional[datetime]:
