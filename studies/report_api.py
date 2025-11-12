@@ -126,21 +126,49 @@ def search_reports(
     request,
     q: str = Query('', description='Search query'),
     limit: int = Query(50, description='Result limit'),
+    report_type: Optional[str] = Query(None, description='Filter by report type'),
+    report_status: Optional[str] = Query(None, description='Filter by report status'),
+    report_format: Optional[str] = Query(None, description='Filter by report format (comma-separated)'),
+    date_from: Optional[str] = Query(None, description='Filter by date from (ISO format)'),
+    date_to: Optional[str] = Query(None, description='Filter by date to (ISO format)'),
+    sort: str = Query('verified_at_desc', description='Sort order: verified_at_desc, created_at_desc, title_asc'),
 ):
     """
-    Search reports by title and content.
+    Advanced search for reports with multiple filters.
 
     Supports:
-    - Full-text search on title and processed content
-    - Efficient ranking by verification date
+    - Full-text search across 6 fields (report_id, uid, title, chr_no, mod, content_processed)
+    - Single-select filters (report_type, report_status)
+    - Multi-select filters (report_format as comma-separated values)
+    - Date range filtering (date_from, date_to)
+    - Flexible sorting options
 
-    Example: /api/v1/reports/search?q=covid&limit=20
+    Example: /api/v1/reports/search?q=covid&report_type=PDF&limit=20&sort=verified_at_desc
     """
     try:
         if limit > 500:
             limit = 500
+        if limit < 1:
+            limit = 1
 
-        results = ReportService.search_reports(q, limit)
+        # Parse report_format if provided as comma-separated string
+        report_formats = []
+        if report_format:
+            report_formats = [f.strip() for f in report_format.split(',') if f.strip()]
+
+        # Get filtered queryset
+        queryset = ReportService.get_reports_queryset(
+            q=q if q else None,
+            report_type=report_type,
+            report_status=report_status,
+            report_format=report_formats if report_formats else None,
+            date_from=date_from,
+            date_to=date_to,
+            sort=sort,
+        )
+
+        # Apply limit
+        results = queryset[:limit]
 
         return [
             ReportResponse(
@@ -262,22 +290,17 @@ def get_filter_options(request):
     """
     Get available filter options for report search.
 
-    Returns distinct report types from the database.
+    Returns distinct report types from the database with Redis caching.
     Used by frontend to populate filter dropdowns.
 
     Example: /api/v1/reports/options/filters
     """
     try:
-        # Get distinct report types from database
-        report_types = (
-            Report.objects
-            .values_list('report_type', flat=True)
-            .distinct()
-            .order_by('report_type')
-        )
+        # Call service method which handles caching
+        filter_options = ReportService.get_filter_options()
 
         return ReportFilterOptionsResponse(
-            report_types=list(report_types)
+            report_types=filter_options.get('report_types', [])
         )
 
     except Exception as e:
