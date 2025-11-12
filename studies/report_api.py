@@ -191,7 +191,7 @@ def import_report(request, payload: ReportImportRequest):
 def search_reports(
     request,
     q: str = Query('', description='Search query'),
-    limit: int = Query(50, description='Result limit (legacy, use offset/limit for pagination)'),
+    limit: int = Query(50, description='Result limit (legacy endpoint - use /search/paginated instead)'),
     report_type: Optional[str] = Query(None, description='Filter by report type'),
     report_status: Optional[str] = Query(None, description='Filter by report status'),
     report_format: Optional[str] = Query(None, description='Filter by report format (comma-separated)'),
@@ -201,6 +201,12 @@ def search_reports(
 ):
     """
     Advanced search for reports with multiple filters.
+    
+    ⚠️ DEPRECATED: This endpoint uses legacy limit/offset pagination.
+    Please use /search/paginated with page/page_size model instead.
+    
+    Migration guide: See CLIENT_MIGRATION_GUIDE.md for details.
+    Legacy support will be removed in v2.0.0.
 
     Supports:
     - Full-text search across 6 fields (report_id, uid, title, chr_no, mod, content_processed)
@@ -212,6 +218,14 @@ def search_reports(
     Example: /api/v1/reports/search?q=covid&report_type=PDF&limit=20&sort=verified_at_desc
     """
     try:
+        # Log deprecation warning
+        logger.warning(
+            'DEPRECATED: /api/v1/reports/search endpoint is legacy. '
+            'Use /api/v1/reports/search/paginated with page/page_size model instead. '
+            'Legacy endpoint will be removed in v2.0.0. '
+            'See CLIENT_MIGRATION_GUIDE.md for migration details.'
+        )
+        
         if limit > 500:
             limit = 500
         if limit < 1:
