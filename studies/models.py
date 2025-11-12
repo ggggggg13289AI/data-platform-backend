@@ -119,7 +119,7 @@ class Report(models.Model):
     """
 
     # Unique identification
-    uid = models.CharField(max_length=32, primary_key=True, db_index=True)  # Original UID from scraper
+    uid = models.CharField(max_length=100, primary_key=True, db_index=True)  # Original UID from scraper (up to 56 chars from legacy DB)
     report_id = models.CharField(max_length=100, null=True, blank=True, db_index=True)  # Internal ID
 
     # Basic information

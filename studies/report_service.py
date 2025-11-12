@@ -240,21 +240,86 @@ class ReportService:
             return []
 
     @staticmethod
+    def _parse_datetime(date_str: str) -> Optional[datetime]:
+        """Parse datetime string from legacy database."""
+        if not date_str:
+            return None
+
+        try:
+            # Try ISO format first
+            return datetime.fromisoformat(date_str)
+        except:
+            pass
+
+        try:
+            # Try common date formats
+            for fmt in ['%Y-%m-%dT%H:%M:%S.%fZ', '%Y-%m-%d %H:%M:%S', '%Y-%m-%d', '%Y%m%d']:
+                try:
+                    return datetime.strptime(date_str, fmt)
+                except:
+                    continue
+        except:
+            pass
+
+        return None
+
+    @staticmethod
+    def _determine_report_type(mod: str, record_id: str) -> str:
+        """Determine report type based on MOD field."""
+        mod = (mod or '').strip().upper()
+
+        # Medical imaging types
+        imaging_types = {
+            'MR': 'MRI',
+            'CR': 'XRay',
+            'CT': 'CT',
+            'US': 'Ultrasound',
+            'MG': 'Mammography',
+            'OT': 'Other',
+            'RF': 'Fluoroscopy',
+        }
+
+        if mod in imaging_types:
+            return imaging_types[mod]
+
+        # Non-imaging report types (from id='unknown' records)
+        if 'pt.get' in mod:
+            return 'patient_info'
+        elif 'allergy' in mod:
+            return 'allergy'
+        elif 'lab' in mod:
+            return 'laboratory'
+        elif 'vital' in mod:
+            return 'vitals'
+        elif 'hcheckup' in mod:
+            return 'health_checkup'
+
+        return 'legacy' if record_id == 'unknown' else 'imaging'
+
+    @staticmethod
     @transaction.atomic
-    def migrate_from_legacy_db(legacy_db_path: str) -> Dict[str, int]:
+    def migrate_from_legacy_db(legacy_db_path: str, batch_size: int = 500,
+                               skip_patient_info: bool = False) -> Dict[str, any]:
         """
         Migrate reports from legacy SQLite database (one_page_text_report).
 
-        This function reads from the legacy data.db and imports into new schema.
+        Intelligently handles:
+        - Image reports (id != 'unknown'): pt.get_resource API results
+        - System records (id = 'unknown'): Various API results (pt.get, allergy, lab, etc.)
 
         Args:
             legacy_db_path: Path to legacy data.db file
+            batch_size: Number of records to process per batch
+            skip_patient_info: Whether to skip pt.get patient info records
 
         Returns:
-            Migration statistics {created, updated, duplicates}
+            Migration statistics and details
         """
         import sqlite3
         from pathlib import Path
+        import logging
+
+        logger = logging.getLogger(__name__)
 
         if not Path(legacy_db_path).exists():
             raise FileNotFoundError(f"Legacy database not found: {legacy_db_path}")
@@ -262,41 +327,103 @@ class ReportService:
         conn = sqlite3.connect(legacy_db_path)
         cursor = conn.cursor()
 
+        # Get total count for progress tracking
+        cursor.execute("SELECT COUNT(*) FROM one_page_text_report")
+        total_count = cursor.fetchone()[0]
+
         cursor.execute("SELECT uid, id, title, content, date, v_date, mod, chr_no FROM one_page_text_report")
         rows = cursor.fetchall()
 
-        stats = {'created': 0, 'updated': 0, 'duplicated': 0}
+        stats = {
+            'total': total_count,
+            'created': 0,
+            'updated': 0,
+            'duplicated': 0,
+            'skipped': 0,
+            'errors': 0,
+            'by_type': {},
+        }
 
+        processed = 0
         for row in rows:
-            uid, report_id, title, content, date_str, v_date_str, mod, chr_no = row
-
-            # Parse dates
             try:
-                verified_at = datetime.fromisoformat(v_date_str) if v_date_str else None
-            except:
-                verified_at = None
+                uid, record_id, title, content, date_str, v_date_str, mod, chr_no = row
 
-            report, is_new, action = ReportService.import_or_update_report(
-                uid=uid,
-                report_id=report_id or uid,
-                title=title or 'Untitled',
-                content=content or '',
-                report_type='legacy',
-                source_url='',
-                verified_at=verified_at,
-                mod=mod,
-                chr_no=chr_no,
-                report_date=date_str,
-            )
+                # Skip patient info records if requested
+                if skip_patient_info and record_id == 'unknown' and (mod or '').strip() == 'pt.get':
+                    stats['skipped'] += 1
+                    continue
 
-            if is_new:
-                stats['created'] += 1
-            elif 'deduplicate' in action:
-                stats['duplicated'] += 1
-            else:
-                stats['updated'] += 1
+                # Determine report type
+                report_type = ReportService._determine_report_type(mod, record_id)
+
+                # Parse dates
+                report_date = ReportService._parse_datetime(date_str)
+                verified_at = ReportService._parse_datetime(v_date_str)
+
+                # For unknown records without explicit dates, use current time
+                if not verified_at:
+                    verified_at = timezone.now()
+
+                # Generate meaningful title if missing
+                if not title or title.strip() == 'pt.get':
+                    title = f"{report_type.upper()} Report" if record_id != 'unknown' else f"{mod or 'Unknown'}"
+
+                # Import report
+                report, is_new, action = ReportService.import_or_update_report(
+                    uid=uid,
+                    report_id=record_id if record_id != 'unknown' else uid[:32],
+                    title=title[:500],
+                    content=content or '',
+                    report_type=report_type,
+                    source_url='',
+                    verified_at=verified_at,
+                    mod=mod,
+                    chr_no=chr_no,
+                    report_date=str(report_date.date()) if report_date else None,
+                    metadata={
+                        'legacy_id': record_id,
+                        'legacy_uid': uid,
+                        'legacy_import': True,
+                    }
+                )
+
+                # Update statistics
+                if is_new:
+                    stats['created'] += 1
+                elif 'deduplicate' in action:
+                    stats['duplicated'] += 1
+                else:
+                    stats['updated'] += 1
+
+                # Track by type
+                if report_type not in stats['by_type']:
+                    stats['by_type'][report_type] = {'created': 0, 'updated': 0, 'duplicated': 0}
+
+                if is_new:
+                    stats['by_type'][report_type]['created'] += 1
+                elif 'deduplicate' in action:
+                    stats['by_type'][report_type]['duplicated'] += 1
+                else:
+                    stats['by_type'][report_type]['updated'] += 1
+
+                processed += 1
+                if processed % batch_size == 0:
+                    logger.info(f"Migrated {processed}/{total_count} records")
+
+            except Exception as e:
+                stats['errors'] += 1
+                logger.error(f"Error migrating record: {str(e)}")
+                continue
 
         conn.close()
+
+        # Add summary
+        stats['summary'] = {
+            'success_rate': f"{(100 * (processed - stats['errors']) / total_count):.1f}%" if total_count > 0 else "0%",
+            'total_processed': processed,
+        }
+
         return stats
 
 
