@@ -96,52 +96,54 @@ class ReportPagination:
     """
     Pagination handler for report search results.
     
-    Supports limit/offset pagination with metadata.
+    Uses Page/PageSize model (1-indexed pages):
+    - page: Page number (1-indexed, default 1)
+    - page_size: Items per page (default 20, max 100)
+    
     Works with Django QuerySets for efficient database queries.
     """
 
-    def __init__(self, queryset, limit: int = 50, offset: int = 0):
+    def __init__(self, queryset, page: int = 1, page_size: int = 20):
         """
         Initialize pagination.
         
         Args:
             queryset: Django QuerySet to paginate
-            limit: Number of items per page (max 500, default 50)
-            offset: Number of items to skip (default 0)
+            page: Page number (1-indexed, minimum 1)
+            page_size: Number of items per page (1-100)
         """
         self.queryset = queryset
-        self.limit = min(limit, 500) if limit > 0 else 50
-        self.offset = max(offset, 0)
+        
+        # Validate and normalize parameters
+        self.page = max(page, 1)
+        self.page_size = max(min(page_size, 100), 1) if page_size > 0 else 20
         
         # Get total count (do this once)
         self.total = self.queryset.count()
         
     def get_page_number(self) -> int:
-        """Calculate current page number (1-indexed)."""
-        if self.limit <= 0:
-            return 1
-        return (self.offset // self.limit) + 1
+        """Current page number (1-indexed)."""
+        return self.page
     
     def get_total_pages(self) -> int:
         """Calculate total number of pages."""
-        if self.limit <= 0:
+        if self.page_size <= 0:
             return 1
-        return (self.total + self.limit - 1) // self.limit
+        return (self.total + self.page_size - 1) // self.page_size
     
     def get_items(self):
         """Get paginated items from queryset."""
-        start = self.offset
-        end = self.offset + self.limit
-        return self.queryset[start:end]
+        offset = (self.page - 1) * self.page_size
+        end = offset + self.page_size
+        return self.queryset[offset:end]
     
     def get_response_data(self, items: List) -> dict:
         """Get pagination response data."""
         return {
             'items': items,
             'total': self.total,
-            'limit': self.limit,
-            'offset': self.offset,
             'page': self.get_page_number(),
+            'page_size': self.page_size,
             'pages': self.get_total_pages(),
         }
 
@@ -259,8 +261,8 @@ def search_reports(
 def search_reports_paginated(
     request,
     q: str = Query('', description='Search query'),
-    offset: int = Query(0, description='Number of items to skip (default 0)'),
-    limit: int = Query(50, description='Number of items per page (max 500)'),
+    page: int = Query(1, description='Page number (1-indexed, default 1)'),
+    page_size: int = Query(20, description='Items per page (max 100, default 20)'),
     report_type: Optional[str] = Query(None, description='Filter by report type'),
     report_status: Optional[str] = Query(None, description='Filter by report status'),
     report_format: Optional[str] = Query(None, description='Filter by report format (comma-separated)'),
@@ -271,7 +273,8 @@ def search_reports_paginated(
     """
     Advanced search for reports with proper pagination support.
 
-    Uses offset/limit pagination for efficient handling of large result sets.
+    Uses page/page_size pagination for consistent API experience.
+    Compatible with Studies API pagination model.
 
     Supports:
     - Full-text search across 6 fields
@@ -280,12 +283,12 @@ def search_reports_paginated(
     - Flexible sorting
     - Pagination metadata (page number, total pages, etc.)
 
-    Example: /api/v1/reports/search/paginated?q=covid&offset=0&limit=20
+    Example: /api/v1/reports/search/paginated?q=covid&page=1&page_size=20
     """
     try:
         # Validate pagination parameters
-        offset = max(offset, 0)
-        limit = max(min(limit, 500), 1)
+        page = max(page, 1)
+        page_size = max(min(page_size, 100), 1)
 
         # Parse report_format if provided
         report_formats = []
@@ -304,7 +307,7 @@ def search_reports_paginated(
         )
 
         # Apply pagination
-        paginator = ReportPagination(queryset, limit=limit, offset=offset)
+        paginator = ReportPagination(queryset, page=page, page_size=page_size)
         items = paginator.get_items()
 
         # Convert to response objects

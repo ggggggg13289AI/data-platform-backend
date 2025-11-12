@@ -317,6 +317,8 @@ class ReportService:
                 Q(chr_no__icontains=q) |
                 Q(mod__icontains=q) |
                 Q(content_processed__icontains=q)
+            ).exclude(
+                report_type='system_data'
             )
 
         # SINGLE-SELECT FILTERS: Exact match for single-value parameters
