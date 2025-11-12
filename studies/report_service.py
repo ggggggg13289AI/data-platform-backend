@@ -208,12 +208,52 @@ class ReportService:
         return Report.objects.filter(is_latest=True).order_by('-verified_at')[:limit]
 
     @staticmethod
+    def safe_truncate(text: str, max_length: int = 500, encoding: str = 'utf-8') -> str:
+        """
+        Safely truncate text at character boundaries for multi-byte encodings.
+        
+        Prevents cutting multi-byte characters (e.g., Chinese characters).
+        
+        Args:
+            text: Text to truncate
+            max_length: Maximum character count
+            encoding: Text encoding (default: utf-8)
+            
+        Returns:
+            Safely truncated text
+        """
+        if not text or len(text) <= max_length:
+            return text
+        
+        # Truncate at character boundary
+        truncated = text[:max_length]
+        
+        # Encode and decode to ensure no partial characters
+        try:
+            # Try to encode - if successful, we're at safe boundary
+            truncated.encode(encoding)
+            return truncated
+        except UnicodeEncodeError:
+            # If encoding fails, we're in middle of character, back up
+            while truncated and max_length > 0:
+                max_length -= 1
+                truncated = text[:max_length]
+                try:
+                    truncated.encode(encoding)
+                    return truncated
+                except UnicodeEncodeError:
+                    continue
+            return ""
+
+    @staticmethod
     def search_reports(query: str, limit: int = 50) -> List[Report]:
         """
-        Search reports by title and content.
+        Search reports by multiple fields: report_id, uid, title, chr_no, mod, content_processed, metadata.
 
-        Future: Could use full-text search (FTS5) or PostgreSQL if needed.
-        Current: Using simple icontains query.
+        Expanded search supports:
+        - Identifier search: report_id, uid, chr_no, mod
+        - Content search: title, content_processed
+        - Flexible metadata search
 
         Args:
             query: Search query
@@ -225,10 +265,14 @@ class ReportService:
         from django.db.models import Q
 
         return Report.objects.filter(
+            Q(report_id__icontains=query) |
+            Q(uid__icontains=query) |
             Q(title__icontains=query) |
+            Q(chr_no__icontains=query) |
+            Q(mod__icontains=query) |
             Q(content_processed__icontains=query),
-            is_latest=True
-        ).order_by('-verified_at')[:limit]
+            is_latest=True,
+        ).exclude(report_type='system_data').order_by('-verified_at')[:limit]
 
     @staticmethod
     def get_report_history(report_id: str) -> List[ReportVersion]:

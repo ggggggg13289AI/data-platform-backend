@@ -166,12 +166,14 @@ class Report(models.Model):
 
     def to_dict(self):
         """Convert to dictionary for API response."""
+        from .report_service import ReportService
+        
         return {
             'uid': self.uid,
             'report_id': self.report_id,
             'title': self.title,
             'report_type': self.report_type,
-            'content_raw': self.content_raw[:500],  # Preview only
+            'content_raw': ReportService.safe_truncate(self.content_raw, 500),
             'version_number': self.version_number,
             'source_url': self.source_url,
             'created_at': self.created_at.isoformat() if self.created_at else None,

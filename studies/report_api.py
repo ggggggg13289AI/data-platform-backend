@@ -38,13 +38,13 @@ class ReportResponse(BaseModel):
     """Response schema for report retrieval."""
 
     uid: str
-    report_id: str
+    report_id: Optional[str] = None  # Can be NULL in database
     title: str
     report_type: str
     version_number: int
     is_latest: bool
     created_at: str
-    verified_at: Optional[str]
+    verified_at: Optional[str] = None
     content_preview: str  # First 500 chars
 
 
@@ -63,6 +63,12 @@ class ReportVersionResponse(BaseModel):
     verified_at: Optional[str]
     change_type: str
     change_description: str
+
+
+class ReportFilterOptionsResponse(BaseModel):
+    """Response schema for filter options."""
+
+    report_types: List[str]
 
 
 class ImportResponse(BaseModel):
@@ -146,7 +152,7 @@ def search_reports(
                 is_latest=r.is_latest,
                 created_at=r.created_at.isoformat(),
                 verified_at=r.verified_at.isoformat() if r.verified_at else None,
-                content_preview=r.content_raw[:500],
+                content_preview=ReportService.safe_truncate(r.content_raw, 500),
             )
             for r in results
         ]
@@ -183,7 +189,7 @@ def get_latest_reports(
                 is_latest=r.is_latest,
                 created_at=r.created_at.isoformat(),
                 verified_at=r.verified_at.isoformat() if r.verified_at else None,
-                content_preview=r.content_raw[:500],
+                content_preview=ReportService.safe_truncate(r.content_raw, 500),
             )
             for r in results
         ]
@@ -248,4 +254,32 @@ def get_report_versions(request, report_id: str):
 
     except Exception as e:
         logger.error(f'Versions fetch failed: {str(e)}')
+        raise
+
+
+@report_router.get('/options/filters', response=ReportFilterOptionsResponse)
+def get_filter_options(request):
+    """
+    Get available filter options for report search.
+
+    Returns distinct report types from the database.
+    Used by frontend to populate filter dropdowns.
+
+    Example: /api/v1/reports/options/filters
+    """
+    try:
+        # Get distinct report types from database
+        report_types = (
+            Report.objects
+            .values_list('report_type', flat=True)
+            .distinct()
+            .order_by('report_type')
+        )
+
+        return ReportFilterOptionsResponse(
+            report_types=list(report_types)
+        )
+
+    except Exception as e:
+        logger.error(f'Fetch filter options failed: {str(e)}')
         raise
