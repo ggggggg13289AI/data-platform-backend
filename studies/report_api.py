@@ -86,9 +86,8 @@ class PaginatedReportResponse(BaseModel):
 
     items: List[ReportResponse]
     total: int
-    limit: int
-    offset: int
     page: int
+    page_size: int
     pages: int
 
 
