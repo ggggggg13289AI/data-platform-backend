@@ -24,9 +24,8 @@ from ninja_jwt.tokens import RefreshToken
 from .auth_schemas import (
     CustomTokenObtainPairInputSchema,
     CustomTokenObtainPairOutSchema,
-    UserInfo,
 )
-from .schemas import StatusResponse, UserResponse
+from .schemas import StatusResponse, UserResponse, UserInfo
 
 logger = logging.getLogger(__name__)
 
