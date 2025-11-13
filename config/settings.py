@@ -38,13 +38,13 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'django.contrib.sessions.middleware.SessionMiddleware',  # MUST be before Auth and CSRF
     'django.middleware.common.CommonMiddleware',
-    'studies.middleware.RequestTimingMiddleware',  # Request timing logging
     'django.middleware.csrf.CsrfViewMiddleware',
+    'django.contrib.auth.middleware.AuthenticationMiddleware',  # MUST be after Session
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
+    'studies.middleware.RequestTimingMiddleware',  # Request timing logging
 ]
 
 # CORS configuration
