@@ -7,6 +7,7 @@ from django.shortcuts import get_object_or_404
 from ninja import Router, Schema
 from ninja.errors import HttpError
 from ninja.pagination import paginate
+from ninja_jwt.authentication import JWTAuth
 
 from .models import Project, ProjectMember, StudyProjectAssignment
 from .pagination import ProjectPagination
@@ -139,7 +140,7 @@ ASSIGNMENT_SORT_MAP = {
 VALID_MEMBER_ROLES = {choice[0] for choice in ProjectMember.ROLE_CHOICES}
 
 
-@router.get('/projects', response=List[ProjectListItem])
+@router.get('/projects', response=List[ProjectListItem], auth=JWTAuth())
 @paginate(ProjectPagination)
 def list_projects(
     request,
@@ -160,11 +161,10 @@ def list_projects(
     return queryset
 
 
-@router.post('/projects', response={201: ProjectDetailResponse})
+@router.post('/projects', response={201: ProjectDetailResponse}, auth=JWTAuth())
 def create_project(request, payload: CreateProjectRequest):
-    # Require authentication to create projects
-    if not request.user.is_authenticated:
-        raise HttpError(401, '未登入，無法建立專案 / Authentication required to create projects')
+    # JWT authentication ensures request.user is authenticated
+    # No additional authentication check needed
 
     project = ProjectService.create_project(
         name=payload.name,
@@ -394,7 +394,7 @@ def remove_member(request, project_id: str, user_id: str, project=None):
     return 204, None
 
 
-@router.put('/projects/{project_id}/members/{user_id}', response=MemberInfo)
+@router.put('/projects/{project_id}/members/{user_id}', response=MemberInfo, auth=JWTAuth())
 def update_member_role(request, project_id: str, user_id: str, payload: UpdateMemberRoleRequest):
     project = get_object_or_404(Project, id=project_id)
 
@@ -448,7 +448,7 @@ def get_statistics(request, project_id: str, project=None):
     return ProjectStatistics(**stats)
 
 
-@router.get('/projects/search', response=List[ProjectListItem])
+@router.get('/projects/search', response=List[ProjectListItem], auth=JWTAuth())
 @paginate(ProjectPagination)
 def search_projects(request, q: str = '', status: Optional[str] = None, tags: Optional[str] = None, created_by: Optional[str] = None, sort: str = ProjectService.DEFAULT_SORT):
     return ProjectService.get_projects_queryset(
@@ -461,7 +461,7 @@ def search_projects(request, q: str = '', status: Optional[str] = None, tags: Op
     )
 
 
-@router.get('/studies/{study_id}/projects', response=Dict[str, Any])
+@router.get('/studies/{study_id}/projects', response=Dict[str, Any], auth=JWTAuth())
 def get_study_projects(request, study_id: str):
     assignments = (
         StudyProjectAssignment.objects.filter(study_id=study_id)
@@ -489,8 +489,8 @@ def get_study_projects(request, study_id: str):
     }
 
 
-@router.post('/projects/batch-assign', response=Dict[str, Any])
-@router.post('/projects/batch-assign/', response=Dict[str, Any])
+@router.post('/projects/batch-assign', response=Dict[str, Any], auth=JWTAuth())
+@router.post('/projects/batch-assign/', response=Dict[str, Any], auth=JWTAuth())
 def batch_assign_studies(request, payload: BatchAssignRequest):
     results = []
     total_assignments = 0
