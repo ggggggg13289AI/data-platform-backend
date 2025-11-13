@@ -394,7 +394,7 @@ def get_report_detail(request, report_id: str):
     Retrieves the latest version of the report.
     """
     try:
-        report = Report.objects.get(pk=report_id, is_latest=True)
+        report = Report.objects.get(report_id=report_id, is_latest=True)
 
         return ReportDetailResponse(
             uid=report.uid,
