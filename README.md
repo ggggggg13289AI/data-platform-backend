@@ -20,7 +20,7 @@ This is a Django + PostgreSQL backend for the Medical Imaging Management System,
 ### 主要特色 / Key Features
 
 - ✅ **務實設計** / Pragmatic Design - 為實際需求而非理論完美
-- ✅ **扁平架構** / Flat Architecture - 單一資料表，無過度正規化
+- ✅ **扁平架構** / Flat Architecture - 單一資料表,無過度正規化
 - ✅ **Django Ninja** - FastAPI 風格的 Django REST 框架
 - ✅ **PostgreSQL** - 穩定可靠的關聯式資料庫
 - ✅ **完整測試** / Comprehensive Testing - 63 測試案例，~85% 覆蓋率
