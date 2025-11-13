@@ -119,7 +119,7 @@ class Report(models.Model):
     """
 
     # Unique identification
-    uid = models.CharField(max_length=32, primary_key=True, db_index=True)  # Original UID from scraper
+    uid = models.CharField(max_length=100, primary_key=True, db_index=True)  # Original UID from scraper (up to 56 chars from legacy DB)
     report_id = models.CharField(max_length=100, null=True, blank=True, db_index=True)  # Internal ID
 
     # Basic information
@@ -166,12 +166,14 @@ class Report(models.Model):
 
     def to_dict(self):
         """Convert to dictionary for API response."""
+        from .report_service import ReportService
+        
         return {
             'uid': self.uid,
             'report_id': self.report_id,
             'title': self.title,
             'report_type': self.report_type,
-            'content_raw': self.content_raw[:500],  # Preview only
+            'content_raw': ReportService.safe_truncate(self.content_raw, 500),
             'version_number': self.version_number,
             'source_url': self.source_url,
             'created_at': self.created_at.isoformat() if self.created_at else None,
@@ -278,3 +280,178 @@ class ReportSearchIndex(models.Model):
 
     def __str__(self):
         return f'Index: {self.report.report_id}'
+
+
+class ExportTask(models.Model):
+    """
+    匯出任務追蹤模型 - 追蹤批量匯出操作的狀態和進度。
+    
+    功能:
+    - 任務狀態追蹤 (pending, processing, completed, failed, cancelled)
+    - 匯出格式支援 (CSV, JSON, Excel, XML)
+    - 進度追蹤和文件管理
+    - 自動過期和清理
+    """
+    
+    STATUS_CHOICES = [
+        ('pending', '待處理'),
+        ('processing', '處理中'),
+        ('completed', '已完成'),
+        ('failed', '失敗'),
+        ('cancelled', '已取消'),
+    ]
+    
+    FORMAT_CHOICES = [
+        ('csv', 'CSV'),
+        ('json', 'JSON'),
+        ('xlsx', 'Excel'),
+        ('xml', 'XML'),
+    ]
+    
+    # 任務識別
+    task_id = models.CharField(
+        max_length=100,
+        primary_key=True,
+        db_index=True,
+        help_text='唯一任務標識'
+    )
+    
+    # 使用者信息
+    user_id = models.CharField(
+        max_length=100,
+        db_index=True,
+        help_text='創建用戶 ID'
+    )
+    
+    # 匯出參數
+    query_params = models.JSONField(
+        help_text='搜尋參數 (page_size, filters, sort, etc.)'
+    )
+    export_format = models.CharField(
+        max_length=20,
+        choices=FORMAT_CHOICES,
+        db_index=True,
+        help_text='匯出格式'
+    )
+    include_fields = models.JSONField(
+        null=True,
+        blank=True,
+        help_text='選定的匯出欄位清單'
+    )
+    
+    # 任務狀態
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pending',
+        db_index=True,
+        help_text='任務當前狀態'
+    )
+    
+    # 進度追蹤
+    total_records = models.IntegerField(
+        default=0,
+        help_text='需要匯出的總記錄數'
+    )
+    processed_records = models.IntegerField(
+        default=0,
+        help_text='已處理的記錄數'
+    )
+    
+    # 文件信息
+    file_path = models.CharField(
+        max_length=500,
+        null=True,
+        blank=True,
+        help_text='本地文件路徑'
+    )
+    file_url = models.URLField(
+        max_length=500,
+        null=True,
+        blank=True,
+        help_text='文件下載 URL'
+    )
+    file_size = models.BigIntegerField(
+        null=True,
+        blank=True,
+        help_text='文件大小 (bytes)'
+    )
+    
+    # 錯誤信息
+    error_message = models.TextField(
+        null=True,
+        blank=True,
+        help_text='失敗原因描述'
+    )
+    
+    # 時間追蹤
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        db_index=True,
+        help_text='任務創建時間'
+    )
+    started_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='處理開始時間'
+    )
+    completed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='處理完成時間'
+    )
+    expires_at = models.DateTimeField(
+        db_index=True,
+        help_text='文件過期時間'
+    )
+    
+    class Meta:
+        db_table = 'report_export_tasks'
+        ordering = ['-created_at']
+        verbose_name = '報告匯出任務'
+        verbose_name_plural = '報告匯出任務'
+        indexes = [
+            models.Index(fields=['user_id', '-created_at']),
+            models.Index(fields=['status', 'created_at']),
+            models.Index(fields=['expires_at']),
+            models.Index(fields=['export_format', '-created_at']),
+        ]
+    
+    def __str__(self):
+        return f'{self.task_id}: {self.export_format.upper()} ({self.status})'
+    
+    def get_progress_percent(self) -> int:
+        """計算匯出進度百分比。"""
+        if self.total_records == 0:
+            return 0
+        return int((self.processed_records / self.total_records) * 100)
+    
+    def get_status_display_zh(self) -> str:
+        """取得中文狀態描述。"""
+        status_map = {
+            'pending': '待處理',
+            'processing': '處理中',
+            'completed': '已完成',
+            'failed': '失敗',
+            'cancelled': '已取消',
+        }
+        return status_map.get(self.status, self.status)
+    
+    def to_dict(self):
+        """轉換為字典格式供 API 返回。"""
+        return {
+            'task_id': self.task_id,
+            'user_id': self.user_id,
+            'status': self.status,
+            'export_format': self.export_format,
+            'total_records': self.total_records,
+            'processed_records': self.processed_records,
+            'progress_percent': self.get_progress_percent(),
+            'file_url': self.file_url,
+            'file_size': self.file_size,
+            'error_message': self.error_message,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'started_at': self.started_at.isoformat() if self.started_at else None,
+            'completed_at': self.completed_at.isoformat() if self.completed_at else None,
+            'expires_at': self.expires_at.isoformat() if self.expires_at else None,
+        }

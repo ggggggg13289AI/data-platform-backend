@@ -38,13 +38,13 @@ class ReportResponse(BaseModel):
     """Response schema for report retrieval."""
 
     uid: str
-    report_id: str
+    report_id: Optional[str] = None  # Can be NULL in database
     title: str
     report_type: str
     version_number: int
     is_latest: bool
     created_at: str
-    verified_at: Optional[str]
+    verified_at: Optional[str] = None
     content_preview: str  # First 500 chars
 
 
@@ -65,6 +65,12 @@ class ReportVersionResponse(BaseModel):
     change_description: str
 
 
+class ReportFilterOptionsResponse(BaseModel):
+    """Response schema for filter options."""
+
+    report_types: List[str]
+
+
 class ImportResponse(BaseModel):
     """Response for import operation."""
 
@@ -73,6 +79,72 @@ class ImportResponse(BaseModel):
     is_new: bool
     action: str
     version_number: int
+
+
+class PaginatedReportResponse(BaseModel):
+    """Paginated response for report search results."""
+
+    items: List[ReportResponse]
+    total: int
+    page: int
+    page_size: int
+    pages: int
+
+
+class ReportPagination:
+    """
+    Pagination handler for report search results.
+    
+    Uses Page/PageSize model (1-indexed pages):
+    - page: Page number (1-indexed, default 1)
+    - page_size: Items per page (default 20, max 100)
+    
+    Works with Django QuerySets for efficient database queries.
+    """
+
+    def __init__(self, queryset, page: int = 1, page_size: int = 20):
+        """
+        Initialize pagination.
+        
+        Args:
+            queryset: Django QuerySet to paginate
+            page: Page number (1-indexed, minimum 1)
+            page_size: Number of items per page (1-100)
+        """
+        self.queryset = queryset
+        
+        # Validate and normalize parameters
+        self.page = max(page, 1)
+        self.page_size = max(min(page_size, 100), 1) if page_size > 0 else 20
+        
+        # Get total count (do this once)
+        self.total = self.queryset.count()
+        
+    def get_page_number(self) -> int:
+        """Current page number (1-indexed)."""
+        return self.page
+    
+    def get_total_pages(self) -> int:
+        """Calculate total number of pages."""
+        if self.page_size <= 0:
+            return 1
+        return (self.total + self.page_size - 1) // self.page_size
+    
+    def get_items(self):
+        """Get paginated items from queryset."""
+        offset = (self.page - 1) * self.page_size
+        end = offset + self.page_size
+        return self.queryset[offset:end]
+    
+    def get_response_data(self, items: List) -> dict:
+        """Get pagination response data."""
+        return {
+            'items': items,
+            'total': self.total,
+            'page': self.get_page_number(),
+            'page_size': self.page_size,
+            'pages': self.get_total_pages(),
+        }
 
 
 # Endpoints
@@ -119,22 +191,64 @@ def import_report(request, payload: ReportImportRequest):
 def search_reports(
     request,
     q: str = Query('', description='Search query'),
-    limit: int = Query(50, description='Result limit'),
+    limit: int = Query(50, description='Result limit (legacy endpoint - use /search/paginated instead)'),
+    report_type: Optional[str] = Query(None, description='Filter by report type'),
+    report_status: Optional[str] = Query(None, description='Filter by report status'),
+    report_format: Optional[str] = Query(None, description='Filter by report format (comma-separated)'),
+    date_from: Optional[str] = Query(None, description='Filter by date from (ISO format)'),
+    date_to: Optional[str] = Query(None, description='Filter by date to (ISO format)'),
+    sort: str = Query('verified_at_desc', description='Sort order: verified_at_desc, created_at_desc, title_asc'),
 ):
     """
-    Search reports by title and content.
+    Advanced search for reports with multiple filters.
+    
+    ⚠️ DEPRECATED: This endpoint uses legacy limit/offset pagination.
+    Please use /search/paginated with page/page_size model instead.
+    
+    Migration guide: See CLIENT_MIGRATION_GUIDE.md for details.
+    Legacy support will be removed in v2.0.0.
 
     Supports:
-    - Full-text search on title and processed content
-    - Efficient ranking by verification date
+    - Full-text search across 6 fields (report_id, uid, title, chr_no, mod, content_processed)
+    - Single-select filters (report_type, report_status)
+    - Multi-select filters (report_format as comma-separated values)
+    - Date range filtering (date_from, date_to)
+    - Flexible sorting options
 
-    Example: /api/v1/reports/search?q=covid&limit=20
+    Example: /api/v1/reports/search?q=covid&report_type=PDF&limit=20&sort=verified_at_desc
     """
     try:
+        # Log deprecation warning
+        logger.warning(
+            'DEPRECATED: /api/v1/reports/search endpoint is legacy. '
+            'Use /api/v1/reports/search/paginated with page/page_size model instead. '
+            'Legacy endpoint will be removed in v2.0.0. '
+            'See CLIENT_MIGRATION_GUIDE.md for migration details.'
+        )
+        
         if limit > 500:
             limit = 500
+        if limit < 1:
+            limit = 1
 
-        results = ReportService.search_reports(q, limit)
+        # Parse report_format if provided as comma-separated string
+        report_formats = []
+        if report_format:
+            report_formats = [f.strip() for f in report_format.split(',') if f.strip()]
+
+        # Get filtered queryset
+        queryset = ReportService.get_reports_queryset(
+            q=q if q else None,
+            report_type=report_type,
+            report_status=report_status,
+            report_format=report_formats if report_formats else None,
+            date_from=date_from,
+            date_to=date_to,
+            sort=sort,
+        )
+
+        # Apply limit
+        results = queryset[:limit]
 
         return [
             ReportResponse(
@@ -146,13 +260,92 @@ def search_reports(
                 is_latest=r.is_latest,
                 created_at=r.created_at.isoformat(),
                 verified_at=r.verified_at.isoformat() if r.verified_at else None,
-                content_preview=r.content_raw[:500],
+                content_preview=ReportService.safe_truncate(r.content_raw, 500),
             )
             for r in results
         ]
 
     except Exception as e:
         logger.error(f'Search failed: {str(e)}')
+        raise
+
+
+@report_router.get('/search/paginated', response=PaginatedReportResponse)
+def search_reports_paginated(
+    request,
+    q: str = Query('', description='Search query'),
+    page: int = Query(1, description='Page number (1-indexed, default 1)'),
+    page_size: int = Query(20, description='Items per page (max 100, default 20)'),
+    report_type: Optional[str] = Query(None, description='Filter by report type'),
+    report_status: Optional[str] = Query(None, description='Filter by report status'),
+    report_format: Optional[str] = Query(None, description='Filter by report format (comma-separated)'),
+    date_from: Optional[str] = Query(None, description='Filter by date from (ISO format)'),
+    date_to: Optional[str] = Query(None, description='Filter by date to (ISO format)'),
+    sort: str = Query('verified_at_desc', description='Sort order: verified_at_desc, created_at_desc, title_asc'),
+):
+    """
+    Advanced search for reports with proper pagination support.
+
+    Uses page/page_size pagination for consistent API experience.
+    Compatible with Studies API pagination model.
+
+    Supports:
+    - Full-text search across 6 fields
+    - Single-select and multi-select filters
+    - Date range filtering
+    - Flexible sorting
+    - Pagination metadata (page number, total pages, etc.)
+
+    Example: /api/v1/reports/search/paginated?q=covid&page=1&page_size=20
+    """
+    try:
+        # Validate pagination parameters
+        page = max(page, 1)
+        page_size = max(min(page_size, 100), 1)
+
+        # Parse report_format if provided
+        report_formats = []
+        if report_format:
+            report_formats = [f.strip() for f in report_format.split(',') if f.strip()]
+
+        # Get filtered queryset
+        queryset = ReportService.get_reports_queryset(
+            q=q if q else None,
+            report_type=report_type,
+            report_status=report_status,
+            report_format=report_formats if report_formats else None,
+            date_from=date_from,
+            date_to=date_to,
+            sort=sort,
+        )
+
+        # Apply pagination
+        paginator = ReportPagination(queryset, page=page, page_size=page_size)
+        items = paginator.get_items()
+
+        # Convert to response objects
+        report_items = [
+            ReportResponse(
+                uid=r.uid,
+                report_id=r.report_id,
+                title=r.title,
+                report_type=r.report_type,
+                version_number=r.version_number,
+                is_latest=r.is_latest,
+                created_at=r.created_at.isoformat(),
+                verified_at=r.verified_at.isoformat() if r.verified_at else None,
+                content_preview=ReportService.safe_truncate(r.content_raw, 500),
+            )
+            for r in items
+        ]
+
+        # Get pagination metadata
+        page_data = paginator.get_response_data(report_items)
+
+        return PaginatedReportResponse(**page_data)
+
+    except Exception as e:
+        logger.error(f'Paginated search failed: {str(e)}')
         raise
 
 
@@ -183,7 +376,7 @@ def get_latest_reports(
                 is_latest=r.is_latest,
                 created_at=r.created_at.isoformat(),
                 verified_at=r.verified_at.isoformat() if r.verified_at else None,
-                content_preview=r.content_raw[:500],
+                content_preview=ReportService.safe_truncate(r.content_raw, 500),
             )
             for r in results
         ]
@@ -248,4 +441,27 @@ def get_report_versions(request, report_id: str):
 
     except Exception as e:
         logger.error(f'Versions fetch failed: {str(e)}')
+        raise
+
+
+@report_router.get('/options/filters', response=ReportFilterOptionsResponse)
+def get_filter_options(request):
+    """
+    Get available filter options for report search.
+
+    Returns distinct report types from the database with Redis caching.
+    Used by frontend to populate filter dropdowns.
+
+    Example: /api/v1/reports/options/filters
+    """
+    try:
+        # Call service method which handles caching
+        filter_options = ReportService.get_filter_options()
+
+        return ReportFilterOptionsResponse(
+            report_types=filter_options.get('report_types', [])
+        )
+
+    except Exception as e:
+        logger.error(f'Fetch filter options failed: {str(e)}')
         raise
