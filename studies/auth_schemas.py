@@ -8,7 +8,7 @@ instead of the default 'access' and 'refresh' to match frontend expectations.
 from typing import Dict, Optional, Type
 from ninja import Schema
 from ninja_jwt.schema import TokenObtainInputSchemaBase
-from ninja_jwt.tokens import RefreshToken
+from ninja_jwt.tokens import RefreshToken, AccessToken
 
 
 class UserInfo(Schema):
@@ -61,11 +61,12 @@ class CustomTokenObtainPairInputSchema(TokenObtainInputSchemaBase):
             Dict with access_token, refresh_token, user info, status, and message
         """
         # Generate refresh token (which contains access token)
-        refresh = RefreshToken.for_user(user)
+        access_token = AccessToken.for_user(user)
+        refresh_token = RefreshToken.for_user(user)
 
         return {
-            'access_token': str(refresh.access_token),  # Renamed for frontend
-            'refresh_token': str(refresh),  # Renamed for frontend
+            'access_token': str(access_token),  # Renamed for frontend
+            'refresh_token': str(refresh_token),  # Renamed for frontend
             'user': {
                 'id': user.id,
                 'username': user.username,
