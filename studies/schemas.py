@@ -117,3 +117,57 @@ class StudySearchRequest(BaseModel):
     page: int = Field(1, ge=1, description='Page number')
     page_size: int = Field(20, ge=1, le=100, description='Items per page')
     sort: str = Field('order_datetime_desc', description='Sort order')
+
+
+# ============================================================================
+# Authentication Schemas
+# ============================================================================
+
+class LoginRequest(BaseModel):
+    """Login request schema.
+
+    Used for POST /api/v1/auth/login endpoint.
+    """
+    username: str = Field(..., min_length=1, max_length=150, description='Username')
+    password: str = Field(..., min_length=1, description='Password')
+
+
+class UserInfo(BaseModel):
+    """User information schema.
+
+    Returned after successful authentication or when fetching current user.
+    """
+    id: int
+    username: str
+    email: str
+    first_name: str = ""
+    last_name: str = ""
+
+
+class AuthResponse(BaseModel):
+    """Authentication response with user information.
+
+    Used for login endpoint responses.
+    """
+    status: str  # "success" | "error"
+    message: str
+    user: Optional[UserInfo] = None
+
+
+class UserResponse(BaseModel):
+    """Current user information response.
+
+    Used for /auth/me endpoint.
+    """
+    status: str  # "success" | "error"
+    user: Optional[UserInfo] = None
+    message: Optional[str] = None
+
+
+class StatusResponse(BaseModel):
+    """Simple status response.
+
+    Used for logout and other status-only endpoints.
+    """
+    status: str  # "success" | "error"
+    message: str

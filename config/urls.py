@@ -11,6 +11,8 @@ from django.conf import settings
 from django.conf.urls.static import static
 from studies.api import router as studies_router
 from studies.report_api import report_router
+from studies.project_api import router as project_router
+from studies.auth_api import auth_router
 
 # Create Ninja API
 api = NinjaAPI(
@@ -22,6 +24,8 @@ api = NinjaAPI(
 # Include routers with prefixes
 api.add_router('/studies', studies_router, tags=['studies'])
 api.add_router('/reports', report_router, tags=['reports'])
+api.add_router('/auth', auth_router, tags=['authentication'])
+api.add_router('', project_router)
 
 # Health check endpoint
 @api.get('/health')
