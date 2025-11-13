@@ -490,7 +490,6 @@ def get_study_projects(request, study_id: str):
 
 
 @router.post('/projects/batch-assign', response=Dict[str, Any], auth=JWTAuth())
-@router.post('/projects/batch-assign/', response=Dict[str, Any], auth=JWTAuth())
 def batch_assign_studies(request, payload: BatchAssignRequest):
     results = []
     total_assignments = 0
