@@ -1,26 +1,31 @@
 """
-Authentication API endpoints.
+Authentication API endpoints with JWT token authentication.
 
 Provides user authentication functionality:
-- POST /auth/login - User login with username/password
-- POST /auth/logout - User logout
-- GET /auth/me - Get current authenticated user information
+- POST /auth/login - User login returning JWT tokens
+- POST /auth/logout - User logout (token invalidation)
+- GET /auth/me - Get current authenticated user via JWT
+- POST /auth/refresh - Refresh access token
 
-Uses Django Session-based authentication for security.
+Uses JWT (JSON Web Tokens) for stateless authentication.
 """
 
-from ninja import Router, Form
-from django.contrib.auth import authenticate, login, logout
+from ninja import Router
+from ninja.errors import HttpError
+from django.contrib.auth import authenticate
 from django.http import HttpRequest
 import logging
 
-from .schemas import (
-    LoginRequest,
-    AuthResponse,
-    UserResponse,
-    StatusResponse,
+from ninja_jwt.authentication import JWTAuth
+from ninja_jwt.schema import TokenRefreshInputSchema, TokenRefreshOutputSchema
+from ninja_jwt.tokens import RefreshToken
+
+from .auth_schemas import (
+    CustomTokenObtainPairInputSchema,
+    CustomTokenObtainPairOutSchema,
     UserInfo,
 )
+from .schemas import StatusResponse, UserResponse
 
 logger = logging.getLogger(__name__)
 
@@ -28,118 +33,154 @@ logger = logging.getLogger(__name__)
 auth_router = Router()
 
 
-@auth_router.post('/login', response=AuthResponse)
-def user_login(
-    request: HttpRequest,
-    username: str = Form(...),
-    password: str = Form(...),
-):
+@auth_router.post('/login', response=CustomTokenObtainPairOutSchema)
+def user_login(request: HttpRequest, credentials: CustomTokenObtainPairInputSchema):
     """
-    User login endpoint.
+    JWT login endpoint.
 
-    Authenticates user with username and password, creates session on success.
+    Authenticates user with username and password, returns JWT access and refresh tokens.
 
     Args:
         request: Django HTTP request object
-        username: User's username (form data)
-        password: User's password (form data)
+        credentials: Login credentials (username, password)
 
     Returns:
-        AuthResponse with user information on success
+        CustomTokenObtainPairOutSchema with tokens and user info
 
     Status Codes:
         200: Login successful
         401: Invalid credentials
+        500: Server error
 
     Example:
         POST /api/v1/auth/login
-        Form Data: username=user&password=user
+        Content-Type: application/json
+
+        {
+            "username": "user",
+            "password": "password"
+        }
 
         Response:
         {
-            "status": "success",
-            "message": "登入成功 / Login successful",
+            "access_token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+            "refresh_token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
             "user": {
                 "id": 1,
                 "username": "user",
                 "email": "user@example.com",
                 "first_name": "John",
                 "last_name": "Doe"
-            }
+            },
+            "status": "success",
+            "message": "登入成功 / Login successful"
         }
     """
     try:
-        # Authenticate user
-        user = authenticate(request, username=username, password=password)
-
-        if user is not None:
-            # Authentication successful - create session
-            login(request, user)
-
-            logger.info(f'User login successful: {username}')
-
-            return AuthResponse(
-                status='success',
-                message='登入成功 / Login successful',
-                user=UserInfo(
-                    id=user.id,
-                    username=user.username,
-                    email=user.email,
-                    first_name=user.first_name,
-                    last_name=user.last_name,
-                ),
-            )
-        else:
-            # Authentication failed
-            logger.warning(f'Login failed for user: {username}')
-
-            return AuthResponse(
-                status='error',
-                message='帳號或密碼錯誤 / Invalid username or password',
-                user=None,
-            )
-
-    except Exception as e:
-        logger.error(f'Login error: {str(e)}')
-        return AuthResponse(
-            status='error',
-            message='登入失敗，請稍後再試 / Login failed, please try again',
-            user=None,
+        # Authenticate user using Django's authenticate
+        user = authenticate(
+            request,
+            username=credentials.username,
+            password=credentials.password,
         )
 
+        if user is not None:
+            logger.info(f'User login successful: {credentials.username}')
 
-@auth_router.post('/logout', response=StatusResponse)
-def user_logout(request: HttpRequest):
+            # Set authenticated user for token generation
+            credentials._user = user
+
+            # Generate tokens and return response
+            return credentials.to_response_schema()
+        else:
+            logger.warning(f'Login failed for user: {credentials.username}')
+            raise HttpError(401, '帳號或密碼錯誤 / Invalid username or password')
+
+    except HttpError:
+        raise
+    except Exception as e:
+        logger.error(f'Login error: {str(e)}')
+        raise HttpError(500, '登入失敗，請稍後再試 / Login failed, please try again')
+
+
+@auth_router.post('/refresh', response=TokenRefreshOutputSchema)
+def refresh_token(request: HttpRequest, refresh_data: TokenRefreshInputSchema):
     """
-    User logout endpoint.
+    Refresh access token using refresh token.
 
-    Logs out the current user and destroys the session.
+    Generates a new access token from a valid refresh token.
 
     Args:
         request: Django HTTP request object
+        refresh_data: Refresh token data
+
+    Returns:
+        TokenRefreshOutputSchema with new access token
+
+    Status Codes:
+        200: Token refreshed successfully
+        401: Invalid or expired refresh token
+
+    Example:
+        POST /api/v1/auth/refresh
+        Content-Type: application/json
+
+        {
+            "refresh": "eyJ0eXAiOiJKV1Qi..."
+        }
+
+        Response:
+        {
+            "access": "eyJ0eXAiOiJKV1Qi..."
+        }
+
+    Note:
+        Frontend should replace the old access_token with the new one.
+    """
+    return refresh_data.to_response_schema()
+
+
+@auth_router.post('/logout', response=StatusResponse, auth=JWTAuth())
+def user_logout(request: HttpRequest):
+    """
+    JWT logout endpoint.
+
+    Logs out user by marking token for client-side deletion.
+    With JWT, logout is primarily handled client-side (delete tokens).
+
+    Args:
+        request: Django HTTP request object with JWT authentication
 
     Returns:
         StatusResponse indicating logout success
 
     Status Codes:
         200: Logout successful
+        401: Not authenticated
 
     Example:
         POST /api/v1/auth/logout
+        Authorization: Bearer eyJ0eXAiOiJKV1Qi...
 
         Response:
         {
             "status": "success",
             "message": "登出成功 / Logout successful"
         }
+
+    Note:
+        Frontend should delete access_token and refresh_token from storage.
+        Optional: Backend can blacklist refresh token if provided.
     """
     try:
-        username = request.user.username if request.user.is_authenticated else 'anonymous'
+        # Get username from JWT auth
+        username = (
+            request.auth.username if hasattr(request.auth, 'username') else 'unknown'
+        )
+        logger.info(f'User logout: {username}')
 
-        # Logout user and clear session
-        logout(request)
-
-        logger.info(f'User logout successful: {username}')
+        # Note: With JWT, logout is primarily client-side
+        # Token blacklisting can be added here if needed
 
         return StatusResponse(
             status='success',
@@ -154,25 +195,26 @@ def user_logout(request: HttpRequest):
         )
 
 
-@auth_router.get('/me', response=UserResponse)
+@auth_router.get('/me', response=UserResponse, auth=JWTAuth())
 def get_current_user(request: HttpRequest):
     """
-    Get current authenticated user information.
+    Get current authenticated user via JWT.
 
-    Returns information about the currently logged-in user.
+    Returns information about the currently authenticated user based on JWT token.
 
     Args:
-        request: Django HTTP request object
+        request: Django HTTP request object with JWT authentication
 
     Returns:
-        UserResponse with current user information or error
+        UserResponse with current user information
 
     Status Codes:
         200: User information retrieved successfully
-        401: Not authenticated
+        401: Not authenticated or invalid token
 
-    Example (authenticated):
+    Example:
         GET /api/v1/auth/me
+        Authorization: Bearer eyJ0eXAiOiJKV1Qi...
 
         Response:
         {
@@ -186,39 +228,25 @@ def get_current_user(request: HttpRequest):
             }
         }
 
-    Example (not authenticated):
-        GET /api/v1/auth/me
-
-        Response:
-        {
-            "status": "error",
-            "message": "未登入 / Not authenticated",
-            "user": null
-        }
+    Note:
+        JWT authentication is required. If token is invalid or missing,
+        returns 401 error automatically.
     """
     try:
-        if request.user.is_authenticated:
-            # User is authenticated - return user information
-            user = request.user
+        # request.auth is automatically populated by JWTAuth
+        user = request.auth
 
-            return UserResponse(
-                status='success',
-                user=UserInfo(
-                    id=user.id,
-                    username=user.username,
-                    email=user.email,
-                    first_name=user.first_name,
-                    last_name=user.last_name,
-                ),
-                message=None,
-            )
-        else:
-            # User not authenticated
-            return UserResponse(
-                status='error',
-                user=None,
-                message='未登入 / Not authenticated',
-            )
+        return UserResponse(
+            status='success',
+            user=UserInfo(
+                id=user.id,
+                username=user.username,
+                email=user.email,
+                first_name=user.first_name,
+                last_name=user.last_name,
+            ),
+            message=None,
+        )
 
     except Exception as e:
         logger.error(f'Get current user error: {str(e)}')
