@@ -32,6 +32,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'studies',  # Single app for all endpoints
     'corsheaders',
+    'ninja_jwt',  # JWT authentication for Django Ninja
+    'ninja_jwt.token_blacklist',  # Token blacklist for logout
 ]
 
 # Middleware
@@ -177,3 +179,38 @@ LOGGING = {
 API_V1_STR = '/api/v1'
 APP_NAME = '医疗影像管理系统'  # Medical Imaging Management System
 APP_VERSION = '1.0.0'
+
+# JWT Configuration
+from datetime import timedelta
+
+NINJA_JWT = {
+    # Token Lifetimes
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),  # 1 hour access token
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),  # 7 days refresh token
+    'ROTATE_REFRESH_TOKENS': True,  # Issue new refresh token on refresh
+    'BLACKLIST_AFTER_ROTATION': True,  # Blacklist old refresh tokens for security
+    'UPDATE_LAST_LOGIN': True,  # Update User.last_login field on authentication
+
+    # Token Configuration
+    'ALGORITHM': 'HS256',  # HMAC using SHA-256
+    'SIGNING_KEY': SECRET_KEY,  # Use Django's SECRET_KEY for signing
+    'VERIFYING_KEY': None,  # Not needed for symmetric algorithm
+    'AUDIENCE': None,
+    'ISSUER': None,
+
+    # Authentication Header
+    'AUTH_HEADER_TYPES': ('Bearer',),  # Frontend sends "Authorization: Bearer <token>"
+    'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
+    'USER_ID_FIELD': 'id',  # User model primary key field
+    'USER_ID_CLAIM': 'user_id',  # JWT claim for user ID
+
+    # Token Claims
+    'AUTH_TOKEN_CLASSES': ('ninja_jwt.tokens.AccessToken',),
+    'TOKEN_TYPE_CLAIM': 'token_type',
+    'JTI_CLAIM': 'jti',  # JWT ID claim for token tracking
+
+    # Sliding Tokens (optional, disabled by default)
+    'SLIDING_TOKEN_REFRESH_EXP_CLAIM': 'refresh_exp',
+    'SLIDING_TOKEN_LIFETIME': timedelta(minutes=5),
+    'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=1),
+}
