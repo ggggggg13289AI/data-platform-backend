@@ -10,11 +10,12 @@ Provides user authentication functionality:
 Uses JWT (JSON Web Tokens) for stateless authentication.
 """
 
-from ninja import Router
+from ninja import Router, Form
 from ninja.errors import HttpError
 from django.contrib.auth import authenticate
 from django.http import HttpRequest
 import logging
+from typing import Optional
 
 from ninja_jwt.authentication import JWTAuth
 from ninja_jwt.schema import TokenRefreshInputSchema, TokenRefreshOutputSchema
@@ -34,34 +35,41 @@ auth_router = Router()
 
 
 @auth_router.post('/login', response=CustomTokenObtainPairOutSchema)
-def user_login(request: HttpRequest, credentials: CustomTokenObtainPairInputSchema):
+def user_login(
+    request: HttpRequest,
+    username: Form[str],
+    password: Form[str],
+):
     """
-    JWT login endpoint.
+    JWT login endpoint - Accepts form-data only.
 
     Authenticates user with username and password, returns JWT access and refresh tokens.
 
+    Supports content types:
+    - application/x-www-form-urlencoded
+    - multipart/form-data
+
     Args:
         request: Django HTTP request object
-        credentials: Login credentials (username, password)
+        username: Username from form data (required)
+        password: Password from form data (required)
 
     Returns:
         CustomTokenObtainPairOutSchema with tokens and user info
 
     Status Codes:
         200: Login successful
+        400: Missing credentials
         401: Invalid credentials
         500: Server error
 
-    Example:
+    Example (Form Data):
         POST /api/v1/auth/login
-        Content-Type: application/json
+        Content-Type: application/x-www-form-urlencoded
 
-        {
-            "username": "user",
-            "password": "password"
-        }
+        username=user&password=user
 
-        Response:
+    Response:
         {
             "access_token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
             "refresh_token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
@@ -77,23 +85,30 @@ def user_login(request: HttpRequest, credentials: CustomTokenObtainPairInputSche
         }
     """
     try:
+        # Validate form data
+        if not username or not password:
+            logger.warning('Login failed: Missing username or password')
+            raise HttpError(400, '請提供用戶名和密碼 / Username and password required')
+
+        logger.info(f'Login attempt for user: {username}')
+
         # Authenticate user using Django's authenticate
         user = authenticate(
             request,
-            username=credentials.username,
-            password=credentials.password,
+            username=username,
+            password=password,
         )
 
         if user is not None:
-            logger.info(f'User login successful: {credentials.username}')
+            logger.info(f'User login successful: {username}')
 
-            # Set authenticated user for token generation
-            credentials._user = user
+            # Generate JWT tokens and user info directly
+            token_data = CustomTokenObtainPairInputSchema.get_token(user)
 
-            # Generate tokens and return response
-            return credentials.to_response_schema()
+            # Return the complete token response
+            return CustomTokenObtainPairOutSchema(**token_data)
         else:
-            logger.warning(f'Login failed for user: {credentials.username}')
+            logger.warning(f'Login failed for user: {username}')
             raise HttpError(401, '帳號或密碼錯誤 / Invalid username or password')
 
     except HttpError:
