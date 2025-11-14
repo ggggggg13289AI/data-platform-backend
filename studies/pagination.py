@@ -85,6 +85,8 @@ class StudyPagination(PaginationBase):
         the service layer to apply LIMIT/OFFSET at database level, avoiding
         the need to fetch all rows into memory before slicing.
 
+        REFACTORED: Now uses BasePaginationHelper to eliminate code duplication (DEBT-004).
+
         Args:
             queryset: Django QuerySet to paginate (already paginated if RawQuerySet)
             pagination: Input parameters (page, page_size)
@@ -93,64 +95,16 @@ class StudyPagination(PaginationBase):
         Returns:
             Dictionary with paginated items and metadata
         """
-        # Get total count before pagination
-        # Handle RawQuerySet (from raw SQL) vs regular QuerySet
-        if hasattr(queryset, 'count'):
-            # Regular QuerySet has count() method
-            total_count = queryset.count()
-        else:
-            # RawQuerySet doesn't support count()
-            # Need to execute a separate COUNT query with same WHERE clause
-            # Extract raw_query and params from RawQuerySet
-            try:
-                # Access the raw SQL and params from RawQuerySet
-                raw_sql = queryset.raw_query
-                query_params = queryset.params or []
+        from .base_pagination import BasePaginationHelper, QuerySetCounter, QuerySetSlicer
 
-                # Convert SELECT * to SELECT COUNT(*)
-                # Find the position after FROM clause
-                count_sql = raw_sql.replace('SELECT *', 'SELECT COUNT(*)', 1)
-                # Remove ORDER BY and LIMIT for count query (optimization)
-                if 'ORDER BY' in count_sql:
-                    count_sql = count_sql[:count_sql.index('ORDER BY')]
-                if 'LIMIT' in count_sql:
-                    count_sql = count_sql[:count_sql.index('LIMIT')]
-
-                with connection.cursor() as cursor:
-                    # For COUNT query, we only need params up to the WHERE clause
-                    # If LIMIT/OFFSET were added, we need to exclude those params
-                    # The service layer adds [limit, offset] at the end if pagination applied
-                    count_params = query_params
-                    if 'LIMIT' in raw_sql:
-                        # Remove last 2 params (limit and offset)
-                        count_params = query_params[:-2] if len(query_params) >= 2 else query_params
-
-                    cursor.execute(count_sql, count_params)
-                    total_count = cursor.fetchone()[0]
-            except (AttributeError, Exception):
-                # Fallback: count by iterating (less efficient but works)
-                total_count = len(list(queryset))
-
-        # Extract page and page_size from pagination input
-        page = pagination.page
-        page_size = pagination.page_size
-
-        # Validate pagination parameters
-        if page < 1:
-            page = 1
-        if page_size < 1 or page_size > 100:
-            page_size = 20
-
-        # PERFORMANCE FIX: For RawQuerySet, don't slice here
-        # The service layer already applied LIMIT/OFFSET at database level
-        # Just iterate over the queryset which will only contain requested rows
-        if hasattr(queryset, 'raw_query'):
-            # RawQuerySet - already paginated by service layer
-            paginated_items = list(queryset)
-        else:
-            # Regular QuerySet - apply Python-level slicing
-            offset = (page - 1) * page_size
-            paginated_items = queryset[offset : offset + page_size]
+        # Use shared validation and pagination logic (DEBT-004 refactoring)
+        page, page_size, total_count, offset, paginated_items = (
+            BasePaginationHelper.validate_and_paginate(
+                queryset,
+                pagination.page,
+                pagination.page_size,
+            )
+        )
 
         # Convert queryset to list of dicts for schema conversion
         items = [item.to_dict() for item in paginated_items]
@@ -181,7 +135,11 @@ class ProjectPaginationOutput(BaseModel):
 
 
 class ProjectPagination(PaginationBase):
-    """Pagination helper for project endpoints."""
+    """
+    Pagination helper for project endpoints.
+
+    REFACTORED: Now uses BasePaginationHelper to eliminate code duplication (DEBT-004).
+    """
 
     class Input(ProjectPaginationInput):
         pass
@@ -196,22 +154,24 @@ class ProjectPagination(PaginationBase):
         **params: Any,
     ) -> Dict[str, Any]:
         from .permissions import ProjectPermissions  # Local import to avoid circular deps
+        from .base_pagination import BasePaginationHelper
 
         request = params.get('request')
         user = getattr(request, 'user', None)
 
-        total_count = self._get_total_count(queryset)
+        # Use shared validation and pagination logic (DEBT-004 refactoring)
+        page, page_size, total_count, offset, paginated_projects = (
+            BasePaginationHelper.validate_and_paginate(
+                queryset,
+                pagination.page,
+                pagination.page_size,
+            )
+        )
 
-        page = max(1, pagination.page)
-        page_size = pagination.page_size
-        if page_size < 1 or page_size > 100:
-            page_size = 20
-
-        offset = (page - 1) * page_size
-        paginated_projects = self._slice(queryset, offset, page_size)
-
+        # Build response items with project-specific logic
         items = []
         if paginated_projects and hasattr(paginated_projects[0], 'study'):
+            # Handle project assignments
             for assignment in paginated_projects:
                 study = assignment.study
                 assigned_by = assignment.assigned_by
@@ -230,6 +190,7 @@ class ProjectPagination(PaginationBase):
                     }
                 )
         else:
+            # Handle projects
             for project in paginated_projects:
                 member_count = getattr(project, 'member_count', None)
                 if member_count is None:
@@ -245,20 +206,3 @@ class ProjectPagination(PaginationBase):
             'items': items,
             'count': total_count,
         }
-
-    @staticmethod
-    def _get_total_count(data: Any) -> int:
-        if hasattr(data, 'count'):
-            try:
-                return data.count()
-            except TypeError:
-                pass
-        if isinstance(data, list):
-            return len(data)
-        return len(list(data))
-
-    @staticmethod
-    def _slice(data: Any, offset: int, limit: int) -> List[Any]:
-        if isinstance(data, list):
-            return data[offset: offset + limit]
-        return list(data[offset: offset + limit])

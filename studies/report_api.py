@@ -94,48 +94,52 @@ class PaginatedReportResponse(BaseModel):
 class ReportPagination:
     """
     Pagination handler for report search results.
-    
+
     Uses Page/PageSize model (1-indexed pages):
     - page: Page number (1-indexed, default 1)
     - page_size: Items per page (default 20, max 100)
-    
+
     Works with Django QuerySets for efficient database queries.
+
+    REFACTORED: Now uses BasePaginationHelper to eliminate code duplication (DEBT-004).
     """
 
     def __init__(self, queryset, page: int = 1, page_size: int = 20):
         """
         Initialize pagination.
-        
+
         Args:
             queryset: Django QuerySet to paginate
             page: Page number (1-indexed, minimum 1)
             page_size: Number of items per page (1-100)
         """
+        from .base_pagination import BasePaginationHelper
+
         self.queryset = queryset
-        
-        # Validate and normalize parameters
-        self.page = max(page, 1)
-        self.page_size = max(min(page_size, 100), 1) if page_size > 0 else 20
-        
-        # Get total count (do this once)
-        self.total = self.queryset.count()
-        
+
+        # Use shared validation logic (DEBT-004 refactoring)
+        self.page, self.page_size, self.total, self.offset, _ = (
+            BasePaginationHelper.validate_and_paginate(
+                queryset,
+                page,
+                page_size,
+            )
+        )
+
     def get_page_number(self) -> int:
         """Current page number (1-indexed)."""
         return self.page
-    
+
     def get_total_pages(self) -> int:
         """Calculate total number of pages."""
-        if self.page_size <= 0:
-            return 1
-        return (self.total + self.page_size - 1) // self.page_size
-    
+        from .base_pagination import BasePaginationHelper
+        return BasePaginationHelper.calculate_total_pages(self.total, self.page_size)
+
     def get_items(self):
         """Get paginated items from queryset."""
-        offset = (self.page - 1) * self.page_size
-        end = offset + self.page_size
-        return self.queryset[offset:end]
-    
+        from .base_pagination import QuerySetSlicer
+        return QuerySetSlicer.slice(self.queryset, self.offset, self.page_size)
+
     def get_response_data(self, items: List) -> dict:
         """Get pagination response data."""
         return {
