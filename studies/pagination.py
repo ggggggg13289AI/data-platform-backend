@@ -262,3 +262,99 @@ class ProjectPagination(PaginationBase):
         if isinstance(data, list):
             return data[offset: offset + limit]
         return list(data[offset: offset + limit])
+
+
+class ReportPaginationInput(BaseModel):
+    """Input parameters for report pagination."""
+    page: int = 1
+    page_size: int = 20
+
+
+class ReportPaginationOutput(BaseModel):
+    """Output format for paginated report responses."""
+    items: List[Any]  # List of ReportResponse dictionaries
+    total: int        # Total number of items
+    page: int         # Current page number
+    page_size: int    # Items per page
+    pages: int        # Total number of pages
+
+
+class ReportPagination(PaginationBase):
+    """
+    Pagination for reports endpoint.
+
+    Uses page/page_size model (1-indexed pages):
+    - page: Page number (1-indexed, default 1)
+    - page_size: Items per page (default 20, max 100)
+
+    Works with Django QuerySets for efficient database queries.
+    """
+
+    class Input(ReportPaginationInput):
+        """Input parameters for pagination."""
+        pass
+
+    class Output(ReportPaginationOutput):
+        """Output format for paginated responses."""
+        pass
+
+    def paginate_queryset(
+        self,
+        queryset: QuerySet,
+        pagination: Input,
+        **params: Any
+    ) -> Dict[str, Any]:
+        """
+        Paginate the queryset and return formatted output.
+
+        Args:
+            queryset: Django QuerySet to paginate
+            pagination: Input parameters (page, page_size)
+            **params: Additional parameters from the request
+
+        Returns:
+            Dictionary with paginated items and metadata
+        """
+        from .base_pagination import BasePaginationHelper
+        from .report_service import ReportService
+
+        # Use shared validation and pagination logic
+        page, page_size, total_count, offset, paginated_items = (
+            BasePaginationHelper.validate_and_paginate(
+                queryset,
+                pagination.page,
+                pagination.page_size,
+            )
+        )
+
+        # Convert queryset to list of ReportResponse dicts
+        from .report_api import ReportResponse
+
+        items = [
+            {
+                'uid': r.uid,
+                'report_id': r.report_id,
+                'title': r.title,
+                'report_type': r.report_type,
+                'version_number': r.version_number,
+                'is_latest': r.is_latest,
+                'created_at': r.created_at.isoformat(),
+                'verified_at': r.verified_at.isoformat() if r.verified_at else None,
+                'content_preview': ReportService.safe_truncate(r.content_raw, 500),
+            }
+            for r in paginated_items
+        ]
+
+        # Calculate total pages
+        total_pages = BasePaginationHelper.calculate_total_pages(
+            total_count, page_size
+        )
+
+        # Return as dictionary for Django Ninja compatibility
+        return {
+            'items': items,
+            'total': total_count,
+            'page': page,
+            'page_size': page_size,
+            'pages': total_pages,
+        }
