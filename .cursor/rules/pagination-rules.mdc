@@ -1,0 +1,23 @@
+---
+description: 分頁統一規則（page/page_size，與各模組回應形狀）
+globs: "studies/pagination.py", "studies/*_api.py"
+priority: critical
+category: pagination
+alwaysApply: true
+---
+
+# 分頁統一規則（v1.1.0）
+
+## 參數
+- `page`（>=1，預設 1）
+- `page_size`（1..100，預設 20，超過自動夾限為 100）
+- `offset = (page - 1) * page_size`
+
+## 回應形狀
+- Reports：`{ items, total, page, page_size, pages }`
+- Studies：`{ items, count, filters }`（契約需求：含 `filters`）
+- Projects：`{ items, count }`
+
+## 落地規則
+- Service 層應在 DB 端套用 `LIMIT/OFFSET`（RawQuerySet 或 ORM 切片）
+- 舊制 `limit/offset` 僅作相容支援（將於 v2.0.0 移除）

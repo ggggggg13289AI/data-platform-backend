@@ -1,0 +1,23 @@
+---
+description: 專案工作流程與依賴管理（優先使用 uv）
+globs: "pyproject.toml", "uv.lock", "Makefile", "README.md"
+priority: high
+category: project-management
+alwaysApply: true
+---
+
+# 開發工作流程（uv 優先）
+
+## 依賴管理
+- 安裝：`uv sync --dev`
+- 新增依賴：`uv add <package>`（開發：`uv add --dev <package>`）
+- 鎖檔：`uv lock`；請提交 `uv.lock`
+
+## 執行命令
+- 伺服器：`uv run python manage.py runserver 8001`
+- 遷移：`uv run python manage.py makemigrations && uv run python manage.py migrate`
+- 測試：`uv run python manage.py test`
+
+## 注意
+- 若文件示例出現 `pip install`，僅作參考；新增依賴請改用 `uv add`
+- 優先沿用 `CLAUDE.md` 與 `Makefile` 中既有命令別名
