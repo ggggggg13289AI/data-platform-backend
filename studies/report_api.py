@@ -83,7 +83,6 @@ class ImportResponse(BaseModel):
     version_number: int
 
 
-
 # Endpoints
 @report_router.post('/import', response=ImportResponse)
 def import_report(request, payload: ReportImportRequest):
@@ -125,13 +124,13 @@ def import_report(request, payload: ReportImportRequest):
 
 
 def _get_report_search_queryset(
-    q: str,
-    report_type: Optional[str],
-    report_status: Optional[str],
-    report_format: Optional[str],
-    date_from: Optional[str],
-    date_to: Optional[str],
-    sort: str,
+        q: str,
+        report_type: Optional[str],
+        report_status: Optional[str],
+        report_format: Optional[str],
+        date_from: Optional[str],
+        date_to: Optional[str],
+        sort: str,
 ):
     """
     Internal helper to get filtered report queryset.
@@ -156,16 +155,16 @@ def _get_report_search_queryset(
 
 @report_router.get('/search', response=List[ReportResponse])
 def search_reports(
-    request,
-    q: str = Query('', description='Search query'),
-    limit: int = Query(50, description='Result limit (legacy endpoint - use /search/paginated instead)'),
-    offset: int = Query(0, description='Result offset (legacy endpoint)'),
-    report_type: Optional[str] = Query(None, description='Filter by report type'),
-    report_status: Optional[str] = Query(None, description='Filter by report status'),
-    report_format: Optional[str] = Query(None, description='Filter by report format (comma-separated)'),
-    date_from: Optional[str] = Query(None, description='Filter by date from (ISO format)'),
-    date_to: Optional[str] = Query(None, description='Filter by date to (ISO format)'),
-    sort: str = Query('verified_at_desc', description='Sort order: verified_at_desc, created_at_desc, title_asc'),
+        request,
+        q: str = Query('', description='Search query'),
+        limit: int = Query(50, description='Result limit (legacy endpoint - use /search/paginated instead)'),
+        offset: int = Query(0, description='Result offset (legacy endpoint)'),
+        report_type: Optional[str] = Query(None, description='Filter by report type'),
+        report_status: Optional[str] = Query(None, description='Filter by report status'),
+        report_format: Optional[str] = Query(None, description='Filter by report format (comma-separated)'),
+        date_from: Optional[str] = Query(None, description='Filter by date from (ISO format)'),
+        date_to: Optional[str] = Query(None, description='Filter by date to (ISO format)'),
+        sort: str = Query('verified_at_desc', description='Sort order: verified_at_desc, created_at_desc, title_asc'),
 ):
     """
     Advanced search for reports with multiple filters.
@@ -175,6 +174,15 @@ def search_reports(
 
     Legacy support maintained for frontend compatibility.
     Uses shared queryset logic with /search/paginated endpoint.
+
+    Database-level pagination: Uses Django ORM slicing which translates
+    to SQL LIMIT/OFFSET. Only requested rows are fetched from database.
+
+    Example SQL generated:
+        SELECT * FROM reports
+        WHERE is_latest = TRUE AND [filters...]
+        ORDER BY verified_at DESC
+        LIMIT 20 OFFSET 0
 
     Migration guide: See CLIENT_MIGRATION_GUIDE.md for details.
     Legacy support will be removed in v2.0.0.
@@ -201,15 +209,19 @@ def search_reports(
     offset = max(offset, 0)
 
     # Get filtered queryset (shared logic with /search/paginated)
+    # QuerySet is lazy - SQL not executed yet
     queryset = _get_report_search_queryset(
         q, report_type, report_status, report_format,
         date_from, date_to, sort
     )
 
-    # Apply legacy limit/offset pagination
+    # Apply database-level pagination via Django ORM slicing
+    # Django translates queryset[offset:offset+limit] to SQL LIMIT/OFFSET
+    # Database returns only requested rows - NOT all records
     results = queryset[offset:offset + limit]
 
     # Convert to response objects (legacy format - just List[ReportResponse])
+    # List comprehension triggers SQL execution here
     return [
         ReportResponse(
             uid=r.uid,
@@ -229,14 +241,14 @@ def search_reports(
 @report_router.get('/search/paginated', response=List[ReportResponse])
 @paginate(ReportPagination)
 def search_reports_paginated(
-    request,
-    q: str = Query('', description='Search query'),
-    report_type: Optional[str] = Query(None, description='Filter by report type'),
-    report_status: Optional[str] = Query(None, description='Filter by report status'),
-    report_format: Optional[str] = Query(None, description='Filter by report format (comma-separated)'),
-    date_from: Optional[str] = Query(None, description='Filter by date from (ISO format)'),
-    date_to: Optional[str] = Query(None, description='Filter by date to (ISO format)'),
-    sort: str = Query('verified_at_desc', description='Sort order: verified_at_desc, created_at_desc, title_asc'),
+        request,
+        q: str = Query('', description='Search query'),
+        report_type: Optional[str] = Query(None, description='Filter by report type'),
+        report_status: Optional[str] = Query(None, description='Filter by report status'),
+        report_format: Optional[str] = Query(None, description='Filter by report format (comma-separated)'),
+        date_from: Optional[str] = Query(None, description='Filter by date from (ISO format)'),
+        date_to: Optional[str] = Query(None, description='Filter by date to (ISO format)'),
+        sort: str = Query('verified_at_desc', description='Sort order: verified_at_desc, created_at_desc, title_asc'),
 ):
     """
     Advanced search for reports with proper pagination support.
@@ -262,8 +274,8 @@ def search_reports_paginated(
 
 @report_router.get('/latest', response=List[ReportResponse])
 def get_latest_reports(
-    request,
-    limit: int = Query(20, description='Result limit'),
+        request,
+        limit: int = Query(20, description='Result limit'),
 ):
     """
     Get latest versions of reports.
