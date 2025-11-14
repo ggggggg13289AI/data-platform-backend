@@ -178,8 +178,12 @@ cython_debug/
 .pypirc
 
 # Cursor
+.cursor/
 .cursorignore
 .cursorindexingignore
+
+# Temporary task directories
+_tasks/
 
 # Marimo
 marimo/_static/
