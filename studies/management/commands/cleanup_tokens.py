@@ -65,7 +65,7 @@ class Command(BaseCommand):
 
         try:
             # Import here to avoid dependency issues
-            from token_blacklist.models import OutstandingToken, BlacklistedToken
+            from ninja_jwt.token_blacklist.models import OutstandingToken, BlacklistedToken
 
             # Get database size before cleanup
             db_size_before = self._get_table_size() if verbose else None
@@ -162,7 +162,7 @@ class Command(BaseCommand):
         except ImportError as e:
             raise CommandError(
                 f'Token blacklist models not found: {e}\n'
-                'Ensure django-ninja-jwt token_blacklist is installed'
+                'Ensure django-ninja-jwt is installed and token_blacklist app is in INSTALLED_APPS'
             )
         except Exception as e:
             logger.error(f'Token cleanup failed: {str(e)}')
