@@ -5,7 +5,9 @@ Pragmatic, minimal configuration - no over-engineering.
 """
 
 import os
+from datetime import timedelta
 from pathlib import Path
+
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -30,7 +32,10 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'studies',  # Single app for all endpoints
+    'study',  # Study management
+    'project',  # Project management
+    'report',  # Report management
+    'common',  # Shared functionality
     'corsheaders',
     'ninja_jwt',  # JWT authentication for Django Ninja
     'ninja_jwt.token_blacklist',  # Token blacklist for logout
@@ -46,7 +51,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',  # MUST be after Session
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
-    'studies.middleware.RequestTimingMiddleware',  # Request timing logging
+    'common.middleware.RequestTimingMiddleware',  # Request timing logging
 ]
 
 # CORS configuration
@@ -164,7 +169,19 @@ LOGGING = {
             'handlers': ['console'],
             'level': 'INFO',
         },
-        'studies': {
+        'study': {
+            'handlers': ['console', 'file'],
+            'level': 'DEBUG',
+        },
+        'project': {
+            'handlers': ['console', 'file'],
+            'level': 'DEBUG',
+        },
+        'report': {
+            'handlers': ['console', 'file'],
+            'level': 'DEBUG',
+        },
+        'common': {
             'handlers': ['console', 'file'],
             'level': 'DEBUG',
         },
@@ -181,8 +198,6 @@ APP_NAME = '医疗影像管理系统'  # Medical Imaging Management System
 APP_VERSION = '1.1.0'
 
 # JWT Configuration
-from datetime import timedelta
-
 NINJA_JWT = {
     # Token Lifetimes
     'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),  # 1 hour access token

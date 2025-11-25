@@ -3,16 +3,17 @@ URL configuration for Django Ninja API.
 All endpoints under /api/v1/ prefix.
 """
 
-from ninja import NinjaAPI
-from django.contrib import admin
-from django.urls import path, include
-from django.http import JsonResponse
 from django.conf import settings
 from django.conf.urls.static import static
-from studies.api import router as studies_router
-from studies.report_api import report_router
-from studies.project_api import router as project_router
-from studies.auth_api import auth_router
+from django.contrib import admin
+from django.http import JsonResponse
+from django.urls import path
+from ninja import NinjaAPI
+
+from common.auth_api import auth_router
+from project.api import router as project_router
+from report.api import report_router
+from study.api import router as studies_router
 
 # Create Ninja API
 api = NinjaAPI(
@@ -39,10 +40,10 @@ def health_check(request):
 urlpatterns = [
     # Admin interface
     path('admin/', admin.site.urls),
-    
+
     # API endpoints
     path('api/v1/', api.urls),
-    
+
     # Root endpoint with API info
     path('', lambda request: JsonResponse({
         'app': '医疗影像管理系统',
