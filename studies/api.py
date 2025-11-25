@@ -38,6 +38,7 @@ def search_studies(
     start_date: Optional[str] = Query(None),
     end_date: Optional[str] = Query(None),
     sort: str = Query('order_datetime_desc'),
+
 ):
     """
     Search medical studies with filters and pagination.

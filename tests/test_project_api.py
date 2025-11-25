@@ -69,6 +69,10 @@ class ProjectApiTestCase(TestCase):
         self.assertIn('items', data)
         self.assertEqual(data['count'], 1)
         self.assertEqual(data['items'][0]['name'], 'API Project')
+        self.assertEqual(data['items'][0]['user_role'], ProjectMember.ROLE_OWNER)
+        self.assertTrue(data['items'][0]['can_assign_studies'])
+        self.assertTrue(data['items'][0]['can_manage_members'])
+        self.assertTrue(data['items'][0]['can_archive'])
 
     def test_create_project_endpoint(self):
         payload = {
@@ -86,6 +90,7 @@ class ProjectApiTestCase(TestCase):
         response_payload = json.loads(response.content)
         self.assertEqual(response_payload['name'], payload['name'])
         self.assertEqual(response_payload['member_count'], 1)
+        self.assertTrue(response_payload['can_assign_studies'])
 
         project_exists = Project.objects.filter(name='New API Project').exists()
         self.assertTrue(project_exists)
@@ -102,6 +107,8 @@ class ProjectApiTestCase(TestCase):
 
         data = json.loads(response.content)
         self.assertEqual(data['added_count'], 2)
+        self.assertEqual(data['failed_items'], [])
+        self.assertEqual(data['requested_count'], 2)
 
         self.project.refresh_from_db()
         self.assertEqual(self.project.study_count, 2)
@@ -109,6 +116,39 @@ class ProjectApiTestCase(TestCase):
             StudyProjectAssignment.objects.filter(project=self.project).count(),
             2,
         )
+
+    def test_add_studies_returns_failed_items_for_duplicates(self):
+        ProjectService.add_studies_to_project(
+            project=self.project,
+            exam_ids=[self.study1.exam_id],
+            user=self.owner,
+        )
+
+        payload = {'exam_ids': [self.study1.exam_id]}
+        url = f'/api/v1/projects/{self.project.id}/studies'
+        response = self.client.post(
+            url,
+            data=json.dumps(payload),
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertEqual(data['added_count'], 0)
+        self.assertEqual(len(data['failed_items']), 1)
+        self.assertEqual(data['failed_items'][0]['reason'], 'already_assigned')
+
+    def test_add_studies_enforces_batch_limit(self):
+        excessive_ids = [f'EXAM-{i:04d}' for i in range(501)]
+        url = f'/api/v1/projects/{self.project.id}/studies'
+        response = self.client.post(
+            url,
+            data=json.dumps({'exam_ids': excessive_ids}),
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 400)
+        payload = json.loads(response.content)
+        self.assertEqual(payload['code'], 'too_many_items')
+        self.assertEqual(payload['max_batch_size'], 500)
 
     def test_add_member_and_update_role(self):
         ProjectService.add_member(self.project, self.editor.id, role=ProjectMember.ROLE_EDITOR)

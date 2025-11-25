@@ -9,6 +9,7 @@ import hashlib
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 from django.db import transaction
+from django.db.models import Max, Min
 from django.utils import timezone
 from .models import Report, ReportVersion, ReportSummary, ReportSearchIndex
 
@@ -403,13 +404,46 @@ class ReportService:
             # Get distinct report types, ordered for consistency
             report_types = list(
                 Report.objects
+                .exclude(report_type__isnull=True)
+                .exclude(report_type='')
                 .values_list('report_type', flat=True)
                 .distinct()
                 .order_by('report_type')
             )
 
+            report_statuses = list(
+                Report.objects
+                .exclude(metadata__status__isnull=True)
+                .exclude(metadata__status='')
+                .values_list('metadata__status', flat=True)
+                .distinct()
+                .order_by('metadata__status')
+            )
+
+            mods = list(
+                Report.objects
+                .exclude(mod__isnull=True)
+                .exclude(mod='')
+                .values_list('mod', flat=True)
+                .distinct()
+                .order_by('mod')
+            )
+
+            date_range = Report.objects.aggregate(
+                min_verified_at=Min('verified_at'),
+                max_verified_at=Max('verified_at'),
+            )
+
             filter_options = {
-                'report_types': report_types
+                'report_types': report_types,
+                'report_statuses': report_statuses,
+                'mods': mods,
+                'verified_date_range': {
+                    'start': date_range['min_verified_at'].isoformat()
+                    if date_range['min_verified_at'] else None,
+                    'end': date_range['max_verified_at'].isoformat()
+                    if date_range['max_verified_at'] else None,
+                }
             }
 
             # TRY TO CACHE RESULT
@@ -425,7 +459,10 @@ class ReportService:
             logger.error(f"Error fetching filter options: {str(e)}")
             # Return empty fallback to prevent API failure
             return {
-                'report_types': []
+                'report_types': [],
+                'report_statuses': [],
+                'mods': [],
+                'verified_date_range': {'start': None, 'end': None},
             }
 
     @staticmethod

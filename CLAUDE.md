@@ -204,23 +204,38 @@ raise Http404(f"Study {exam_id} not found")
 
 **Migrations**: Numbered sequentially (0001, 0002, etc.), never edit committed migrations.
 
-## Current Project Status (2025-11-13)
+## Current Project Status (2025-11-14)
 
-**Active Branch**: `feature/pagination-unification`
+**Active Branch**: `feature/bulk-search-export`
 
-**Recently Completed** (Phase 5):
-- ✅ Pagination unification (page/page_size model across all endpoints)
-- ✅ 43 comprehensive tests (unit + integration + performance)
-- ✅ API documentation (API_DOCUMENTATION.md)
-- ✅ Client migration guide (CLIENT_MIGRATION_GUIDE.md)
-- ✅ Version bumped to 1.1.0
+**Recently Completed**:
+- ✅ Phase 5: Pagination unification (v1.1.0)
+- ✅ Projects feature: 22 API endpoints with 4-role permissions
+- ✅ Comprehensive test suite (43 tests)
+- ✅ Authentication: JWT login/logout/verify
 
-**In Progress** (Projects Feature):
-- 🔄 Project management system (22 API endpoints)
-- 🔄 4-role permission system (Owner/Admin/Editor/Viewer)
-- 🔄 Study-to-project assignment functionality
+**Known Gaps** (from spec analysis 2025-11-14):
+- ❌ AI Analysis features: 0% implemented (frontend ready, backend missing)
+- ❌ Data Import API: 0% implemented (management commands exist only)
+- ❌ Async task queue: Celery not configured
+- ❌ Ollama integration: Not implemented
 
-**Next Steps**: Merge pagination branch, complete Projects feature Phase 1 (models + service layer).
+**Framework Note**:
+- PRD originally specified FastAPI + SQLAlchemy
+- **Actual implementation**: Django 4.2 + Django Ninja + Django ORM
+- Decision rationale: See `docs/migration/101_DJANGO_MIGRATION_LINUS_APPROVED.md`
+- Functionality equivalent, architecture differs
+
+**Implementation Status**:
+- ✅ FS-AUTH-001: Authentication (100%)
+- ✅ FS-SEARCH-001: Advanced search (120% - exceeds spec)
+- ✅ FS-PROJECT-001: Project management (120% - exceeds spec)
+- ✅ FS-EXPORT-001: Export CSV/Excel (100%)
+- ❌ FS-AI-001: Ollama AI service (0%)
+- ❌ FS-AI-002: AI Analysis API (0%)
+- ❌ FS-IMPORT-001: Import API (0%)
+
+**Next Priority**: Implement AI analysis backend (3 weeks estimated) to match frontend capabilities.
 
 ## Important Files and Documentation
 

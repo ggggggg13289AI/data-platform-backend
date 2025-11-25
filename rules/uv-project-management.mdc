@@ -1,0 +1,305 @@
+---
+description: UV 專案管理規則，強制使用 uv 進行 Python 依賴管理和開發工作流程
+globs: "**/pyproject.toml", "**/*.py", "**/uv.lock"
+priority: critical
+category: project-management
+alwaysApply: true
+---
+
+# UV 專案管理規則
+
+## 核心原則
+- **UV 優先**: 所有 Python 專案管理必須使用 uv
+- **禁用 pip**: 絕不使用 pip install、pip freeze、requirements.txt 管理新依賴
+- **pyproject.toml**: 所有配置集中在 pyproject.toml
+
+## 必須的 pyproject.toml 結構
+
+### 基本配置
+```toml
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[project]
+name = "dicom2nii"
+version = "2.2.0"
+description = "醫學影像 DICOM 到 NIfTI 轉換工具"
+authors = [
+    {name = "Your Name", email = "your.email@example.com"},
+]
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.9"
+
+# ✅ 核心依賴 - 醫學影像處理必需
+dependencies = [
+    "pydicom>=2.3.0",      # DICOM 檔案處理
+    "nibabel>=4.0.0",       # NIfTI 檔案處理
+    "pandas>=1.5.0",        # 資料處理
+    "openpyxl>=3.1.0",      # Excel 支援 (必須包含)
+    "numpy>=1.21.0",        # 數值計算
+    "scipy>=1.9.0",         # 科學計算
+    "pillow>=9.0.0",        # 影像處理
+    "tqdm>=4.64.0",         # 進度條
+]
+
+# ✅ 可選依賴分組
+[project.optional-dependencies]
+web = [
+    "fastapi>=0.68.0",
+    "uvicorn>=0.15.0",
+    "pydantic>=2.0.0",
+]
+gui = [
+    "tkinter",
+    "PyQt6>=6.4.0",
+]
+
+# ✅ UV 開發依賴
+[tool.uv]
+dev-dependencies = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=22.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.0.0",
+    "pre-commit>=2.20.0",
+]
+
+# ✅ 工具配置
+[tool.ruff]
+line-length = 88
+target-version = "py39"
+select = ["E", "W", "F", "I", "N", "B", "C4", "UP"]
+
+[tool.black]
+line-length = 88
+target-version = ['py39']
+
+[tool.mypy]
+python_version = "3.9"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+addopts = "--cov=src --cov-report=html --cov-report=term-missing"
+```
+
+## 標準開發工作流程
+
+### 專案初始化
+```bash
+# ✅ 正確的專案設定流程
+uv init dicom2nii
+cd dicom2nii
+
+# 安裝依賴
+uv sync --dev              # 安裝所有依賴 (包含開發依賴)
+uv sync                    # 僅安裝生產依賴
+
+# 添加新依賴
+uv add pydicom>=2.3.0      # 添加生產依賴
+uv add --dev pytest>=7.0.0 # 添加開發依賴
+```
+
+### 日常開發命令
+```bash
+# ✅ 程式碼品質檢查
+uv run black src/          # 程式碼格式化
+uv run ruff check src/     # 程式碼品質檢查
+uv run ruff check --fix src/ # 自動修復問題
+uv run mypy src/           # 類型檢查
+
+# ✅ 測試執行
+uv run pytest             # 執行測試
+uv run pytest --cov       # 執行測試並產生覆蓋率報告
+
+# ✅ 應用程式執行
+uv run python src/main.py # 執行主程式
+uv run python -m src.cli   # 執行 CLI 模組
+```
+
+### 依賴管理
+```bash
+# ✅ 正確的依賴管理
+uv add package-name        # 添加新依賴
+uv add --dev package-name  # 添加開發依賴
+uv remove package-name     # 移除依賴
+uv sync                    # 同步依賴 (類似 pip install -r requirements.txt)
+uv lock                    # 更新 uv.lock 檔案
+
+# ✅ 查看依賴
+uv tree                    # 顯示依賴樹
+uv pip list                # 列出已安裝套件
+```
+
+## 禁止的操作
+
+### ❌ 絕對不要使用
+```bash
+# ❌ 禁止使用 pip
+pip install package-name
+pip freeze > requirements.txt
+pip install -r requirements.txt
+
+# ❌ 禁止使用 conda (對於 Python 依賴)
+conda install package-name
+conda env create
+
+# ❌ 禁止使用舊式檔案
+# requirements.txt (對於新依賴)
+# setup.py
+# setup.cfg (對於新專案)
+```
+
+### ❌ 不當的配置
+```python
+# ❌ 不要在程式碼中硬編碼版本
+import sys
+if sys.version_info < (3, 9):
+    raise RuntimeError("Python 3.9+ required")
+
+# ✅ 正確方式：在 pyproject.toml 中指定
+# requires-python = ">=3.9"
+```
+
+## 醫學影像專案特定配置
+
+### 必須包含的依賴
+```toml
+[project]
+dependencies = [
+    # ✅ 醫學影像核心套件
+    "pydicom>=2.3.0",       # DICOM 處理
+    "nibabel>=4.0.0",        # NIfTI 處理
+    "SimpleITK>=2.2.0",      # 醫學影像處理
+    
+    # ✅ 資料處理
+    "pandas>=1.5.0",
+    "numpy>=1.21.0",
+    "openpyxl>=3.1.0",       # Excel 支援 (醫學報告)
+    
+    # ✅ 影像處理
+    "scipy>=1.9.0",
+    "scikit-image>=0.19.0",
+    
+    # ✅ 使用者介面
+    "tqdm>=4.64.0",          # 進度條
+]
+
+[tool.uv]
+dev-dependencies = [
+    # ✅ 測試工具
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "pytest-mock>=3.10.0",
+    
+    # ✅ 程式碼品質
+    "black>=22.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.0.0",
+    
+    # ✅ 文檔工具
+    "sphinx>=5.0.0",
+    "sphinx-rtd-theme>=1.2.0",
+]
+```
+
+## 環境管理
+
+### 虛擬環境
+```bash
+# ✅ UV 自動管理虛擬環境
+uv sync                    # 自動建立並同步環境
+
+# ✅ 檢查環境狀態
+uv pip list                # 查看已安裝套件
+uv pip check               # 檢查依賴衝突
+
+# ✅ 清理環境
+uv sync --clean            # 移除不需要的套件
+```
+
+### 鎖定檔案管理
+```bash
+# ✅ 鎖定檔案操作
+uv lock                    # 產生/更新 uv.lock
+uv sync --locked           # 使用鎖定的版本安裝
+
+# ✅ 版本控制
+git add uv.lock            # 將鎖定檔案加入版本控制
+```
+
+## 整合與自動化
+
+### Pre-commit 設定
+```yaml
+# .pre-commit-config.yaml
+repos:
+  - repo: local
+    hooks:
+      - id: black
+        name: black
+        entry: uv run black
+        language: system
+        types: [python]
+      
+      - id: ruff
+        name: ruff
+        entry: uv run ruff check --fix
+        language: system
+        types: [python]
+      
+      - id: mypy
+        name: mypy
+        entry: uv run mypy
+        language: system
+        types: [python]
+```
+
+### CI/CD 整合
+```yaml
+# .github/workflows/test.yml
+name: Test
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v1
+        with:
+          version: "latest"
+      
+      - name: Install dependencies
+        run: uv sync --dev
+      
+      - name: Run tests
+        run: uv run pytest
+      
+      - name: Check code quality
+        run: |
+          uv run black --check src/
+          uv run ruff check src/
+          uv run mypy src/
+```
+
+## 效能最佳化
+- **並行安裝**: uv 自動並行安裝依賴
+- **快取管理**: uv 自動管理套件快取
+- **最小安裝**: 僅安裝必要依賴
+
+## 疑難排解
+```bash
+# ✅ 常見問題解決
+uv cache clean             # 清理快取
+uv sync --reinstall        # 重新安裝所有套件
+uv pip compile pyproject.toml # 編譯依賴需求
+```

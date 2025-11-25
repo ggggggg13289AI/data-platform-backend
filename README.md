@@ -47,6 +47,15 @@ python manage.py migrate
 
 # 3. 啟動開發伺服器 / Start development server
 python manage.py runserver 8001
+
+UV_PROJECT_ENVIRONMENT=.venv-linux uv run manage.py runserver 8001 --noreload
+
+
+export  UV_PROJECT_ENVIRONMENT=.venv-linux && uv run manage.py runserver 8001 --noreload
+
+export UV_PROJECT_ENVIRONMENT=.venv-linux && uv run manage.py test tests.test_pagination
+
+
 ```
 
 ### API 文件 / API Documentation

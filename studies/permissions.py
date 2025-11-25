@@ -10,16 +10,18 @@ Implements a role-based access control system for Projects with four roles:
 
 from __future__ import annotations
 
+import logging
 from functools import wraps
 from typing import Callable, Optional, TypeVar
 
 from django.core.exceptions import PermissionDenied
+from django.core.handlers.wsgi import WSGIRequest
 from django.http import Http404
 
 from .models import Project, ProjectMember
 
 F = TypeVar('F', bound=Callable[..., object])
-
+logger = logging.getLogger(__name__)
 
 class ProjectPermissions:
     """專案權限檢查類別"""
@@ -80,6 +82,16 @@ class ProjectPermissions:
         return cls.ROLE_PERMISSIONS.get(role, [])
 
     @classmethod
+    def get_permission_flags(cls, project: Project, user) -> dict[str, bool]:
+        """取得布林化的權限旗標，便於前端 gating"""
+        permissions = cls.get_user_permissions(project, user)
+        return {
+            'can_manage_members': cls.PERMISSION_MANAGE_MEMBERS in permissions,
+            'can_assign_studies': cls.PERMISSION_MANAGE_STUDIES in permissions,
+            'can_archive': cls.PERMISSION_EDIT in permissions,
+        }
+
+    @classmethod
     def check_permission(cls, project: Project, user, permission: str) -> bool:
         """檢查使用者是否擁有特定權限"""
         return permission in cls.get_user_permissions(project, user)
@@ -90,7 +102,7 @@ class ProjectPermissions:
 
         def decorator(func: F) -> F:
             @wraps(func)
-            def wrapper(request, project_id: str, *args, **kwargs):
+            def wrapper(request:WSGIRequest, project_id: str, *args, **kwargs):
                 try:
                     project = Project.objects.select_related('created_by').get(id=project_id)
                 except Project.DoesNotExist as exc:

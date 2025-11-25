@@ -338,3 +338,9 @@ class APIContractTestCase(TestCase):
         
         self.assertEqual(data['total'], 1)
         self.assertEqual(data['data'][0]['exam_id'], 'EXAM001')
+
+
+
+
+
+

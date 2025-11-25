@@ -135,7 +135,7 @@ pages = (total + limit - 1) // limit  # 向上取整
 | `GET /api/v1/reports/search` | Offset/Limit | ✅ 保留不變 |
 | `GET /api/v1/reports/search/paginated` | Offset/Limit | ✅ 保留不變 |
 | `GET /api/v1/reports/latest` | 有分頁 | ✅ 統一為 Offset/Limit |
-| `GET /api/v1/reports/options/filters` | 無分頁 | 保留不變 |
+| `GET /api/v1/reports/filters/options` | 無分頁 | 保留不變（舊路徑 /options/filters 已標記為 Deprecated） |
 
 #### 研究 API (需調整)
 

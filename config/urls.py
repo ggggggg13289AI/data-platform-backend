@@ -17,7 +17,7 @@ from studies.auth_api import auth_router
 # Create Ninja API
 api = NinjaAPI(
     title='医疗影像管理系统 API',  # Medical Imaging Management System API
-    version='1.1.0',
+    version=settings.APP_VERSION,
     description='REST API for medical imaging examination and report management',
 )
 
@@ -25,13 +25,15 @@ api = NinjaAPI(
 api.add_router('/studies', studies_router, tags=['studies'])
 api.add_router('/reports', report_router, tags=['reports'])
 api.add_router('/auth', auth_router, tags=['authentication'])
-api.add_router('', project_router)
+api.add_router('/projects', project_router,tags=['projects'])
+
 
 # Health check endpoint
 @api.get('/health')
 def health_check(request):
     """Health check endpoint"""
-    return {'status': 'ok', 'version': '1.0.0'}
+    return {'status': 'ok', 'version': settings.APP_VERSION}
+
 
 # URL patterns
 urlpatterns = [
@@ -44,7 +46,7 @@ urlpatterns = [
     # Root endpoint with API info
     path('', lambda request: JsonResponse({
         'app': '医疗影像管理系统',
-        'version': '1.0.0',
+        'version': settings.APP_VERSION,
         'docs': '/api/v1/docs',
     })),
 ]

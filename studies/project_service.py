@@ -6,7 +6,7 @@ Encapsulates business logic for managing projects, members, and study assignment
 
 from __future__ import annotations
 
-from typing import Sequence
+from typing import Sequence, List, Dict
 
 from django.contrib.auth import get_user_model
 from django.db import transaction
@@ -16,10 +16,22 @@ from .models import Project, ProjectMember, Study, StudyProjectAssignment
 
 User = get_user_model()
 
+
+class ProjectBatchLimitExceeded(ValueError):
+    """Raised when batch operations exceed the allowed exam_id limit."""
+
+    def __init__(self, requested_count: int, max_allowed: int):
+        self.requested_count = requested_count
+        self.max_allowed = max_allowed
+        super().__init__(f'Batch size {requested_count} exceeds max allowed {max_allowed}')
+
+
 class ProjectService:
     """專案服務類別"""
 
     DEFAULT_SORT = '-updated_at'
+    MAX_BATCH_SIZE = 500
+
     ALLOWED_SORT_FIELDS = {
         'name',
         '-name',
@@ -105,20 +117,32 @@ class ProjectService:
 
         return queryset
 
-    @staticmethod
-    def add_studies_to_project(project: Project, exam_ids: Sequence[str], user) -> dict:
+    @classmethod
+    def add_studies_to_project(cls, project: Project, exam_ids: Sequence[str], user) -> dict:
         """批量新增研究到專案"""
         normalized_ids = [exam_id for exam_id in dict.fromkeys(exam_ids) if exam_id]
         if not normalized_ids:
-            return {'success': True, 'added_count': 0, 'skipped_count': 0}
+            return {
+                'success': True,
+                'added_count': 0,
+                'skipped_count': 0,
+                'failed_items': [],
+                'requested_count': 0,
+                'max_batch_size': cls.MAX_BATCH_SIZE,
+            }
+
+        if len(normalized_ids) > cls.MAX_BATCH_SIZE:
+            raise ProjectBatchLimitExceeded(len(normalized_ids), cls.MAX_BATCH_SIZE)
 
         with transaction.atomic():
             studies = Study.objects.filter(exam_id__in=normalized_ids)
             found_ids = set(studies.values_list('exam_id', flat=True))
             missing_ids = sorted(set(normalized_ids) - found_ids)
-            if missing_ids:
-                missing_str = ', '.join(missing_ids)
-                raise ValueError(f'研究不存在: {missing_str}')
+
+            failed_items: List[Dict[str, str]] = [
+                {'exam_id': exam_id, 'reason': 'not_found'}
+                for exam_id in missing_ids
+            ]
 
             existing = set(
                 StudyProjectAssignment.objects.filter(
@@ -128,6 +152,10 @@ class ProjectService:
             )
 
             new_exam_ids = [exam_id for exam_id in normalized_ids if exam_id not in existing]
+
+            failed_items.extend(
+                {'exam_id': exam_id, 'reason': 'already_assigned'} for exam_id in existing
+            )
 
             assignments = [
                 StudyProjectAssignment(
@@ -148,6 +176,9 @@ class ProjectService:
                 'success': True,
                 'added_count': added_count,
                 'skipped_count': len(existing),
+                'failed_items': failed_items,
+                'requested_count': len(normalized_ids),
+                'max_batch_size': cls.MAX_BATCH_SIZE,
             }
 
     @staticmethod

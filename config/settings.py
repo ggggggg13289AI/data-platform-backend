@@ -178,7 +178,7 @@ LOGGING = {
 # API Configuration
 API_V1_STR = '/api/v1'
 APP_NAME = '医疗影像管理系统'  # Medical Imaging Management System
-APP_VERSION = '1.0.0'
+APP_VERSION = '1.1.0'
 
 # JWT Configuration
 from datetime import timedelta

@@ -1,0 +1,471 @@
+---
+description: 所有 Python 檔案的通用編程原則，專注於程式碼風格和最佳實踐
+globs: "**/*.py"
+priority: critical
+category: python-general
+alwaysApply: true
+---
+
+# Python 一般原則
+
+## 核心原則
+- **簡潔技術**: 撰寫簡潔、技術性的回應，提供準確的 Python 範例
+- **函數式編程**: 使用函數式、聲明式編程；盡可能避免類別
+- **模組化優先**: 優先考慮迭代和模組化，避免程式碼重複
+- **描述性命名**: 使用帶有輔助動詞的描述性變數名稱（如 is_active、has_permission）
+- **命名慣例**: 目錄和檔案使用小寫加底線（如 routers/user_routes.py）
+- **具名匯出**: 優先使用路由和工具函數的具名匯出
+- **RORO 模式**: 使用接收物件、返回物件（RORO）模式
+
+## 程式碼風格
+
+### 命名慣例
+```python
+# ✅ 正確的命名慣例
+
+# 變數和函數：小寫加底線
+user_name = "張三"
+is_active = True
+has_permission = False
+created_at = datetime.now()
+
+def get_user_by_id(user_id: int) -> Optional[User]:
+    """取得使用者 - 動詞開頭的函數名"""
+    return database.find_user(user_id)
+
+def validate_email_format(email: str) -> bool:
+    """驗證電子郵件格式 - 描述性函數名"""
+    return "@" in email and "." in email.split("@")[1]
+
+# 常數：大寫加底線
+MAX_FILE_SIZE = 100 * 1024 * 1024
+DEFAULT_PAGE_SIZE = 20
+API_VERSION = "v1"
+
+# 類別：駝峰命名（僅在必要時使用）
+class UserService:
+    """使用者服務類別"""
+    pass
+
+# 私有變數和函數：前綴底線
+_internal_cache = {}
+_SECRET_KEY = "secret"
+
+def _validate_internal_data(data: dict) -> bool:
+    """內部驗證函數"""
+    return bool(data)
+```
+
+### 檔案和目錄結構
+```python
+# ✅ 正確的檔案和目錄命名
+project/
+├── app/
+│   ├── routers/
+│   │   ├── user_routes.py      # 小寫加底線
+│   │   ├── file_routes.py
+│   │   └── auth_routes.py
+│   ├── models/
+│   │   ├── user_model.py
+│   │   └── file_model.py
+│   ├── services/
+│   │   ├── user_service.py
+│   │   └── file_service.py
+│   └── utils/
+│       ├── date_utils.py
+│       ├── string_utils.py
+│       └── validation_utils.py
+```
+
+## 函數式編程模式
+
+### 優先使用函數而非類別
+```python
+# ✅ 函數式方法（優先）
+from typing import List, Dict, Optional, Callable
+from functools import reduce, partial
+
+def calculate_total_price(items: List[Dict[str, float]]) -> float:
+    """計算總價格 - 純函數"""
+    return sum(item["price"] * item["quantity"] for item in items)
+
+def apply_discount(price: float, discount_rate: float) -> float:
+    """套用折扣 - 純函數"""
+    return price * (1 - discount_rate)
+
+def filter_active_users(users: List[Dict]) -> List[Dict]:
+    """過濾活躍使用者 - 純函數"""
+    return [user for user in users if user.get("is_active", False)]
+
+# 高階函數
+def create_validator(min_length: int) -> Callable[[str], bool]:
+    """建立驗證器函數"""
+    def validator(value: str) -> bool:
+        return len(value) >= min_length
+    return validator
+
+# 使用高階函數
+validate_password = create_validator(8)
+validate_username = create_validator(3)
+
+# ❌ 避免不必要的類別（除非真的需要狀態管理）
+class UnnecessaryCalculator:
+    """不必要的類別 - 這些功能可以用函數實現"""
+    def calculate_total(self, items):
+        return sum(items)
+```
+
+### 函數組合和管道
+```python
+# ✅ 函數組合模式
+from functools import reduce
+from typing import Callable, TypeVar
+
+T = TypeVar('T')
+U = TypeVar('U')
+
+def pipe(value: T, *functions: Callable) -> any:
+    """函數管道 - 將值通過一系列函數處理"""
+    return reduce(lambda acc, func: func(acc), functions, value)
+
+def compose(*functions: Callable) -> Callable:
+    """函數組合 - 組合多個函數"""
+    return lambda x: reduce(lambda acc, func: func(acc), reversed(functions), x)
+
+# 使用函數管道
+def process_user_data(raw_data: str) -> Dict:
+    """處理使用者資料 - 函數式管道"""
+    return pipe(
+        raw_data,
+        str.strip,
+        str.lower,
+        lambda s: s.split(","),
+        lambda items: [item.strip() for item in items],
+        lambda items: {"processed_items": items, "count": len(items)}
+    )
+
+# 使用函數組合
+normalize_email = compose(
+    str.strip,
+    str.lower,
+    lambda email: email.replace(" ", "")
+)
+```
+
+## 模組化和重用
+
+### 避免程式碼重複
+```python
+# ✅ 提取共同邏輯到可重用函數
+def validate_required_fields(data: Dict, required_fields: List[str]) -> List[str]:
+    """驗證必要欄位 - 可重用的驗證邏輯"""
+    missing_fields = []
+    for field in required_fields:
+        if field not in data or not data[field]:
+            missing_fields.append(field)
+    return missing_fields
+
+def create_response(success: bool, data=None, message: str = "", errors: List[str] = None) -> Dict:
+    """建立統一回應格式 - 避免重複的回應結構"""
+    return {
+        "success": success,
+        "data": data,
+        "message": message,
+        "errors": errors or []
+    }
+
+# 使用可重用函數
+def create_user(user_data: Dict) -> Dict:
+    """建立使用者"""
+    # 使用可重用的驗證邏輯
+    required_fields = ["email", "name", "password"]
+    missing_fields = validate_required_fields(user_data, required_fields)
+    
+    if missing_fields:
+        return create_response(
+            success=False,
+            message="缺少必要欄位",
+            errors=[f"缺少欄位: {', '.join(missing_fields)}"]
+        )
+    
+    # 建立使用者邏輯...
+    user = {"id": 1, "email": user_data["email"], "name": user_data["name"]}
+    
+    return create_response(
+        success=True,
+        data=user,
+        message="使用者建立成功"
+    )
+```
+
+### 模組化設計
+```python
+# ✅ 模組化工具函數
+# utils/date_utils.py
+from datetime import datetime, timedelta
+from typing import Optional
+
+def format_datetime(dt: datetime, format_string: str = "%Y-%m-%d %H:%M:%S") -> str:
+    """格式化日期時間"""
+    return dt.strftime(format_string)
+
+def parse_date_string(date_str: str, format_string: str = "%Y-%m-%d") -> Optional[datetime]:
+    """解析日期字串"""
+    try:
+        return datetime.strptime(date_str, format_string)
+    except ValueError:
+        return None
+
+def get_date_range(days_ago: int) -> tuple[datetime, datetime]:
+    """取得日期範圍"""
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=days_ago)
+    return start_date, end_date
+
+# utils/validation_utils.py
+import re
+from typing import List, Dict
+
+def is_valid_email(email: str) -> bool:
+    """驗證電子郵件格式"""
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return bool(re.match(pattern, email))
+
+def is_strong_password(password: str) -> bool:
+    """驗證密碼強度"""
+    return (
+        len(password) >= 8 and
+        any(c.isupper() for c in password) and
+        any(c.islower() for c in password) and
+        any(c.isdigit() for c in password)
+    )
+
+def validate_phone_number(phone: str) -> bool:
+    """驗證台灣手機號碼"""
+    pattern = r'^09\d{8}$'
+    return bool(re.match(pattern, phone.replace('-', '').replace(' ', '')))
+```
+
+## RORO 模式（接收物件，返回物件）
+
+### 統一的輸入輸出格式
+```python
+# ✅ RORO 模式實作
+from typing import Dict, Any, Optional, List
+from dataclasses import dataclass
+
+@dataclass
+class ProcessingRequest:
+    """處理請求物件"""
+    data: Dict[str, Any]
+    options: Optional[Dict[str, Any]] = None
+    user_id: Optional[int] = None
+
+@dataclass
+class ProcessingResult:
+    """處理結果物件"""
+    success: bool
+    data: Optional[Dict[str, Any]] = None
+    message: str = ""
+    errors: List[str] = None
+    
+    def __post_init__(self):
+        if self.errors is None:
+            self.errors = []
+
+def process_medical_image(request: ProcessingRequest) -> ProcessingResult:
+    """處理醫學影像 - RORO 模式"""
+    try:
+        # 驗證輸入
+        if not request.data or "image_path" not in request.data:
+            return ProcessingResult(
+                success=False,
+                message="無效的輸入資料",
+                errors=["缺少 image_path 欄位"]
+            )
+        
+        # 處理邏輯
+        processed_data = {
+            "original_path": request.data["image_path"],
+            "processed_path": "/path/to/processed/image.nii",
+            "processing_time": "2.5s",
+            "user_id": request.user_id
+        }
+        
+        return ProcessingResult(
+            success=True,
+            data=processed_data,
+            message="影像處理完成"
+        )
+        
+    except Exception as e:
+        return ProcessingResult(
+            success=False,
+            message="處理過程中發生錯誤",
+            errors=[str(e)]
+        )
+
+# 使用 RORO 模式
+def handle_image_processing(raw_data: Dict) -> Dict:
+    """處理影像請求的控制器"""
+    # 建立請求物件
+    request = ProcessingRequest(
+        data=raw_data,
+        options=raw_data.get("options"),
+        user_id=raw_data.get("user_id")
+    )
+    
+    # 處理請求
+    result = process_medical_image(request)
+    
+    # 返回統一格式
+    return {
+        "success": result.success,
+        "data": result.data,
+        "message": result.message,
+        "errors": result.errors
+    }
+```
+
+## 類型提示和文檔
+
+### 完整的類型註解
+```python
+from typing import Dict, List, Optional, Union, Callable, Any, Tuple
+from datetime import datetime
+
+# ✅ 完整的類型註解
+def search_users(
+    query: str,
+    filters: Optional[Dict[str, Any]] = None,
+    sort_by: str = "created_at",
+    limit: int = 100,
+    offset: int = 0
+) -> Tuple[List[Dict[str, Any]], int]:
+    """
+    搜尋使用者
+    
+    Args:
+        query: 搜尋查詢字串
+        filters: 可選的過濾條件
+        sort_by: 排序欄位
+        limit: 返回數量限制
+        offset: 偏移量
+    
+    Returns:
+        元組包含使用者列表和總數
+        
+    Raises:
+        ValueError: 當查詢參數無效時
+    """
+    if not query or len(query.strip()) < 2:
+        raise ValueError("查詢字串至少需要2個字符")
+    
+    # 搜尋邏輯...
+    users = []  # 實際的搜尋結果
+    total = 0   # 總數
+    
+    return users, total
+
+def create_data_processor(
+    transform_func: Callable[[Dict], Dict],
+    validate_func: Callable[[Dict], bool]
+) -> Callable[[List[Dict]], List[Dict]]:
+    """
+    建立資料處理器
+    
+    Args:
+        transform_func: 資料轉換函數
+        validate_func: 資料驗證函數
+    
+    Returns:
+        資料處理函數
+    """
+    def processor(data_list: List[Dict]) -> List[Dict]:
+        return [
+            transform_func(item) 
+            for item in data_list 
+            if validate_func(item)
+        ]
+    
+    return processor
+```
+
+## 錯誤處理最佳實踐
+
+### 明確的錯誤處理
+```python
+# ✅ 明確的錯誤處理
+def safe_divide(a: float, b: float) -> Optional[float]:
+    """安全除法運算"""
+    if b == 0:
+        return None
+    return a / b
+
+def parse_user_age(age_str: str) -> Optional[int]:
+    """解析使用者年齡"""
+    try:
+        age = int(age_str)
+        if 0 <= age <= 150:
+            return age
+        return None
+    except (ValueError, TypeError):
+        return None
+
+def get_user_data(user_id: int) -> Dict[str, Any]:
+    """取得使用者資料 - 明確的錯誤處理"""
+    if user_id <= 0:
+        raise ValueError("使用者ID必須為正整數")
+    
+    user = database.find_user(user_id)
+    if not user:
+        raise ValueError(f"找不到ID為 {user_id} 的使用者")
+    
+    return {
+        "id": user.id,
+        "name": user.name,
+        "email": user.email,
+        "is_active": user.is_active
+    }
+```
+
+## 禁止的模式
+
+### ❌ 絕對不要使用
+```python
+# ❌ 不清楚的變數名稱
+data = get_stuff()  # 應該是 user_data = get_user_information()
+x = calculate()     # 應該是 total_price = calculate_total_price()
+flag = True         # 應該是 is_valid = True
+
+# ❌ 不必要的類別
+class MathUtils:
+    @staticmethod
+    def add(a, b):
+        return a + b
+    
+    @staticmethod  
+    def multiply(a, b):
+        return a * b
+
+# 應該直接使用函數
+def add(a: float, b: float) -> float:
+    return a + b
+
+# ❌ 缺少類型註解
+def process_data(data):  # 缺少類型提示
+    return data
+
+# ❌ 魔術數字
+if user.age > 18:  # 應該是 LEGAL_AGE = 18; if user.age > LEGAL_AGE:
+    pass
+
+# ❌ 深度嵌套
+def bad_nested_function(data):
+    if data:
+        if data.get('user'):
+            if data['user'].get('active'):
+                if data['user']['active'] == True:
+                    # 過深的嵌套
+                    return process_user(data['user'])
+```

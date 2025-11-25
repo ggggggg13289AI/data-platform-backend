@@ -7,7 +7,7 @@ PRAGMATIC DESIGN: Simple endpoints matching actual use cases.
 from typing import List, Optional
 from ninja import Router, Query
 from ninja.pagination import paginate
-from django.utils import timezone
+from django.http import Http404
 from .models import Report, ReportVersion
 from .report_service import ReportService
 from .pagination import ReportPagination
@@ -67,10 +67,20 @@ class ReportVersionResponse(BaseModel):
     change_description: str
 
 
+class DateRange(BaseModel):
+    """Reusable date range metadata."""
+
+    start: Optional[str] = None
+    end: Optional[str] = None
+
+
 class ReportFilterOptionsResponse(BaseModel):
     """Response schema for filter options."""
 
     report_types: List[str]
+    report_statuses: List[str]
+    mods: List[str]
+    verified_date_range: DateRange
 
 
 class ImportResponse(BaseModel):
@@ -254,7 +264,7 @@ def search_reports_paginated(
     Advanced search for reports with proper pagination support.
 
     Uses page/page_size pagination for consistent API experience.
-    Compatible with Studies and Projects API pagination model.
+    Compatible with Studies和Projects API pagination model.
 
     Supports:
     - Full-text search across 6 fields
@@ -262,6 +272,7 @@ def search_reports_paginated(
     - Date range filtering
     - Flexible sorting
     - Pagination metadata (page number, total pages, etc.)
+    - Embedded filter options (filters key) for dropdown population
 
     Example: /api/v1/reports/search/paginated?q=covid&page=1&page_size=20
     """
@@ -334,7 +345,38 @@ def get_report_detail(request, uid: str):
         )
 
     except Report.DoesNotExist:
-        raise Exception(f'Report not found: {report_id}')
+        raise Http404(f'Report not found: {uid}')
+    except Exception as e:
+        logger.error(f'Fetch detail failed: {str(e)}')
+        raise
+
+
+@report_router.get('/study/{exam_id}', response=ReportDetailResponse)
+def get_study_report_detail(request, exam_id: str):
+    """
+    Get full report details including complete content.
+
+    Retrieves the latest version of the report.
+    """
+    try:
+        report = Report.objects.get(report_id=exam_id, is_latest=True)
+
+        return ReportDetailResponse(
+            uid=report.uid,
+            report_id=report.report_id,
+            title=report.title,
+            report_type=report.report_type,
+            version_number=report.version_number,
+            is_latest=report.is_latest,
+            created_at=report.created_at.isoformat(),
+            verified_at=report.verified_at.isoformat() if report.verified_at else None,
+            content_preview=report.content_raw[:500],
+            content_raw=report.content_raw,
+            source_url=report.source_url,
+        )
+
+    except Report.DoesNotExist:
+        raise Http404(f'Report not found: {exam_id}')
     except Exception as e:
         logger.error(f'Fetch detail failed: {str(e)}')
         raise
@@ -367,23 +409,25 @@ def get_report_versions(request, report_id: str):
         raise
 
 
+@report_router.get('/filters/options', response=ReportFilterOptionsResponse)
 @report_router.get('/options/filters', response=ReportFilterOptionsResponse)
 def get_filter_options(request):
     """
     Get available filter options for report search.
 
-    Returns distinct report types from the database with Redis caching.
-    Used by frontend to populate filter dropdowns.
+    Returns distinct values with caching so frontend dropdowns can mirror studies endpoint behavior.
 
-    Example: /api/v1/reports/options/filters
+    Example: /api/v1/reports/filters/options
     """
     try:
-        # Call service method which handles caching
-        filter_options = ReportService.get_filter_options()
+        if request.path.endswith('/options/filters'):
+            logger.warning(
+                'DEPRECATED: /api/v1/reports/options/filters will be removed in v2.0.0. '
+                'Use /api/v1/reports/filters/options instead.'
+            )
 
-        return ReportFilterOptionsResponse(
-            report_types=filter_options.get('report_types', [])
-        )
+        filter_options = ReportService.get_filter_options()
+        return ReportFilterOptionsResponse(**filter_options)
 
     except Exception as e:
         logger.error(f'Fetch filter options failed: {str(e)}')

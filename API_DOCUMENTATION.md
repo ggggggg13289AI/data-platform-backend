@@ -199,7 +199,16 @@ curl -X POST http://localhost:8000/api/v1/reports/import \
   "total": 125,
   "page": 1,
   "page_size": 20,
-  "pages": 7
+  "pages": 7,
+  "filters": {
+    "report_types": ["PDF", "HTML", "TXT"],
+    "report_statuses": ["pending", "completed", "cancelled"],
+    "mods": ["CT", "MR", "CR"],
+    "verified_date_range": {
+      "start": "2025-01-01T00:00:00",
+      "end": "2025-11-12T10:30:00"
+    }
+  }
 }
 ```
 
@@ -425,24 +434,32 @@ curl "http://localhost:8000/api/v1/reports/REP-001/versions"
 
 ---
 
-### 7. GET /reports/options/filters
+### 7. GET /reports/filters/options
 
 **Description**: Get available filter options for search UI
 
 **Response (200 OK)**
 ```json
 {
-  "report_types": ["PDF", "HTML", "TXT", "DOCX", "JPG"]
+  "report_types": ["PDF", "HTML", "TXT", "DOCX", "JPG"],
+  "report_statuses": ["pending", "completed", "cancelled"],
+  "mods": ["CT", "MR", "CR"],
+  "verified_date_range": {
+    "start": "2025-01-01T00:00:00",
+    "end": "2025-11-12T10:30:00"
+  }
 }
 ```
 
 **Examples**
 
 ```bash
-curl "http://localhost:8000/api/v1/reports/options/filters"
+curl "http://localhost:8000/api/v1/reports/filters/options"
 ```
 
-Used by frontend to populate dropdown menus and filter controls.
+> Legacy path `/api/v1/reports/options/filters` is still available but will be removed in v2.0.0. Use the new `/filters/options` route.
+
+Used by frontend to populate dropdown menus and filter controls. It mirrors the data embedded in `/reports/search/paginated` responses to match the `/studies` API pattern.
 
 ---
 
@@ -626,7 +643,7 @@ curl "http://localhost:8000/api/v1/reports/latest?limit=10"
 
 ### Test 4: Get Filter Options
 ```bash
-curl "http://localhost:8000/api/v1/reports/options/filters"
+curl "http://localhost:8000/api/v1/reports/filters/options"
 ```
 
 ---

@@ -776,17 +776,19 @@ class IntegrationTestCase(TestCase):
         Test that filter options endpoint returns values that exist in database.
 
         Workflow:
-        1. Get filter options (?report_types)
+        1. Get filter options
         2. Query each report type
         3. Verify results contain reports of that type
         """
         # Get filter options
-        response = self.client.get('/api/v1/reports/options/filters')
+        response = self.client.get('/api/v1/reports/filters/options')
         self.assertEqual(response.status_code, 200)
         options = json.loads(response.content)
 
-        # Verify report_types is present and not empty
-        self.assertIn('report_types', options)
+        # Verify keys are present and not empty
+        for key in ['report_types', 'report_statuses', 'mods', 'verified_date_range']:
+            self.assertIn(key, options)
+
         self.assertGreater(len(options['report_types']), 0)
 
         # For each report type, verify it exists in database
@@ -797,8 +799,8 @@ class IntegrationTestCase(TestCase):
             self.assertEqual(response.status_code, 200)
             data = json.loads(response.content)
 
-            # If filter options returned this type, should have some results
-            # (unless there's a timing issue, just verify endpoint works)
+            # Search response should contain filters block mirroring endpoint
+            self.assertIn('filters', data)
             self.assertIn('items', data)
 
     def test_concurrent_pagination_requests(self):
@@ -832,6 +834,8 @@ class IntegrationTestCase(TestCase):
             self.assertEqual(data['total'], first_total)
             self.assertEqual(data['page'], 1)
             self.assertEqual(data['page_size'], 25)
+            self.assertIn('filters', data)
+            self.assertEqual(data['filters'], all_data[0]['filters'])
 
 
 

@@ -1,0 +1,405 @@
+---
+description: FastAPI 應用程式中路由和依賴結構的指導方針，適用於 routers 目錄
+globs: "**/routers/*.py", "**/routes/*.py"
+priority: high
+category: fastapi-routes
+alwaysApply: true
+dependencies: ["fastapi-application-rules.mdc", "error-handling-rules.mdc", "pydantic-model-rules.mdc"]
+---
+
+# FastAPI 路由特定規則
+
+## 核心原則
+- **清晰的檔案結構**: 匯出路由器、子路由、工具函數、靜態內容、類型定義
+- **簡潔的條件語句**: 避免不必要的大括號，使用單行語法
+- **最佳化可讀性**: 清晰結構化路由和依賴以提升可讀性和可維護性
+- **類型安全**: 使用明確的回傳類型註解
+
+## 路由檔案結構
+
+### 標準路由檔案模板
+```python
+# ✅ 標準路由檔案結構
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
+from typing import List, Optional
+
+# 本地匯入
+from ..database import get_db
+from ..models.user import User
+from ..schemas.user import UserCreate, UserUpdate, UserResponse
+from ..crud.user import get_user, create_user, update_user, delete_user
+from ..dependencies.auth import get_current_user
+
+# ✅ 路由器定義
+router = APIRouter()
+
+# ✅ 路由處理器
+@router.get("/", response_model=List[UserResponse])
+async def get_users(
+    skip: int = 0,
+    limit: int = 100,
+    db: AsyncSession = Depends(get_db)
+) -> List[UserResponse]:
+    """取得使用者列表"""
+    users = await get_users_list(db, skip=skip, limit=limit)
+    return [UserResponse.from_orm(user) for user in users]
+
+@router.get("/{user_id}", response_model=UserResponse)
+async def get_user_by_id(
+    user_id: int,
+    db: AsyncSession = Depends(get_db)
+) -> UserResponse:
+    """根據 ID 取得使用者"""
+    user = await get_user(db, user_id)
+    if not user:
+        raise HTTPException(404, "使用者不存在")
+    return UserResponse.from_orm(user)
+
+@router.post("/", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+async def create_new_user(
+    user_data: UserCreate,
+    db: AsyncSession = Depends(get_db)
+) -> UserResponse:
+    """建立新使用者"""
+    # 檢查電子郵件是否已存在
+    existing_user = await get_user_by_email(db, user_data.email)
+    if existing_user:
+        raise HTTPException(409, "電子郵件已被使用")
+    
+    user = await create_user(db, user_data)
+    return UserResponse.from_orm(user)
+
+# ✅ 工具函數（檔案底部）
+async def get_users_list(
+    db: AsyncSession, 
+    skip: int = 0, 
+    limit: int = 100
+) -> List[User]:
+    """取得使用者列表的工具函數"""
+    return await get_paginated_users(db, skip, limit)
+```
+
+### 複雜路由組織
+```python
+# ✅ 複雜業務邏輯的路由組織
+from fastapi import APIRouter, BackgroundTasks, UploadFile, File
+
+router = APIRouter()
+
+@router.post("/upload", response_model=FileResponse)
+async def upload_dicom_file(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+) -> FileResponse:
+    """上傳 DICOM 檔案"""
+    # 早期驗證
+    if not file.filename.endswith('.dcm'):
+        raise HTTPException(422, "只支援 DICOM 檔案")
+    
+    if file.size > settings.max_file_size:
+        raise HTTPException(413, "檔案過大")
+    
+    # 儲存檔案
+    file_path = await save_uploaded_file(file)
+    
+    # 建立檔案記錄
+    file_record = await create_file_record(
+        db, file.filename, file_path, current_user.id
+    )
+    
+    # 背景處理
+    background_tasks.add_task(
+        process_dicom_file, 
+        file_path, 
+        file_record.id
+    )
+    
+    return FileResponse.from_orm(file_record)
+
+@router.get("/{file_id}/process", response_model=ProcessingStatus)
+async def get_processing_status(
+    file_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+) -> ProcessingStatus:
+    """取得檔案處理狀態"""
+    # 檢查檔案存在和權限
+    file_record = await get_file_by_id(db, file_id)
+    if not file_record:
+        raise HTTPException(404, "檔案不存在")
+    
+    if file_record.user_id != current_user.id:
+        raise HTTPException(403, "無權限存取此檔案")
+    
+    # 取得處理狀態
+    status = await get_file_processing_status(file_id)
+    return ProcessingStatus(**status)
+```
+
+## 依賴注入模式
+
+### 階層式依賴
+```python
+# ✅ 階層式依賴注入
+from fastapi import Depends
+
+# 基礎依賴
+async def get_db() -> AsyncSession:
+    """資料庫會話依賴"""
+    # 實作...
+
+async def get_current_user(
+    db: AsyncSession = Depends(get_db)
+) -> User:
+    """當前使用者依賴"""
+    # 實作...
+
+async def get_admin_user(
+    current_user: User = Depends(get_current_user)
+) -> User:
+    """管理員使用者依賴"""
+    if not current_user.is_admin:
+        raise HTTPException(403, "需要管理員權限")
+    return current_user
+
+# ✅ 使用階層式依賴
+@router.delete("/{user_id}")
+async def delete_user(
+    user_id: int,
+    admin_user: User = Depends(get_admin_user),  # 自動包含所有上層依賴
+    db: AsyncSession = Depends(get_db)
+):
+    """刪除使用者（僅管理員）"""
+    await delete_user_by_id(db, user_id)
+    return {"message": "使用者已刪除"}
+```
+
+### 條件式依賴
+```python
+# ✅ 條件式依賴
+def get_optional_user(
+    token: Optional[str] = Header(None),
+    db: AsyncSession = Depends(get_db)
+) -> Optional[User]:
+    """可選的使用者依賴"""
+    if not token:
+        return None
+    
+    try:
+        return verify_token_and_get_user(token, db)
+    except:
+        return None
+
+@router.get("/public-data")
+async def get_public_data(
+    user: Optional[User] = Depends(get_optional_user)
+) -> PublicDataResponse:
+    """取得公開資料（可選認證）"""
+    # 根據是否有使用者提供不同資料
+    if user:
+        return await get_personalized_data(user.id)
+    return await get_anonymous_data()
+```
+
+## 錯誤處理模式
+
+### 路由級錯誤處理
+```python
+# ✅ 統一的路由錯誤處理
+@router.post("/process-data")
+async def process_data(
+    data: DataInput,
+    db: AsyncSession = Depends(get_db)
+) -> ProcessResult:
+    """處理資料"""
+    # 輸入驗證
+    if not data.items:
+        raise HTTPException(422, "資料項目不能為空")
+    
+    # 業務邏輯驗證
+    if len(data.items) > 1000:
+        raise HTTPException(422, "資料項目不能超過 1000 個")
+    
+    try:
+        result = await process_data_items(db, data.items)
+        return ProcessResult(**result)
+    
+    except ValidationError as e:
+        raise HTTPException(422, f"資料驗證失敗: {str(e)}")
+    
+    except ProcessingError as e:
+        raise HTTPException(500, f"處理失敗: {str(e)}")
+    
+    except Exception as e:
+        logger.error(f"未預期錯誤: {e}")
+        raise HTTPException(500, "伺服器內部錯誤")
+```
+
+## 查詢參數處理
+
+### 複雜查詢參數
+```python
+from fastapi import Query
+from typing import Optional, List
+from enum import Enum
+
+class SortOrder(str, Enum):
+    """排序順序"""
+    ASC = "asc"
+    DESC = "desc"
+
+class UserStatus(str, Enum):
+    """使用者狀態"""
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    PENDING = "pending"
+
+# ✅ 複雜查詢參數處理
+@router.get("/search", response_model=List[UserResponse])
+async def search_users(
+    # 基本分頁
+    skip: int = Query(0, ge=0, description="跳過的記錄數"),
+    limit: int = Query(100, ge=1, le=1000, description="返回的記錄數"),
+    
+    # 搜尋條件
+    name: Optional[str] = Query(None, min_length=2, description="姓名搜尋"),
+    email: Optional[str] = Query(None, description="電子郵件搜尋"),
+    status: Optional[UserStatus] = Query(None, description="使用者狀態"),
+    
+    # 排序
+    sort_by: str = Query("created_at", description="排序欄位"),
+    sort_order: SortOrder = Query(SortOrder.DESC, description="排序順序"),
+    
+    # 過濾
+    tags: Optional[List[str]] = Query(None, description="標籤過濾"),
+    created_after: Optional[datetime] = Query(None, description="建立時間過濾"),
+    
+    # 依賴
+    db: AsyncSession = Depends(get_db)
+) -> List[UserResponse]:
+    """搜尋使用者"""
+    # 建構搜尋條件
+    search_params = {
+        "skip": skip,
+        "limit": limit,
+        "name": name,
+        "email": email,
+        "status": status.value if status else None,
+        "sort_by": sort_by,
+        "sort_order": sort_order.value,
+        "tags": tags,
+        "created_after": created_after
+    }
+    
+    # 移除空值
+    search_params = {k: v for k, v in search_params.items() if v is not None}
+    
+    users = await search_users_with_params(db, search_params)
+    return [UserResponse.from_orm(user) for user in users]
+```
+
+## 回應模式
+
+### 統一回應格式
+```python
+from pydantic import BaseModel
+from typing import Generic, TypeVar, Optional
+
+T = TypeVar('T')
+
+class ApiResponse(BaseModel, Generic[T]):
+    """統一 API 回應格式"""
+    success: bool
+    data: Optional[T] = None
+    message: Optional[str] = None
+    errors: Optional[List[str]] = None
+
+# ✅ 使用統一回應格式
+@router.get("/{user_id}", response_model=ApiResponse[UserResponse])
+async def get_user(
+    user_id: int,
+    db: AsyncSession = Depends(get_db)
+) -> ApiResponse[UserResponse]:
+    """取得使用者"""
+    user = await get_user_by_id(db, user_id)
+    
+    if not user:
+        return ApiResponse(
+            success=False,
+            message="使用者不存在"
+        )
+    
+    return ApiResponse(
+        success=True,
+        data=UserResponse.from_orm(user),
+        message="使用者資料取得成功"
+    )
+```
+
+## 條件語句最佳化
+
+### 簡潔條件語句
+```python
+# ✅ 簡潔的條件語句
+@router.patch("/{user_id}")
+async def update_user_status(
+    user_id: int,
+    status_update: StatusUpdate,
+    db: AsyncSession = Depends(get_db)
+):
+    """更新使用者狀態"""
+    # 早期返回，無嵌套
+    user = await get_user_by_id(db, user_id)
+    if not user:
+        raise HTTPException(404, "使用者不存在")
+    
+    # 單行條件語句
+    if status_update.status == "active": await activate_user(db, user)
+    if status_update.status == "inactive": await deactivate_user(db, user)
+    if status_update.status == "suspended": await suspend_user(db, user)
+    
+    return {"message": "狀態更新成功"}
+
+# ❌ 避免深度嵌套
+def bad_update_logic(user_id: int, data: dict):
+    if user_id:
+        if data:
+            if "status" in data:
+                if data["status"] == "active":
+                    # 深度嵌套邏輯
+                    pass
+```
+
+## 禁止的路由模式
+
+### ❌ 絕對不要使用
+```python
+# ❌ 沒有類型註解
+@router.get("/users")
+async def get_users():  # 缺少回傳類型
+    pass
+
+# ❌ 混亂的依賴順序
+@router.post("/create")
+async def create_item(
+    db: AsyncSession = Depends(get_db),
+    item_data: ItemCreate,  # 參數順序混亂
+    current_user: User = Depends(get_current_user)
+):
+    pass
+
+# ❌ 在路由中直接處理複雜邏輯
+@router.post("/complex")
+async def complex_operation():
+    # 不要在路由中寫複雜的業務邏輯
+    # 應該提取到服務層
+    pass
+
+# ❌ 不一致的錯誤處理
+@router.get("/inconsistent")
+async def inconsistent_error():
+    return {"error": "something went wrong"}  # 應該使用 HTTPException
+```

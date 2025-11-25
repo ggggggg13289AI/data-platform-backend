@@ -1,0 +1,10 @@
+---
+description: Django 設定檔最佳實務（移植自 awesome-cursorrules）
+globs: "**/settings.py"
+priority: low
+category: django-settings
+alwaysApply: false
+---
+- 生產環境首選 PostgreSQL 或 MySQL；善用 `DATABASES` 設定抽換不同環境。
+- 建議整合 Redis：同時可做快取與（未來）Celery 工作佇列。
+- 若需背景任務，優先考慮 Celery + Redis 的標準組合。

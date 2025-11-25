@@ -237,7 +237,13 @@ class ProjectPagination(PaginationBase):
 
                 project_dict = project.to_dict()
                 project_dict['member_count'] = member_count
-                project_dict['user_role'] = ProjectPermissions.get_user_role(project, user)
+                user_role = ProjectPermissions.get_user_role(project, user)
+                user_permissions = ProjectPermissions.get_user_permissions(project, user)
+                permission_flags = ProjectPermissions.get_permission_flags(project, user)
+
+                project_dict['user_role'] = user_role
+                project_dict['user_permissions'] = user_permissions
+                project_dict.update(permission_flags)
 
                 items.append(project_dict)
 
@@ -277,6 +283,7 @@ class ReportPaginationOutput(BaseModel):
     page: int         # Current page number
     page_size: int    # Items per page
     pages: int        # Total number of pages
+    filters: Dict[str, Any]
 
 
 class ReportPagination(PaginationBase):
@@ -350,6 +357,9 @@ class ReportPagination(PaginationBase):
             total_count, page_size
         )
 
+        # Enrich response with reusable filter options
+        filter_options = ReportService.get_filter_options()
+
         # Return as dictionary for Django Ninja compatibility
         return {
             'items': items,
@@ -357,4 +367,5 @@ class ReportPagination(PaginationBase):
             'page': page,
             'page_size': page_size,
             'pages': total_pages,
+            'filters': filter_options,
         }
