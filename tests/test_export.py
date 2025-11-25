@@ -5,15 +5,17 @@ Tests CSV and Excel export with various filters and edge cases.
 Follows pragmatic testing - focuses on actual user scenarios.
 """
 
-import pandas as pd
-from io import BytesIO
 from datetime import datetime
+from io import BytesIO
+from unittest.mock import patch
+
+import pandas as pd
 from django.test import TestCase
-from django.utils import timezone
 from django.test.client import Client
-from unittest.mock import patch, MagicMock
-from studies.models import Study
-from studies.export_service import ExportService, ExportConfig
+from django.utils import timezone
+
+from common.export_service import ExportConfig, ExportService
+from study.models import Study
 
 
 class ExportServiceTests(TestCase):

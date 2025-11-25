@@ -15,15 +15,17 @@ Test coverage:
 CRITICAL: Cache failures should NOT break the service - graceful degradation required.
 """
 
-from django.test import TestCase
+from unittest.mock import patch
+
 from django.core.cache import cache
-from unittest.mock import patch, Mock
-from studies.services import StudyService
-from studies.models import Study
-from studies.config import ServiceConfig
+from django.test import TestCase
+
+from common.config import ServiceConfig
+from study.models import Study
+from study.services import StudyService
 from tests.fixtures.test_data import (
-    MockDataGenerator,
     CacheTestHelper,
+    MockDataGenerator,
 )
 
 
@@ -201,7 +203,7 @@ class CacheInvalidationTests(TestCase):
     def test_manual_cache_clear_forces_database_query(self):
         """Test that manually clearing cache forces database query on next call."""
         # Arrange - Prime cache
-        first_result = StudyService.get_filter_options()
+        StudyService.get_filter_options()
         cache_key = ServiceConfig.FILTER_OPTIONS_CACHE_KEY
         self.assertIsNotNone(cache.get(cache_key))
 
@@ -212,7 +214,7 @@ class CacheInvalidationTests(TestCase):
         # Second call should query database
         with patch('studies.services.StudyService._get_filter_options_from_db') as mock_db:
             mock_db.return_value = CacheTestHelper.mock_filter_options()
-            second_result = StudyService.get_filter_options()
+            StudyService.get_filter_options()
 
         # Assert - Database should be called after cache clear
         mock_db.assert_called_once()
@@ -220,8 +222,7 @@ class CacheInvalidationTests(TestCase):
     def test_cache_refreshes_after_new_data_added(self):
         """Test that cache can be refreshed to include new data."""
         # Arrange - Get initial filter options (will be cached)
-        initial_result = StudyService.get_filter_options()
-        initial_sources = initial_result['exam_sources']
+        StudyService.get_filter_options()
 
         # Act - Clear cache and add new study with different source
         cache.clear()

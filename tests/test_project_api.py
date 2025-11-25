@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import json
+
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase
 from django.utils import timezone
 
-from studies.models import Project, ProjectMember, Study, StudyProjectAssignment
-from studies.project_service import ProjectService
+from project.models import Project, ProjectMember, Study, StudyProjectAssignment
+from project.service import ProjectService
 
 
 class ProjectApiTestCase(TestCase):

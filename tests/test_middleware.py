@@ -15,11 +15,13 @@ Test coverage:
 PERFORMANCE: Middleware should add <1ms overhead per request.
 """
 
-from django.test import TestCase, RequestFactory
-from django.http import HttpResponse
-from unittest.mock import patch, Mock, MagicMock
-from studies.middleware import RequestTimingMiddleware
 import time
+from unittest.mock import Mock, patch
+
+from django.http import HttpResponse
+from django.test import RequestFactory, TestCase
+
+from common.middleware import RequestTimingMiddleware
 
 
 class RequestTimingMiddlewareBasicTests(TestCase):
@@ -50,7 +52,7 @@ class RequestTimingMiddlewareBasicTests(TestCase):
 
         # Act
         with patch('studies.middleware.logger') as mock_logger:
-            response = self.middleware(request)
+            self.middleware(request)
 
         # Assert - Logger should be called with timing information
         mock_logger.info.assert_called_once()
@@ -70,7 +72,7 @@ class RequestTimingMiddlewareBasicTests(TestCase):
 
         # Act
         with patch('studies.middleware.logger') as mock_logger:
-            response = middleware(request)
+            middleware(request)
 
         # Assert
         log_message = mock_logger.info.call_args[0][0]
@@ -78,6 +80,7 @@ class RequestTimingMiddlewareBasicTests(TestCase):
         import re
         match = re.search(r'\[(\d+)ms\]', log_message)
         self.assertIsNotNone(match)
+        assert match is not None  # Type narrowing for mypy
         duration = int(match.group(1))
         # Should be approximately 100ms (allow some variance)
         self.assertGreaterEqual(duration, 90)
@@ -100,7 +103,7 @@ class RequestTimingMiddlewareLogFormatTests(TestCase):
 
         # Act
         with patch('studies.middleware.logger') as mock_logger:
-            response = self.middleware(request)
+            self.middleware(request)
 
         # Assert
         log_message = mock_logger.info.call_args[0][0]
@@ -113,7 +116,7 @@ class RequestTimingMiddlewareLogFormatTests(TestCase):
 
         # Act
         with patch('studies.middleware.logger') as mock_logger:
-            response = self.middleware(request)
+            self.middleware(request)
 
         # Assert
         log_message = mock_logger.info.call_args[0][0]
@@ -127,7 +130,7 @@ class RequestTimingMiddlewareLogFormatTests(TestCase):
 
         # Act
         with patch('studies.middleware.logger') as mock_logger:
-            response = self.middleware(request)
+            self.middleware(request)
 
         # Assert
         log_message = mock_logger.info.call_args[0][0]
@@ -142,7 +145,7 @@ class RequestTimingMiddlewareLogFormatTests(TestCase):
 
         # Act
         with patch('studies.middleware.logger') as mock_logger:
-            response = self.middleware(request)
+            self.middleware(request)
 
         # Assert
         log_message = mock_logger.info.call_args[0][0]
@@ -167,7 +170,7 @@ class RequestTimingMiddlewarePerformanceTests(TestCase):
 
         # Act - Measure total time including middleware
         start = time.time()
-        response = self.middleware(request)
+        self.middleware(request)
         total_time = (time.time() - start) * 1000  # Convert to ms
 
         # Assert - Middleware overhead should be minimal (<5ms for test environment)

@@ -13,20 +13,21 @@ CRITICAL: Service layer is the highest priority for testing as it contains
 the most complex business logic, raw SQL queries, and error handling.
 """
 
-from django.test import TestCase
-from django.core.cache import cache
-from unittest.mock import patch, Mock
-from studies.services import StudyService
-from studies.models import Study
-from studies.exceptions import StudyNotFoundError, DatabaseQueryError
-from studies.config import ServiceConfig
-from tests.fixtures.test_data import (
-    StudyFactory,
-    MockDataGenerator,
-    DateTimeHelper,
-    CacheTestHelper,
-)
 from datetime import datetime
+from unittest.mock import patch
+
+from django.core.cache import cache
+from django.test import TestCase
+
+from common.config import ServiceConfig
+from common.exceptions import DatabaseQueryError, StudyNotFoundError
+from study.models import Study
+from study.services import StudyService
+from tests.fixtures.test_data import (
+    DateTimeHelper,
+    MockDataGenerator,
+    StudyFactory,
+)
 
 
 class StudyServiceQuerySetTextSearchTests(TestCase):

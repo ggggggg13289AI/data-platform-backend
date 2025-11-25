@@ -13,14 +13,16 @@ Test coverage:
 - Edge cases (empty strings, special characters)
 """
 
-from django.test import TestCase
-from django.db import IntegrityError
 from datetime import datetime
-from studies.models import Study
+
+from django.db import IntegrityError
+from django.test import TestCase
+
+from study.models import Study
 from tests.fixtures.test_data import (
-    StudyFactory,
-    MockDataGenerator,
     EdgeCaseGenerator,
+    MockDataGenerator,
+    StudyFactory,
 )
 
 

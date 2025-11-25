@@ -5,8 +5,8 @@ Provides reusable test data generation functions to avoid duplication
 across test files and ensure consistency in test scenarios.
 """
 
-from datetime import datetime, date, timedelta
-from typing import Dict, List, Optional, Any
+from datetime import datetime, timedelta
+from typing import Any
 
 
 class StudyFactory:
@@ -21,7 +21,7 @@ class StudyFactory:
     def create_complete_study(
         exam_id: str = "TEST001",
         **overrides
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Create a complete study record with all fields populated.
 
@@ -63,7 +63,7 @@ class StudyFactory:
         return defaults
 
     @staticmethod
-    def create_minimal_study(exam_id: str = "MIN001") -> Dict[str, Any]:
+    def create_minimal_study(exam_id: str = "MIN001") -> dict[str, Any]:
         """
         Create study with only required fields (minimal valid record).
 
@@ -100,7 +100,7 @@ class StudyFactory:
         count: int = 10,
         base_exam_id: str = "BATCH",
         **common_fields
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Create multiple study records for batch testing.
 
@@ -168,7 +168,7 @@ class DateTimeHelper:
         base_date: datetime,
         count: int,
         interval_hours: int = 1
-    ) -> List[datetime]:
+    ) -> list[datetime]:
         """
         Create sequence of datetime objects at regular intervals.
 
@@ -209,7 +209,7 @@ class MockDataGenerator:
     GENDERS = ['M', 'F']
 
     @classmethod
-    def study_with_status(cls, status: str, exam_id: str = "STATUS001") -> Dict[str, Any]:
+    def study_with_status(cls, status: str, exam_id: str = "STATUS001") -> dict[str, Any]:
         """Create study with specific exam status."""
         return StudyFactory.create_complete_study(
             exam_id=exam_id,
@@ -217,7 +217,7 @@ class MockDataGenerator:
         )
 
     @classmethod
-    def study_with_source(cls, source: str, exam_id: str = "SOURCE001") -> Dict[str, Any]:
+    def study_with_source(cls, source: str, exam_id: str = "SOURCE001") -> dict[str, Any]:
         """Create study with specific exam source."""
         return StudyFactory.create_complete_study(
             exam_id=exam_id,
@@ -225,7 +225,7 @@ class MockDataGenerator:
         )
 
     @classmethod
-    def study_with_equipment(cls, equipment: str, exam_id: str = "EQUIP001") -> Dict[str, Any]:
+    def study_with_equipment(cls, equipment: str, exam_id: str = "EQUIP001") -> dict[str, Any]:
         """Create study with specific equipment."""
         return StudyFactory.create_complete_study(
             exam_id=exam_id,
@@ -233,7 +233,7 @@ class MockDataGenerator:
         )
 
     @classmethod
-    def study_with_gender(cls, gender: str, exam_id: str = "GENDER001") -> Dict[str, Any]:
+    def study_with_gender(cls, gender: str, exam_id: str = "GENDER001") -> dict[str, Any]:
         """Create study with specific patient gender."""
         return StudyFactory.create_complete_study(
             exam_id=exam_id,
@@ -241,7 +241,7 @@ class MockDataGenerator:
         )
 
     @classmethod
-    def study_with_age(cls, age: int, exam_id: str = "AGE001") -> Dict[str, Any]:
+    def study_with_age(cls, age: int, exam_id: str = "AGE001") -> dict[str, Any]:
         """Create study with specific patient age."""
         birth_year = datetime.now().year - age
         return StudyFactory.create_complete_study(
@@ -251,7 +251,7 @@ class MockDataGenerator:
         )
 
     @classmethod
-    def studies_for_text_search(cls) -> List[Dict[str, Any]]:
+    def studies_for_text_search(cls) -> list[dict[str, Any]]:
         """
         Create studies for text search testing across 9 fields.
 
@@ -301,7 +301,7 @@ class MockDataGenerator:
         ]
 
     @classmethod
-    def studies_for_filter_testing(cls) -> List[Dict[str, Any]]:
+    def studies_for_filter_testing(cls) -> list[dict[str, Any]]:
         """
         Create diverse studies for comprehensive filter testing.
 
@@ -337,7 +337,7 @@ class MockDataGenerator:
         return studies
 
     @classmethod
-    def study_with_null_fields(cls, exam_id: str = "NULL001") -> Dict[str, Any]:
+    def study_with_null_fields(cls, exam_id: str = "NULL001") -> dict[str, Any]:
         """Create study with NULL values for optional fields."""
         return {
             'exam_id': exam_id,
@@ -362,7 +362,7 @@ class MockDataGenerator:
         }
 
     @classmethod
-    def study_with_edge_case_dates(cls, exam_id: str = "EDGE001") -> Dict[str, Any]:
+    def study_with_edge_case_dates(cls, exam_id: str = "EDGE001") -> dict[str, Any]:
         """Create study with edge case datetime values."""
         return StudyFactory.create_complete_study(
             exam_id=exam_id,
@@ -377,7 +377,7 @@ class CacheTestHelper:
     """Helper functions for cache testing scenarios."""
 
     @staticmethod
-    def mock_filter_options() -> Dict[str, List[str]]:
+    def mock_filter_options() -> dict[str, list[str]]:
         """
         Generate mock filter options data structure.
 
@@ -408,7 +408,7 @@ class EdgeCaseGenerator:
     """Generators for edge case and boundary condition testing."""
 
     @staticmethod
-    def empty_string_fields(exam_id: str = "EMPTY001") -> Dict[str, Any]:
+    def empty_string_fields(exam_id: str = "EMPTY001") -> dict[str, Any]:
         """Create study with empty strings for optional text fields."""
         study = StudyFactory.create_complete_study(exam_id=exam_id)
         study.update({
@@ -420,7 +420,7 @@ class EdgeCaseGenerator:
         return study
 
     @staticmethod
-    def boundary_age_cases() -> List[Dict[str, Any]]:
+    def boundary_age_cases() -> list[dict[str, Any]]:
         """Create studies with boundary age values."""
         return [
             MockDataGenerator.study_with_age(0, "AGE_ZERO"),
@@ -429,7 +429,7 @@ class EdgeCaseGenerator:
         ]
 
     @staticmethod
-    def invalid_date_strings() -> List[str]:
+    def invalid_date_strings() -> list[str]:
         """Return list of invalid date format strings for testing."""
         return [
             'invalid-date',
@@ -441,7 +441,7 @@ class EdgeCaseGenerator:
         ]
 
     @staticmethod
-    def special_character_names() -> List[Dict[str, Any]]:
+    def special_character_names() -> list[dict[str, Any]]:
         """Create studies with special characters in name fields."""
         return [
             StudyFactory.create_complete_study(

@@ -1,15 +1,13 @@
 from __future__ import annotations
 
-from typing import List
-
 from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied
 from django.test import RequestFactory, TestCase
 from django.utils import timezone
 
-from studies.models import Project, ProjectMember, Study, StudyProjectAssignment
-from studies.permissions import ProjectPermissions, require_edit
-from studies.project_service import ProjectService
+from common.permissions import ProjectPermissions, require_edit
+from project.models import Project, ProjectMember, Study, StudyProjectAssignment
+from project.service import ProjectService
 
 
 class ProjectServiceTestCase(TestCase):
@@ -57,7 +55,7 @@ class ProjectServiceTestCase(TestCase):
             order_datetime=now,
         )
 
-    def create_project(self, name: str = 'Test Project', tags: List[str] | None = None) -> Project:
+    def create_project(self, name: str = 'Test Project', tags: list[str] | None = None) -> Project:
         return ProjectService.create_project(
             name=name,
             user=self.owner,
