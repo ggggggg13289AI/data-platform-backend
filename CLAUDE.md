@@ -48,6 +48,19 @@ python manage.py sqlmigrate studies 0001
 
 # Rollback specific migration
 python manage.py migrate studies 0006
+
+# Database backup (compressed, keep last 30)
+make backup
+
+# PostgreSQL backup (for production)
+make backup-postgres
+
+# Restore from backup
+make restore FILE=backups/backup_20250125_143000.json.gz
+
+# Manual backup/restore (see scripts/DATABASE_BACKUP_GUIDE.md for details)
+python scripts/backup_database.py --help
+python scripts/restore_database.py --help
 ```
 
 ### Development Workflow

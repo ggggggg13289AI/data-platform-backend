@@ -170,3 +170,11 @@ class ProjectResourceItem(Schema):
     report: ReportResponse | None = None
 
     assignment: ProjectResourceAssignment | None = None
+
+class SearchResultItem(Schema):
+    resource_type: str
+    accession_number: str
+    score: float
+    snippet: str
+    resource_payload: dict[str, Any]
+    resource_timestamp: str

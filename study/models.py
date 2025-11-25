@@ -5,6 +5,8 @@ All fields needed for search, no speculation about future uses.
 """
 
 from django.db import models
+from django.contrib.postgres.search import SearchVectorField
+from django.contrib.postgres.indexes import GinIndex
 
 
 class Study(models.Model):
@@ -54,6 +56,9 @@ class Study(models.Model):
     certified_physician = models.CharField(max_length=200, null=True, blank=True)
     data_load_time = models.DateTimeField(null=True, blank=True)
 
+    # Search Vector - Populated via signals or periodic tasks (or migration)
+    search_vector = SearchVectorField(null=True, blank=True)
+
     class Meta:
         # Ordering - most recent first (users expect this)
         ordering = ['-order_datetime']
@@ -64,6 +69,7 @@ class Study(models.Model):
             models.Index(fields=['exam_source', '-order_datetime']),
             models.Index(fields=['patient_name']),
             models.Index(fields=['exam_item']),
+            GinIndex(fields=['search_vector']),
         ]
 
         # Table name

@@ -6,6 +6,7 @@ Focuses on actual user scenarios: report import, deduplication, retrieval.
 """
 
 import hashlib
+import logging
 from datetime import datetime
 from typing import Any
 
@@ -16,16 +17,21 @@ from django.utils import timezone
 from report.models import Report, ReportVersion
 
 
+logger = logging.getLogger(__name__)
+
+
 class ReportService:
     """Service for managing report lifecycle: import, deduplication, versioning."""
 
     # Data structure for sort options (Linus rule: eliminate special cases/if-else chains)
+    # Tuples guarantee deterministic ordering so Postgres can sort BEFORE LIMIT/OFFSET.
     SORT_MAPPING = {
-        'created_at_desc': '-created_at',
-        'title_asc': 'title',
-        'verified_at_asc': 'verified_at',
-        'verified_at_desc': '-verified_at',
+        'created_at_desc': ('-created_at', '-verified_at', 'uid'),
+        'title_asc': ('title', 'uid'),
+        'verified_at_asc': ('verified_at', 'created_at', 'uid'),
+        'verified_at_desc': ('-verified_at', '-created_at', 'uid'),
     }
+    DEFAULT_SORT_KEY = 'verified_at_desc'
 
     @staticmethod
     def calculate_content_hash(content: str) -> str:
@@ -368,9 +374,20 @@ class ReportService:
 
         # SORT ORDER DETERMINATION
         # Data structure driven sorting (Linus rule: eliminate special cases)
-        # Default: verified_at_desc (Most recent first)
-        sort_field = ReportService.SORT_MAPPING.get(sort, '-verified_at')
-        queryset = queryset.order_by(sort_field)
+        # Default: verified_at_desc (Most recent first, deterministic tie-breakers)
+        sort_fields = ReportService.SORT_MAPPING.get(sort)
+        if not sort_fields:
+            logger.warning(
+                "Unsupported report sort '%s', falling back to '%s'",
+                sort,
+                ReportService.DEFAULT_SORT_KEY,
+            )
+            sort_fields = ReportService.SORT_MAPPING[ReportService.DEFAULT_SORT_KEY]
+
+        if isinstance(sort_fields, str):
+            sort_fields = (sort_fields,)
+
+        queryset = queryset.order_by(*sort_fields)
 
         return queryset
 

@@ -6,6 +6,8 @@ import uuid
 
 from django.conf import settings
 from django.db import models
+from django.contrib.postgres.search import SearchVectorField
+from django.contrib.postgres.indexes import GinIndex
 
 
 class Report(models.Model):
@@ -51,7 +53,7 @@ class Report(models.Model):
 
     # Metadata storage (flexible)
     metadata = models.JSONField(default=dict, blank=True)  # Dynamic metadata
-
+    search_vector = SearchVectorField(null=True, blank=True)
     class Meta:
         db_table = 'one_page_text_report_v2'
         ordering = ['-verified_at', '-created_at']
@@ -60,6 +62,7 @@ class Report(models.Model):
             models.Index(fields=['source_url', 'verified_at']),
             models.Index(fields=['is_latest', '-verified_at']),
             models.Index(fields=['report_type']),
+            GinIndex(fields=['search_vector']),
         ]
         verbose_name = 'Report'
         verbose_name_plural = 'Reports'

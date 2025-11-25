@@ -15,25 +15,24 @@ Environment variables:
     DB_NAME, DB_USER, DB_PASSWORD, DB_HOST, DB_PORT: PostgreSQL connection
 """
 
+import io
+import logging
 import os
 import sys
-import io
+
 import django
-from pathlib import Path
-from datetime import datetime
-import logging
 
 # Fix Unicode encoding for Windows
 if sys.platform == 'win32':
-    import locale
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
 # Setup Django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
 django.setup()
 
-from studies.models import Study
-from studies.services import StudyService
+from studies.services import StudyService  # noqa: E402
+
+from studies.models import Study  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -104,12 +103,12 @@ def migrate_from_duckdb():
         failed = result.get('failed', 0)
         errors = result.get('errors', [])
 
-        print(f"✓ Import complete:")
+        print("✓ Import complete:")
         print(f"  - Imported: {imported:,} records")
         print(f"  - Failed: {failed:,} records")
 
         if errors:
-            print(f"\n⚠️  Errors encountered:")
+            print("\n⚠️  Errors encountered:")
             for error in errors[:10]:  # Show first 10 errors
                 print(f"  - {error}")
             if len(errors) > 10:
@@ -136,7 +135,7 @@ def migrate_from_duckdb():
             print(f"✓ SUCCESS: Record counts match! ({duckdb_count:,} records)")
         else:
             difference = abs(duckdb_count - postgresql_count)
-            print(f"⚠️  WARNING: Record count mismatch!")
+            print("⚠️  WARNING: Record count mismatch!")
             print(f"  - DuckDB: {duckdb_count:,} records")
             print(f"  - PostgreSQL: {postgresql_count:,} records")
             print(f"  - Difference: {difference:,} records")

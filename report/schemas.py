@@ -28,6 +28,7 @@ class ReportResponse(Schema):
     created_at: str
     verified_at: str | None = None
     content_preview: str  # First 500 chars
+    content_raw: str | None = None  # Optional full content for unified views
 
     class Config:
         orm_mode = True

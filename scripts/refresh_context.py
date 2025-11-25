@@ -21,12 +21,11 @@ Exit codes:
 from __future__ import annotations
 
 import json
-import os
 import sys
+from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Dict, Iterable, List, Tuple
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 RULES_DIR = REPO_ROOT / ".cursor" / "rules"
@@ -48,11 +47,11 @@ class FileInfo:
 
     @property
     def mtime_iso(self) -> str:
-        return datetime.fromtimestamp(self.mtime, tz=timezone.utc).astimezone().isoformat()
+        return datetime.fromtimestamp(self.mtime, tz=UTC).astimezone().isoformat()
 
 
-def find_docs_files(directories: Iterable[Path]) -> Dict[str, FileInfo]:
-    files: Dict[str, FileInfo] = {}
+def find_docs_files(directories: Iterable[Path]) -> dict[str, FileInfo]:
+    files: dict[str, FileInfo] = {}
     for base in directories:
         if not base.exists():
             continue
@@ -67,7 +66,7 @@ def find_docs_files(directories: Iterable[Path]) -> Dict[str, FileInfo]:
     return files
 
 
-def load_previous_state(state_file: Path) -> Dict[str, float]:
+def load_previous_state(state_file: Path) -> dict[str, float]:
     if not state_file.exists():
         return {}
     try:
@@ -81,9 +80,9 @@ def load_previous_state(state_file: Path) -> Dict[str, float]:
         return {}
 
 
-def diff_states(prev: Dict[str, float], curr: Dict[str, FileInfo]) -> Tuple[List[FileInfo], List[str]]:
-    added_or_modified: List[FileInfo] = []
-    removed: List[str] = []
+def diff_states(prev: dict[str, float], curr: dict[str, FileInfo]) -> tuple[list[FileInfo], list[str]]:
+    added_or_modified: list[FileInfo] = []
+    removed: list[str] = []
 
     for rel, info in curr.items():
         prev_mtime = prev.get(rel)
@@ -100,15 +99,15 @@ def diff_states(prev: Dict[str, float], curr: Dict[str, FileInfo]) -> Tuple[List
     return added_or_modified, removed
 
 
-def write_state(state_file: Path, curr: Dict[str, FileInfo]) -> None:
+def write_state(state_file: Path, curr: dict[str, FileInfo]) -> None:
     state_file.parent.mkdir(parents=True, exist_ok=True)
     with state_file.open("w", encoding="utf-8") as f:
         json.dump({rel: info.mtime for rel, info in sorted(curr.items())}, f, indent=2)
 
 
-def render_sync_mdc(added_or_modified: List[FileInfo], removed: List[str]) -> str:
+def render_sync_mdc(added_or_modified: list[FileInfo], removed: list[str]) -> str:
     now = datetime.now().astimezone().isoformat()
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append("# Context Sync Status\n# glob pattern(s) for applicable files: \"**/*\"\n")
     lines.append(f"**Last Sync**: {now}\n")
 

@@ -10,18 +10,18 @@ Usage:
 """
 
 import os
-import sys
 import time
+
 import django
-from pathlib import Path
 
 # Setup Django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
 django.setup()
 
-from django.db import connection
-from django.test.utils import override_settings
-from studies.models import Study
+from django.db import connection  # noqa: E402
+from django.test.utils import override_settings  # noqa: E402
+
+from studies.models import Study  # noqa: E402
 
 
 def test_n_plus_1_problem(count: int = 1000):
@@ -69,7 +69,7 @@ def test_n_plus_1_problem(count: int = 1000):
     print(f"Time: {elapsed:.2f}s")
     print(f"Queries executed: {query_count}")
     print(f"Expected queries: {count + 1}")
-    print(f"✓ This demonstrates the N+1 problem!")
+    print("✓ This demonstrates the N+1 problem!")
 
     # Cleanup
     Study.objects.filter(exam_id__startswith='TEST_NPLUS1_').delete()
@@ -124,7 +124,7 @@ def test_bulk_create_optimization(count: int = 1000):
     print(f"Time: {elapsed:.2f}s")
     print(f"Queries executed: {query_count}")
     print(f"Expected queries: {(count // 1000) + 1}")
-    print(f"✓ This is the optimized approach!")
+    print("✓ This is the optimized approach!")
 
     # Cleanup
     Study.objects.filter(exam_id__startswith='TEST_BULK_').delete()
@@ -161,7 +161,7 @@ def run_tests():
         print(f"{'='*70}")
         print(f"Time improvement: {time_improvement:.1f}x faster")
         print(f"Query reduction: {query_improvement:.1f}x fewer queries")
-        print(f"\nDetailed:")
+        print("\nDetailed:")
         print(f"  N+1 approach:     {n_plus_1_time:6.2f}s, {n_plus_1_queries:5d} queries")
         print(f"  bulk_create:      {bulk_time:6.2f}s, {bulk_queries:5d} queries")
         print(f"  Saved time:       {n_plus_1_time - bulk_time:6.2f}s")

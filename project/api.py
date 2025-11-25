@@ -4,7 +4,7 @@ from typing import Any
 from django.core.exceptions import PermissionDenied
 from django.http import Http404
 from django.shortcuts import get_object_or_404
-from ninja import Router
+from ninja import Router, Query
 from ninja.errors import HttpError
 from ninja.pagination import paginate
 from ninja_jwt.authentication import JWTAuth
@@ -34,9 +34,12 @@ from project.schemas import (
     UpdateMemberRoleRequest,
     UpdateProjectRequest,
     ProjectResourceItem,
+    SearchResultItem,
 )
 from project.service import ProjectBatchLimitExceeded, ProjectService
 from project.services.resource_aggregator import ResourceAggregator
+from project.services.search_registry import ProjectSearchRegistry
+import project.services.search_providers  # Trigger registration
 from report.api import ReportDetailResponse
 
 logger = logging.getLogger(__name__)
@@ -509,3 +512,16 @@ def list_project_resources(
         page_size=page_size,
         q=q
     )
+    # return {'response': '200'}
+
+
+@router.get('/{project_id}/search', response=list[SearchResultItem])
+@require_view
+def search_project_resources(request, project_id: str, q: str, project=None):
+    """
+    Full-text search across all project resources.
+    """
+    if project is None:
+        raise Http404('專案不存在')
+
+    return ProjectSearchRegistry.search(project_id, q)
