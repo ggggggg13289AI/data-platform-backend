@@ -178,7 +178,7 @@ curl -X POST http://localhost:8000/api/v1/reports/import \
 | `report_format` | string | No | none | Filter by format (comma-separated values) |
 | `date_from` | string | No | none | ISO 8601 date start (YYYY-MM-DD) |
 | `date_to` | string | No | none | ISO 8601 date end (YYYY-MM-DD) |
-| `sort` | string | No | "verified_at_desc" | Sort order: verified_at_desc, created_at_desc, title_asc |
+| `sort` | string | No | "verified_at_desc" | Sort order: verified_at_desc, verified_at_asc, created_at_desc, title_asc |
 
 **Response (200 OK)**
 ```json
