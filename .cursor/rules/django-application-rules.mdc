@@ -1,0 +1,45 @@
+---
+description: Django + Django Ninja 應用結構與設定規則（本專案）
+globs: "config/**/*.py", "manage.py", "studies/middleware.py"
+priority: critical
+category: django
+alwaysApply: true
+dependencies: ["django-error-handling-rules.mdc", "django-ninja-route-rules.mdc", "django-performance-optimization-rules.mdc", "pagination-rules.mdc"]
+---
+
+# Django 應用程式規則（本專案）
+
+## 架構與路由
+- **API 前綴**: `/api/v1/`（Swagger: `/api/v1/docs`，健康檢查: `/api/v1/health`）
+- 使用 `NinjaAPI`（version 1.1.0），在 `config/urls.py` 掛載：
+  - `/studies` → `studies/api.py`
+  - `/reports` → `studies/report_api.py`
+  - `/auth` → `studies/auth_api.py`
+  - `''` → `studies/project_api.py`
+- 只使用 Django Ninja 的 `Router` 與裝飾器；不要引入 FastAPI 元件。
+
+## 設定（config/settings.py）
+- DB: PostgreSQL（ENV: `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT`）
+- Cache: `locmem`（開發）/ `redis`（生產，ENV: `REDIS_URL`）
+- 靜態檔: `STATIC_URL=/static/`，強制提供以支援 Admin 與測試
+- 模板: 需啟用以支援 Ninja docs（`APP_DIRS=True`）
+- 語系/時區: `LANGUAGE_CODE='zh-hans'`、`TIME_ZONE='Asia/Shanghai'`
+- 日誌: 使用 `studies`、`request_timing` logger；避免在程式中自建全域 logger 名稱
+
+## 中介層（Middleware）
+- 啟用 `corsheaders.middleware.CorsMiddleware` 與 `studies.middleware.RequestTimingMiddleware`
+- Session 與 Authentication 中介層順序必須符合 Django 規範
+- CORS 允許來源：`http://localhost:{3000,5173}` 與 `127.0.0.1`
+
+## 認證
+- 使用 `ninja_jwt`，Authorization header 必須為 `Bearer <token>`
+- 使用 `JWTAuth()` 在需要的端點上啟用（專案管理路由必須）
+
+## 測試/管理命令（示例）
+- 測試：`python manage.py test`（或 `uv run python manage.py test`）
+- 啟動：`python manage.py runserver 8001`
+- 遷移：`python manage.py makemigrations` / `python manage.py migrate`
+
+## 禁止
+- 不要新增 FastAPI 專屬語法或依賴
+- 不要在路由檔直接進行跨模型的複雜業務邏輯（移至 service）

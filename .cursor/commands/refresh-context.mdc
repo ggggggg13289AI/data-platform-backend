@@ -1,0 +1,21 @@
+# /refresh-context
+
+## 說明
+- 立即刷新專案上下文，避免使用舊文件。執行後會重新掃描 `_tasks`、`docs`、`claudedocs`，產生最新變更摘要，供代理與模型優先參考。
+
+## 代理行為（建議流程）
+1. 執行命令：`make refresh-context`（或 `python scripts/refresh_context.py`）。
+2. 讀取並簡述 `.cursor/rules/context-sync.mdc` 的「變更的文件」清單。
+3. 依清單針對相關規則檔（例如 `pagination-unification-rules.mdc`、`projects-feature-rules.mdc`、`project-status.mdc`）判斷是否需要更新或提醒使用者。
+4. 後續對話以最新清單為準；若舊說法與新文件衝突，優先採用新文件。
+
+## 產出
+- `.cursor/rules/context-sync.mdc`（人類可讀變更摘要）
+- `.cursor/rules/context-state.json`（檔案快取與 mtime）
+
+## 執行安全
+- 僅執行一次性掃描與檔案寫入；不啟動長駐程序。
+
+## 快速使用
+- 在對話中輸入：`/refresh-context`
+- 若斜線指令無法直接觸發，請使用：`make refresh-context`
