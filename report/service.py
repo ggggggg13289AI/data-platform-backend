@@ -10,11 +10,15 @@ import logging
 from datetime import datetime
 from typing import Any
 
+from django.contrib.postgres.search import SearchQuery
 from django.db import transaction
-from django.db.models import Max, Min, QuerySet
+from django.db.models import Max, Min, QuerySet, Q
 from django.utils import timezone
 
+from common.base_pagination import BasePaginationHelper
 from report.models import Report, ReportVersion
+from report.schemas import AdvancedSearchRequest
+from report.services import AdvancedQueryBuilder, AdvancedQueryValidationError
 
 
 logger = logging.getLogger(__name__)
@@ -32,6 +36,239 @@ class ReportService:
         'verified_at_desc': ('-verified_at', '-created_at', 'uid'),
     }
     DEFAULT_SORT_KEY = 'verified_at_desc'
+
+    @staticmethod
+    def _serialize_report(report: Report, study_map: dict[str, Any] | None = None) -> dict[str, Any]:
+        """
+        Convert Report model to API-friendly dictionary.
+        
+        Args:
+            report: Report instance
+            study_map: Pre-fetched mapping of report_id -> study_info dict (for batch optimization)
+            
+        Returns:
+            Dictionary representation of report with optional study info
+        """
+        result = {
+            'uid': report.uid,
+            'report_id': report.report_id,
+            'title': report.title,
+            'report_type': report.report_type,
+            'version_number': report.version_number,
+            'is_latest': report.is_latest,
+            'created_at': report.created_at.isoformat() if report.created_at else None,
+            'verified_at': report.verified_at.isoformat() if report.verified_at else None,
+            'content_preview': ReportService.safe_truncate(report.content_raw, 500),
+            'content_raw': report.content_raw,
+            'source_url': report.source_url,
+        }
+        
+        # Use pre-fetched study data if available, otherwise fetch individually
+        if study_map is not None:
+            result['study'] = study_map.get(report.report_id)
+        
+        return result
+    
+    @staticmethod
+    def _serialize_study(study: Any) -> dict[str, Any]:
+        """
+        Convert Study model to dictionary for embedding in Report response.
+        
+        Args:
+            study: Study model instance
+            
+        Returns:
+            Dictionary with study information
+        """
+        return {
+            'patient_name': study.patient_name,
+            'patient_age': study.patient_age,
+            'patient_gender': study.patient_gender,
+            'exam_source': study.exam_source,
+            'exam_item': study.exam_item,
+            'exam_status': study.exam_status,
+            'equipment_type': study.equipment_type,
+            'order_datetime': study.order_datetime.isoformat() if study.order_datetime else None,
+            'check_in_datetime': study.check_in_datetime.isoformat() if study.check_in_datetime else None,
+            'report_certification_datetime': study.report_certification_datetime.isoformat() 
+                if study.report_certification_datetime else None,
+        }
+    
+    @staticmethod
+    def _batch_load_studies(report_ids: list[str]) -> dict[str, dict[str, Any]]:
+        """
+        Batch load Study information for multiple report_ids.
+        
+        Solves N+1 query problem by fetching all required studies in a single query.
+        
+        Args:
+            report_ids: List of report IDs to fetch studies for
+            
+        Returns:
+            Dictionary mapping report_id -> study_info dict
+        """
+        if not report_ids:
+            return {}
+        
+        from study.models import Study
+        
+        try:
+            # Single query to fetch all required studies
+            studies = Study.objects.filter(exam_id__in=report_ids)
+            
+            # Build mapping: report_id -> study_info
+            study_map = {
+                study.exam_id: ReportService._serialize_study(study)
+                for study in studies
+            }
+            
+            logger.debug(f"Batch loaded {len(study_map)} studies for {len(report_ids)} reports")
+            return study_map
+            
+        except Exception as exc:
+            logger.warning(f"Error batch loading studies: {exc}")
+            return {}
+
+    @classmethod
+    def _resolve_sort_fields(cls, sort_key: str | None) -> tuple[str, ...]:
+        """Map sort key to deterministic ordering tuple."""
+        if not sort_key:
+            sort_key = cls.DEFAULT_SORT_KEY
+
+        sort_fields = cls.SORT_MAPPING.get(sort_key)
+        if not sort_fields:
+            logger.warning(
+                "Unsupported report sort '%s', falling back to '%s'",
+                sort_key,
+                cls.DEFAULT_SORT_KEY,
+            )
+            sort_fields = cls.SORT_MAPPING[cls.DEFAULT_SORT_KEY]
+
+        if isinstance(sort_fields, str):
+            return (sort_fields,)
+        return tuple(sort_fields)
+
+    # Filter configuration - data structure driven (Linus principle: eliminate special cases)
+    FILTER_HANDLERS = {
+        'report_type': lambda qs, val: qs.filter(report_type=val),
+        'report_status': lambda qs, val: qs.filter(metadata__status=val),
+        'physician': lambda qs, val: qs.filter(metadata__physician__icontains=val),
+    }
+    
+    @staticmethod
+    def _apply_basic_filters(queryset: QuerySet, filters: dict[str, Any]) -> QuerySet:
+        """
+        Apply filters using data-driven approach (Good Taste).
+        
+        No special cases, no nested ifs - just iterate filter config.
+        """
+        if not filters:
+            return queryset
+        
+        # Simple filters: direct field mapping
+        for filter_key, handler in ReportService.FILTER_HANDLERS.items():
+            value = filters.get(filter_key)
+            if value:
+                queryset = handler(queryset, value)
+        
+        # List filters: normalize to list and use IN clause
+        report_format = filters.get('report_format')
+        if report_format:
+            if isinstance(report_format, str):
+                report_format = [report_format]
+            queryset = queryset.filter(report_type__in=report_format)
+        
+        # ID filters: support multiple field names
+        report_id = filters.get('report_id') or filters.get('exam_id')
+        if report_id:
+            queryset = queryset.filter(report_id__icontains=report_id)
+        
+        # Date range filters
+        date_from = filters.get('date_from')
+        if date_from:
+            start_dt = ReportService._parse_datetime(date_from)
+            if start_dt:
+                queryset = queryset.filter(verified_at__gte=start_dt)
+        
+        date_to = filters.get('date_to')
+        if date_to:
+            end_dt = ReportService._parse_datetime(date_to)
+            if end_dt:
+                queryset = queryset.filter(verified_at__lte=end_dt)
+        
+        return queryset
+
+    @staticmethod
+    def advanced_search(payload: AdvancedSearchRequest) -> dict[str, Any]:
+        """
+        Execute advanced report search combining DSL payload, filters, and pagination.
+        
+        Optimized with batch Study loading to avoid N+1 queries.
+        """
+        queryset = Report.objects.filter(is_latest=True)
+        filters = payload.filters.dict(exclude_none=True) if payload.filters else {}
+        queryset = ReportService._apply_basic_filters(queryset, filters)
+
+        extra_search_query: SearchQuery | None = None
+
+        if payload.mode == 'multi':
+            if not payload.tree:
+                raise AdvancedQueryValidationError(
+                    'Multi-condition payload is required when using multi mode'
+                )
+            builder_payload = payload.tree.dict(exclude_none=True)
+            builder = AdvancedQueryBuilder(builder_payload)
+            result = builder.build()
+            if result.filters:
+                queryset = queryset.filter(result.filters)
+            extra_search_query = result.search_query
+        else:
+            text = payload.basic.text.strip() if payload.basic and payload.basic.text else ''
+            if text:
+                queryset = queryset.filter(
+                    Q(report_id__icontains=text)
+                    | Q(uid__icontains=text)
+                    | Q(title__icontains=text)
+                    | Q(content_processed__icontains=text)
+                )
+                extra_search_query = SearchQuery(text, config=AdvancedQueryBuilder.SEARCH_CONFIG)
+
+        if extra_search_query is not None:
+            queryset = queryset.filter(search_vector=extra_search_query)
+
+        sort_fields = ReportService._resolve_sort_fields(payload.sort)
+        queryset = queryset.order_by(*sort_fields)
+
+        page, page_size, total_count, _, paginated_items = BasePaginationHelper.validate_and_paginate(
+            queryset,
+            payload.page,
+            payload.page_size,
+        )
+
+        # Batch load Study info to avoid N+1 queries (1-2 queries total)
+        # Query 1: Load reports (already done above)
+        # Query 2: Load all related studies in single batch query
+        report_ids = [report.report_id for report in paginated_items if report.report_id]
+        study_map = ReportService._batch_load_studies(report_ids) if report_ids else {}
+        
+        # Serialize reports with pre-fetched study data
+        items = [
+            ReportService._serialize_report(report, study_map=study_map) 
+            for report in paginated_items
+        ]
+        
+        total_pages = BasePaginationHelper.calculate_total_pages(total_count, page_size)
+        filter_options = ReportService.get_filter_options()
+
+        return {
+            'items': items,
+            'total': total_count,
+            'page': page,
+            'page_size': page_size,
+            'pages': total_pages,
+            'filters': filter_options,
+        }
+    
 
     @staticmethod
     def calculate_content_hash(content: str) -> str:
@@ -228,40 +465,25 @@ class ReportService:
     @staticmethod
     def safe_truncate(text: str, max_length: int = 500, encoding: str = 'utf-8') -> str:
         """
-        Safely truncate text at character boundaries for multi-byte encodings.
-
-        Prevents cutting multi-byte characters (e.g., Chinese characters).
-
-        Args:
-            text: Text to truncate
-            max_length: Maximum character count
-            encoding: Text encoding (default: utf-8)
-
-        Returns:
-            Safely truncated text
+        Safely truncate text at character boundaries (Good Taste).
+        
+        Prevents cutting multi-byte characters like Chinese.
+        Early return strategy - no nested complexity.
         """
         if not text or len(text) <= max_length:
             return text
-
-        # Truncate at character boundary
-        truncated = text[:max_length]
-
-        # Encode and decode to ensure no partial characters
-        try:
-            # Try to encode - if successful, we're at safe boundary
-            truncated.encode(encoding)
-            return truncated
-        except UnicodeEncodeError:
-            # If encoding fails, we're in middle of character, back up
-            while truncated and max_length > 0:
-                max_length -= 1
-                truncated = text[:max_length]
-                try:
-                    truncated.encode(encoding)
-                    return truncated
-                except UnicodeEncodeError:
-                    continue
-            return ""
+        
+        # Simple approach: truncate and validate
+        for length in range(max_length, max(0, max_length - 4), -1):
+            truncated = text[:length]
+            try:
+                truncated.encode(encoding)
+                return truncated
+            except UnicodeEncodeError:
+                continue
+        
+        # Fallback: return empty if all attempts fail
+        return ""
 
     @staticmethod
     def search_reports(query: str, limit: int = 50) -> list[Report]:
@@ -353,40 +575,21 @@ class ReportService:
         if report_format and len(report_format) > 0:
             queryset = queryset.filter(report_type__in=report_format)
 
-        # DATE RANGE FILTERING: Filter on verified_at field
+        # DATE RANGE FILTERING: Use existing parser (DRY principle)
         if date_from:
-            try:
-                from datetime import datetime
-                start_dt = datetime.fromisoformat(date_from)
+            start_dt = ReportService._parse_datetime(date_from)
+            if start_dt:
                 queryset = queryset.filter(verified_at__gte=start_dt)
-            except (ValueError, TypeError):
-                # Invalid date format - skip this filter
-                pass
-
+        
         if date_to:
-            try:
-                from datetime import datetime
-                end_dt = datetime.fromisoformat(date_to)
+            end_dt = ReportService._parse_datetime(date_to)
+            if end_dt:
                 queryset = queryset.filter(verified_at__lte=end_dt)
-            except (ValueError, TypeError):
-                # Invalid date format - skip this filter
-                pass
 
         # SORT ORDER DETERMINATION
         # Data structure driven sorting (Linus rule: eliminate special cases)
         # Default: verified_at_desc (Most recent first, deterministic tie-breakers)
-        sort_fields = ReportService.SORT_MAPPING.get(sort)
-        if not sort_fields:
-            logger.warning(
-                "Unsupported report sort '%s', falling back to '%s'",
-                sort,
-                ReportService.DEFAULT_SORT_KEY,
-            )
-            sort_fields = ReportService.SORT_MAPPING[ReportService.DEFAULT_SORT_KEY]
-
-        if isinstance(sort_fields, str):
-            sort_fields = (sort_fields,)
-
+        sort_fields = ReportService._resolve_sort_fields(sort)
         queryset = queryset.order_by(*sort_fields)
 
         return queryset
@@ -495,61 +698,78 @@ class ReportService:
                 'verified_date_range': {'start': None, 'end': None},
             }
 
+    # Date format patterns - data structure driven (Good Taste)
+    DATE_FORMATS = [
+        '%Y-%m-%dT%H:%M:%S.%fZ',
+        '%Y-%m-%d %H:%M:%S',
+        '%Y-%m-%d',
+        '%Y%m%d',
+    ]
+    
     @staticmethod
     def _parse_datetime(date_str: str) -> datetime | None:
-        """Parse datetime string from legacy database."""
+        """
+        Parse datetime - data structure driven (Good Taste).
+        
+        No nested try-except, just iterate through format list.
+        """
         if not date_str:
             return None
-
+        
+        # Try ISO format first (most common)
         try:
-            # Try ISO format first
             return datetime.fromisoformat(date_str)
-        except Exception:
+        except (ValueError, TypeError):
             pass
-
-        try:
-            # Try common date formats
-            for fmt in ['%Y-%m-%dT%H:%M:%S.%fZ', '%Y-%m-%d %H:%M:%S', '%Y-%m-%d', '%Y%m%d']:
-                try:
-                    return datetime.strptime(date_str, fmt)
-                except Exception:
-                    continue
-        except Exception:
-            pass
-
+        
+        # Try other formats
+        for fmt in ReportService.DATE_FORMATS:
+            try:
+                return datetime.strptime(date_str, fmt)
+            except (ValueError, TypeError):
+                continue
+        
         return None
 
+    # Report type classification - data structure driven (Good Taste)
+    IMAGING_TYPES = {
+        'MR': 'MRI',
+        'CR': 'XRay',
+        'CT': 'CT',
+        'US': 'Ultrasound',
+        'MG': 'Mammography',
+        'OT': 'Other',
+        'RF': 'Fluoroscopy',
+    }
+    
+    NON_IMAGING_PATTERNS = {
+        'pt.get': 'patient_info',
+        'allergy': 'allergy',
+        'lab': 'laboratory',
+        'vital': 'vitals',
+        'hcheckup': 'health_checkup',
+    }
+    
     @staticmethod
     def _determine_report_type(mod: str, record_id: str) -> str:
-        """Determine report type based on MOD field."""
+        """
+        Determine report type - data structure driven (Good Taste).
+        
+        No if-elif chains, just lookup tables.
+        """
         mod = (mod or '').strip().upper()
-
-        # Medical imaging types
-        imaging_types = {
-            'MR': 'MRI',
-            'CR': 'XRay',
-            'CT': 'CT',
-            'US': 'Ultrasound',
-            'MG': 'Mammography',
-            'OT': 'Other',
-            'RF': 'Fluoroscopy',
-        }
-
-        if mod in imaging_types:
-            return imaging_types[mod]
-
-        # Non-imaging report types (from id='unknown' records)
-        if 'pt.get' in mod:
-            return 'patient_info'
-        elif 'allergy' in mod:
-            return 'allergy'
-        elif 'lab' in mod:
-            return 'laboratory'
-        elif 'vital' in mod:
-            return 'vitals'
-        elif 'hcheckup' in mod:
-            return 'health_checkup'
-
+        
+        # Try exact match first (imaging types)
+        if mod in ReportService.IMAGING_TYPES:
+            return ReportService.IMAGING_TYPES[mod]
+        
+        # Try pattern match (non-imaging types)
+        mod_lower = mod.lower()
+        for pattern, report_type in ReportService.NON_IMAGING_PATTERNS.items():
+            if pattern in mod_lower:
+                return report_type
+        
+        # Default fallback
         return 'legacy' if record_id == 'unknown' else 'imaging'
 
     @staticmethod
