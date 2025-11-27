@@ -9,12 +9,15 @@ import logging
 from django.http import Http404
 from ninja import Query, Router
 from ninja.pagination import paginate
+from ninja.errors import HttpError
 
 from common.pagination import ReportPagination
 from report.models import Report
 from report.schemas import (
     AIAnnotationResponse,
     ImportResponse,
+    AdvancedSearchRequest,
+    AdvancedSearchResponse,
     ReportDetailResponse,
     ReportFilterOptionsResponse,
     ReportImportRequest,
@@ -22,6 +25,7 @@ from report.schemas import (
     ReportVersionResponse,
 )
 from report.service import ReportService
+from report.services import AdvancedQueryValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -219,6 +223,19 @@ def search_reports_paginated(
         q, report_type, report_status, report_format,
         date_from, date_to, sort
     )
+
+
+@report_router.post('/search/advanced', response=AdvancedSearchResponse)
+def advanced_search_reports(request, payload: AdvancedSearchRequest):
+    """
+    Advanced search endpoint that accepts JSON DSL payloads and multi-condition queries.
+    
+    Returns reports with optional Study information when querying Study fields.
+    """
+    try:
+        return ReportService.advanced_search(payload)
+    except AdvancedQueryValidationError as exc:
+        raise HttpError(400, str(exc)) from exc
 
 
 @report_router.get('/latest', response=list[ReportResponse])
