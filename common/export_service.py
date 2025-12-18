@@ -8,7 +8,7 @@ Follows Linus principles - built for current needs (5 users, 5K records).
 import logging
 from datetime import datetime
 from io import BytesIO
-from typing import Any
+from typing import Any, Callable
 
 import pandas as pd
 from django.db.models import QuerySet
@@ -24,7 +24,10 @@ class ExportService:
     """
 
     @staticmethod
-    def prepare_export_data(queryset: QuerySet) -> list[dict[str, Any]]:
+    def prepare_export_data(
+        queryset: QuerySet,
+        progress_callback: Callable[[int], None] | None = None,
+    ) -> list[dict[str, Any]]:
         """
         Convert queryset to list of dictionaries for export.
 
@@ -40,7 +43,7 @@ class ExportService:
         export_data = []
 
         try:
-            for study in queryset:
+            for idx, study in enumerate(queryset, start=1):
                 # Convert model instance to dict, handling None values
                 study_dict = {
                     'exam_id': study.exam_id,
@@ -67,16 +70,27 @@ class ExportService:
                 # Check export size limit to prevent memory issues
                 if len(export_data) >= ExportConfig.MAX_EXPORT_RECORDS:
                     logger.warning(f"Export limit reached: {ExportConfig.MAX_EXPORT_RECORDS} records")
+                    if progress_callback:
+                        progress_callback(len(export_data))
                     break
+
+                if progress_callback and idx % ExportConfig.EXPORT_BATCH_SIZE == 0:
+                    progress_callback(len(export_data))
 
         except Exception as e:
             logger.error(f"Error preparing export data: {str(e)}")
             raise
 
+        if progress_callback:
+            progress_callback(len(export_data))
+
         return export_data
 
     @staticmethod
-    def export_to_csv(queryset: QuerySet) -> bytes:
+    def export_to_csv(
+        queryset: QuerySet,
+        progress_callback: Callable[[int], None] | None = None,
+    ) -> bytes:
         """
         Export queryset to CSV format.
 
@@ -91,7 +105,7 @@ class ExportService:
         """
         try:
             # Prepare data
-            export_data = ExportService.prepare_export_data(queryset)
+            export_data = ExportService.prepare_export_data(queryset, progress_callback)
 
             if not export_data:
                 # Return empty CSV with headers only
@@ -119,7 +133,10 @@ class ExportService:
             raise
 
     @staticmethod
-    def export_to_excel(queryset: QuerySet) -> bytes:
+    def export_to_excel(
+        queryset: QuerySet,
+        progress_callback: Callable[[int], None] | None = None,
+    ) -> bytes:
         """
         Export queryset to Excel (XLSX) format.
 
@@ -134,7 +151,7 @@ class ExportService:
         """
         try:
             # Prepare data
-            export_data = ExportService.prepare_export_data(queryset)
+            export_data = ExportService.prepare_export_data(queryset, progress_callback)
 
             if not export_data:
                 # Create empty DataFrame with headers
