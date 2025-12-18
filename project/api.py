@@ -1,4 +1,6 @@
+import json
 import logging
+import time
 from dataclasses import asdict
 from typing import Any
 
@@ -89,6 +91,27 @@ def create_project(request, payload: CreateProjectRequest):
     # JWT authentication ensures request.user is authenticated
     # No additional authentication check needed
 
+    #region agent log
+    try:
+        with open('/mnt/d/00_Chen/spider/image_data_platform/.cursor/debug.log', 'a', encoding='utf-8') as debug_log_file:
+            debug_log_file.write(json.dumps({
+                'sessionId': 'debug-session',
+                'runId': 'run1',
+                'hypothesisId': 'H5-route-match',
+                'location': 'project/api.py:create_project',
+                'message': 'enter_create_project',
+                'data': {
+                    'name': payload.name,
+                    'tags_count': len(payload.tags or []),
+                    'status': payload.status or Project.STATUS_ACTIVE,
+                    'via': 'slash',
+                },
+                'timestamp': int(time.time() * 1000),
+            }, ensure_ascii=False) + '\n')
+    except Exception:
+        pass
+    #endregion
+
     project = ProjectService.create_project(
         name=payload.name,
         user=request.user,
@@ -99,6 +122,26 @@ def create_project(request, payload: CreateProjectRequest):
     )
 
     member_count = project.project_members.count()  # type: ignore[attr-defined]
+
+    #region agent log
+    try:
+        with open('/mnt/d/00_Chen/spider/image_data_platform/.cursor/debug.log', 'a', encoding='utf-8') as debug_log_file:
+            debug_log_file.write(json.dumps({
+                'sessionId': 'debug-session',
+                'runId': 'run1',
+                'hypothesisId': 'H5-route-match',
+                'location': 'project/api.py:create_project',
+                'message': 'exit_create_project',
+                'data': {
+                    'project_id': str(project.id),
+                    'member_count': member_count,
+                    'via': 'slash',
+                },
+                'timestamp': int(time.time() * 1000),
+            }, ensure_ascii=False) + '\n')
+    except Exception:
+        pass
+    #endregion
 
     return 201, ProjectDetailResponse(
         **project.to_dict(),
@@ -111,6 +154,54 @@ def create_project(request, payload: CreateProjectRequest):
     )
 
 
+# Allow POST without trailing slash to avoid APPEND_SLASH redirect for APIs
+@router.post('', response={201: ProjectDetailResponse})
+def create_project_no_slash(request, payload: CreateProjectRequest):
+    #region agent log
+    try:
+        with open('/mnt/d/00_Chen/spider/image_data_platform/.cursor/debug.log', 'a', encoding='utf-8') as debug_log_file:
+            debug_log_file.write(json.dumps({
+                'sessionId': 'debug-session',
+                'runId': 'run1',
+                'hypothesisId': 'H5-route-match',
+                'location': 'project/api.py:create_project_no_slash',
+                'message': 'enter_create_project_no_slash',
+                'data': {
+                    'name': payload.name,
+                    'tags_count': len(payload.tags or []),
+                    'status': payload.status or Project.STATUS_ACTIVE,
+                    'via': 'no_slash',
+                },
+                'timestamp': int(time.time() * 1000),
+            }, ensure_ascii=False) + '\n')
+    except Exception:
+        pass
+    #endregion
+
+    result = create_project(request, payload)
+
+    #region agent log
+    try:
+        with open('/mnt/d/00_Chen/spider/image_data_platform/.cursor/debug.log', 'a', encoding='utf-8') as debug_log_file:
+            debug_log_file.write(json.dumps({
+                'sessionId': 'debug-session',
+                'runId': 'run1',
+                'hypothesisId': 'H5-route-match',
+                'location': 'project/api.py:create_project_no_slash',
+                'message': 'exit_create_project_no_slash',
+                'data': {
+                    'via': 'no_slash',
+                    'status_code': result[0] if isinstance(result, tuple) else None,
+                },
+                'timestamp': int(time.time() * 1000),
+            }, ensure_ascii=False) + '\n')
+    except Exception:
+        pass
+    #endregion
+
+    return result
+
+
 # Batch assign studies to multiple projects (static route before dynamic routes)
 @router.post('/batch-assign', response=dict[str, Any])
 def batch_assign_studies(request, payload: BatchAssignRequest):
@@ -120,6 +211,16 @@ def batch_assign_studies(request, payload: BatchAssignRequest):
     將指定的研究 (exam_ids) 分配到多個專案 (project_ids)。
     只會處理用戶有 MANAGE_STUDIES 權限的專案。
     """
+    requested_count = len(payload.exam_ids)
+    if requested_count > ProjectService.MAX_BATCH_SIZE:
+        error_detail = json.dumps({
+            'code': 'too_many_items',
+            'message': f'一次最多僅能處理 {ProjectService.MAX_BATCH_SIZE} 筆資料',
+            'requested_count': requested_count,
+            'max_batch_size': ProjectService.MAX_BATCH_SIZE,
+        }, ensure_ascii=False)
+        raise HttpError(400, error_detail)
+
     results = []
     total_assignments = 0
     logger.info(f'request.user {request.user}')
@@ -140,8 +241,14 @@ def batch_assign_studies(request, payload: BatchAssignRequest):
                 exam_ids=payload.exam_ids,
                 user=request.user,
             )
-        except ValueError:
-            continue
+        except ProjectBatchLimitExceeded as exc:
+            error_detail = json.dumps({
+                'code': 'too_many_items',
+                'message': f'一次最多僅能處理 {exc.max_allowed} 筆資料',
+                'requested_count': exc.requested_count,
+                'max_batch_size': exc.max_allowed,
+            }, ensure_ascii=False)
+            raise HttpError(400, error_detail) from exc
 
         total_assignments += result['added_count']
         results.append(
