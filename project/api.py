@@ -86,6 +86,26 @@ def list_projects(
     return queryset
 
 
+@router.get('', response=list[ProjectListItem])
+@paginate(ProjectPagination)
+def list_projects_no_slash(
+    request,
+    q: str = '',
+    status: str | None = None,
+    tags: str | None = None,
+    created_by: str | None = None,
+    sort: str = ProjectService.DEFAULT_SORT,
+):
+    return list_projects(
+        request,
+        q=q,
+        status=status,
+        tags=tags,
+        created_by=created_by,
+        sort=sort,
+    )
+
+
 @router.post('/', response={201: ProjectDetailResponse})
 def create_project(request, payload: CreateProjectRequest):
     # JWT authentication ensures request.user is authenticated
