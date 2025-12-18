@@ -49,7 +49,7 @@ class ReportService:
         Returns:
             Dictionary representation of report with optional study info
         """
-        result = {
+        result: dict[str, Any] = {
             'uid': report.uid,
             'report_id': report.report_id,
             'title': report.title,
@@ -62,11 +62,17 @@ class ReportService:
             'content_raw': report.content_raw,
             'source_url': report.source_url,
         }
-        
-        # Use pre-fetched study data if available, otherwise fetch individually
-        if study_map is not None:
-            result['study'] = study_map.get(report.report_id)
-        
+
+        # Use pre-fetched study data if available
+        if study_map is not None and report.report_id:
+            study_info = study_map.get(report.report_id)
+            if study_info:
+                # Attach study info and expose exam_id on the top-level for frontend batch actions
+                result['study'] = study_info
+                exam_id = study_info.get('exam_id')
+                if exam_id:
+                    result['exam_id'] = exam_id
+
         return result
     
     @staticmethod
@@ -81,6 +87,7 @@ class ReportService:
             Dictionary with study information
         """
         return {
+            'exam_id': study.exam_id,
             'patient_name': study.patient_name,
             'patient_age': study.patient_age,
             'patient_gender': study.patient_gender,
@@ -90,7 +97,7 @@ class ReportService:
             'equipment_type': study.equipment_type,
             'order_datetime': study.order_datetime.isoformat() if study.order_datetime else None,
             'check_in_datetime': study.check_in_datetime.isoformat() if study.check_in_datetime else None,
-            'report_certification_datetime': study.report_certification_datetime.isoformat() 
+            'report_certification_datetime': study.report_certification_datetime.isoformat()
                 if study.report_certification_datetime else None,
         }
     
