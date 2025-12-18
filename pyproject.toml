@@ -25,7 +25,7 @@ dependencies = [
 ]
 
 [tool.setuptools]
-packages = ["study", "common", "config", "report", "project", "studies", "claudedocs"]
+packages = ["study", "common", "config", "report", "project"]
 
 [project.optional-dependencies]
 dev = [
