@@ -1,7 +1,9 @@
 import logging
+from dataclasses import asdict
 from typing import Any
 
 from django.core.exceptions import PermissionDenied
+from django.db.models import Q
 from django.http import Http404
 from django.shortcuts import get_object_or_404
 from ninja import Router, Query
@@ -34,7 +36,9 @@ from project.schemas import (
     UpdateMemberRoleRequest,
     UpdateProjectRequest,
     ProjectResourceItem,
-    SearchResultItem,
+    ProjectSearchResponse,
+    ProjectAdvancedSearchRequest,
+    ProjectListAdvancedSearchRequest,
 )
 from project.service import ProjectBatchLimitExceeded, ProjectService
 from project.services.resource_aggregator import ResourceAggregator
@@ -55,6 +59,8 @@ ASSIGNMENT_SORT_MAP = {
 }
 
 VALID_MEMBER_ROLES = {choice[0] for choice in ProjectMember.ROLE_CHOICES}
+SEARCH_RESULT_MULTIPLIER = 3
+MAX_PROVIDER_RESULTS = 200
 
 
 @router.get('/', response=list[ProjectListItem])
@@ -320,15 +326,26 @@ def remove_studies(request, project_id: str, payload: RemoveStudiesRequest, proj
 @router.get('/{project_id}/studies', response=list[ProjectStudyItem])
 @paginate(ProjectPagination)
 @require_view
-def list_project_studies(request, project_id: str, sort: str = '-assigned_at', project=None):
+def list_project_studies(request, project_id: str, q: str = '', sort: str = '-assigned_at', project=None):
     if project is None:
         raise Http404('專案不存在')
     sort_field = ASSIGNMENT_SORT_MAP.get(sort, '-assigned_at')
     assignments = (
         StudyProjectAssignment.objects.filter(project=project)
         .select_related('study', 'assigned_by')
-        .order_by(sort_field)
     )
+
+    # Apply search filter if provided
+    if q:
+        assignments = assignments.filter(
+            Q(study__patient_name__icontains=q)
+            | Q(study__exam_description__icontains=q)
+            | Q(study__exam_id__icontains=q)
+            | Q(study__medical_record_no__icontains=q)
+            | Q(study__exam_item__icontains=q)
+        )
+
+    assignments = assignments.order_by(sort_field)
 
     # Return QuerySet directly to allow Pydantic validation/serialization from ORM objects
     # ProjectStudyItem includes a root_validator to flatten the structure
@@ -460,6 +477,25 @@ def search_projects(request, q: str = '', status: str | None = None, tags: str |
     )
 
 
+@router.post('/search/advanced', response=list[ProjectListItem])
+@paginate(ProjectPagination)
+def advanced_search_projects(request, payload: ProjectListAdvancedSearchRequest):
+    """
+    Advanced multi-condition search for projects.
+    Supports JSON DSL queries similar to report advanced search.
+    """
+    if payload.mode == 'multi' and not payload.tree:
+        raise HttpError(400, 'Multi-condition payload is required when using multi mode')
+
+    # Use ProjectService to handle advanced search
+    queryset = ProjectService.advanced_search_projects(
+        user=request.user,
+        payload=payload,
+    )
+
+    return queryset
+
+
 @router.get('/studies/{study_id}', response=dict[str, Any])
 def get_study_projects(request, study_id: str):
     assignments = (
@@ -505,23 +541,150 @@ def list_project_resources(
     if project is None:
         raise Http404('專案不存在')
 
-    return ResourceAggregator.get_project_resources(
-        project_id=project_id,
-        resource_types=resource_types,
-        page=page,
-        page_size=page_size,
-        q=q
-    )
+    try:
+        return ResourceAggregator.get_project_resources(
+            project_id=project_id,
+            resource_types=resource_types,
+            page=page,
+            page_size=page_size,
+            q=q,
+        )
+    except ValueError as exc:
+        raise HttpError(400, str(exc)) from exc
     # return {'response': '200'}
 
 
-@router.get('/{project_id}/search', response=list[SearchResultItem])
+@router.get('/{project_id}/search', response=ProjectSearchResponse)
 @require_view
-def search_project_resources(request, project_id: str, q: str, project=None):
+def search_project_resources(
+    request,
+    project_id: str,
+    q: str = Query(..., min_length=1),
+    resource_types: list[str] = Query(default=['study', 'report']),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    project=None,
+):
     """
     Full-text search across all project resources.
     """
     if project is None:
         raise Http404('專案不存在')
 
-    return ProjectSearchRegistry.search(project_id, q)
+    trimmed = q.strip()
+    if not trimmed:
+        return {
+            'items': [],
+            'total': 0,
+            'page': page,
+            'page_size': page_size,
+        }
+
+    provider_limit = min(max(page_size * SEARCH_RESULT_MULTIPLIER, 50), MAX_PROVIDER_RESULTS)
+    results = ProjectSearchRegistry.search(
+        project_id=project_id,
+        query=trimmed,
+        resource_types=resource_types,
+        per_provider_limit=provider_limit,
+    )
+
+    total = len(results)
+    start = (page - 1) * page_size
+    page_results = results[start:start + page_size]
+
+    return {
+        'items': [asdict(item) for item in page_results],
+        'total': total,
+        'page': page,
+        'page_size': page_size,
+    }
+
+
+@router.post('/{project_id}/search/advanced', response=ProjectSearchResponse)
+@require_view
+def advanced_search_project_resources(
+    request,
+    project_id: str,
+    payload: ProjectAdvancedSearchRequest,
+    project=None,
+):
+    """
+    Advanced multi-condition search for project resources.
+    Supports JSON DSL queries similar to report advanced search.
+    """
+    if project is None:
+        raise Http404('專案不存在')
+
+    if payload.mode == 'multi' and not payload.tree:
+        raise HttpError(400, 'Multi-condition payload is required when using multi mode')
+
+    from report.services import AdvancedQueryBuilder, AdvancedQueryValidationError
+
+    # Process query tree using AdvancedQueryBuilder
+    search_query = ''
+    
+    if payload.tree:
+        try:
+            builder_payload = payload.tree.dict(exclude_none=True)
+            builder = AdvancedQueryBuilder(builder_payload)
+            result = builder.build()
+            
+            # Extract text search query from SearchQuery if available
+            # For ProjectSearchRegistry, we need to extract text from the query tree
+            # AdvancedQueryBuilder processes complex queries but ProjectSearchRegistry expects text
+            # So we extract text values from the tree for full-text search
+            def extract_text_from_tree(node: dict) -> str:
+                if node.get('field') and node.get('value'):
+                    value = node.get('value')
+                    if isinstance(value, str):
+                        return value
+                    elif isinstance(value, dict) and 'start' in value:
+                        return value.get('start', '')
+                if node.get('conditions'):
+                    texts = [extract_text_from_tree(c) for c in node.get('conditions', [])]
+                    return ' '.join([t for t in texts if t])
+                return ''
+
+            search_query = extract_text_from_tree(payload.tree.dict(exclude_none=True)).strip()
+        except AdvancedQueryValidationError:
+            # Fallback to simple text extraction
+            def extract_text_from_tree(node: dict) -> str:
+                if node.get('field') and node.get('value'):
+                    value = node.get('value')
+                    if isinstance(value, str):
+                        return value
+                    elif isinstance(value, dict) and 'start' in value:
+                        return value.get('start', '')
+                if node.get('conditions'):
+                    texts = [extract_text_from_tree(c) for c in node.get('conditions', [])]
+                    return ' '.join([t for t in texts if t])
+                return ''
+
+            search_query = extract_text_from_tree(payload.tree.dict(exclude_none=True)).strip()
+
+    if not search_query:
+        return {
+            'items': [],
+            'total': 0,
+            'page': payload.page,
+            'page_size': payload.page_size,
+        }
+
+    provider_limit = min(max(payload.page_size * SEARCH_RESULT_MULTIPLIER, 50), MAX_PROVIDER_RESULTS)
+    results = ProjectSearchRegistry.search(
+        project_id=project_id,
+        query=search_query,
+        resource_types=payload.resource_types,
+        per_provider_limit=provider_limit,
+    )
+
+    total = len(results)
+    start = (payload.page - 1) * payload.page_size
+    page_results = results[start:start + payload.page_size]
+
+    return {
+        'items': [asdict(item) for item in page_results],
+        'total': total,
+        'page': payload.page,
+        'page_size': payload.page_size,
+    }

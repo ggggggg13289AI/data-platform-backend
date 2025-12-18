@@ -7,7 +7,7 @@ from pydantic.fields import FieldInfo
 
 from project.models import Project, ProjectMember
 from study.schemas import StudyListItem as BaseStudyListItem
-from report.schemas import ReportResponse
+from report.schemas import ReportResponse, AdvancedSearchNode
 
 
 class CreateProjectRequest(Schema):
@@ -178,3 +178,34 @@ class SearchResultItem(Schema):
     snippet: str
     resource_payload: dict[str, Any]
     resource_timestamp: str
+
+
+class ProjectSearchResponse(Schema):
+    items: list[SearchResultItem]
+    total: int
+    page: int
+    page_size: int
+
+
+class ProjectAdvancedSearchRequest(Schema):
+    """
+    Project Resource Advanced Search Request Schema.
+    Supports multi-condition queries using JSON DSL.
+    """
+    mode: str = 'multi'  # 'basic' or 'multi'
+    tree: AdvancedSearchNode | None = None
+    resource_types: list[str] = ['study', 'report']
+    page: int = 1
+    page_size: int = 20
+
+
+class ProjectListAdvancedSearchRequest(Schema):
+    """
+    Project List Advanced Search Request Schema.
+    Supports multi-condition queries using JSON DSL for project listing.
+    """
+    mode: str = 'multi'  # 'basic' or 'multi'
+    tree: AdvancedSearchNode | None = None
+    page: int = 1
+    page_size: int = 20
+    sort: str | None = None

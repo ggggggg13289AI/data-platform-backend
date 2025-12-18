@@ -316,3 +316,56 @@ class ProjectService:
             'last_activity_at': last_activity_at.isoformat() if last_activity_at else None,
             'modality_distribution': modality_distribution,
         }
+
+    @classmethod
+    def advanced_search_projects(
+        cls,
+        user,
+        payload,
+    ) -> QuerySet[Project]:
+        """
+        Advanced multi-condition search for projects using JSON DSL.
+        """
+        from project.schemas import ProjectListAdvancedSearchRequest
+        from report.services import AdvancedQueryBuilder, AdvancedQueryValidationError
+
+        # Start with base queryset
+        queryset = cls.get_projects_queryset(
+            user=user,
+            q=None,
+            status=None,
+            tags=None,
+            created_by=None,
+            sort=payload.sort or cls.DEFAULT_SORT,
+        )
+
+        if payload.mode == 'multi' and payload.tree:
+            # Use AdvancedQueryBuilder to process query tree
+            try:
+                builder_payload = payload.tree.dict(exclude_none=True)
+                builder = AdvancedQueryBuilder(builder_payload)
+                result = builder.build()
+                
+                # Apply filters to queryset
+                if result.filters:
+                    queryset = queryset.filter(result.filters)
+            except AdvancedQueryValidationError as exc:
+                raise ValueError(f'Invalid query: {exc}') from exc
+        elif payload.mode == 'basic':
+            # Basic mode: extract text search from tree if available
+            if payload.tree:
+                def extract_text(node: dict) -> str:
+                    if node.get('field') and node.get('value'):
+                        value = node.get('value')
+                        if isinstance(value, str):
+                            return value
+                    if node.get('conditions'):
+                        texts = [extract_text(c) for c in node.get('conditions', [])]
+                        return ' '.join([t for t in texts if t])
+                    return ''
+                
+                search_text = extract_text(payload.tree.dict(exclude_none=True)).strip()
+                if search_text:
+                    queryset = queryset.filter(Q(name__icontains=search_text) | Q(description__icontains=search_text))
+
+        return queryset
