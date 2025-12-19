@@ -113,6 +113,7 @@ class StudyService:
         limit: int | None = None,
         offset: int | None = None,
         exam_ids: list[str] | None = None,
+        exam_item: str | None = None,
     ) -> QuerySet[Any, Any]:
         """
         Get filtered queryset for studies - OPTIMIZED with Raw SQL + Database-Level Pagination.
@@ -167,6 +168,7 @@ class StudyService:
             end_date=end_date,
             exam_ids=exam_ids,
             sort=sort,
+            exam_item=exam_item,
         )
 
         # BUILD AND EXECUTE RAW SQL QUERY        # BUILD AND EXECUTE RAW SQL QUERY
@@ -506,6 +508,7 @@ class StudyService:
         end_date: str | None = None,
         sort: str = 'order_datetime_desc',
         exam_ids: list[str] | None = None,
+        exam_item: str | None = None,
     ) -> int:
         """
         Count studies matching the provided filters.
@@ -526,6 +529,7 @@ class StudyService:
                 end_date=end_date,
                 exam_ids=exam_ids,
                 sort=sort,
+                exam_item=exam_item,
             )
 
             sql = f"""
@@ -544,6 +548,60 @@ class StudyService:
             return 0
 
     @staticmethod
+    def get_exam_ids_by_filters(
+        q: str | None = None,
+        exam_status: str | None = None,
+        exam_source: str | None = None,
+        exam_equipment: list[str] | None = None,
+        application_order_no: str | None = None,
+        patient_gender: list[str] | None = None,
+        exam_description: list[str] | None = None,
+        exam_room: list[str] | None = None,
+        patient_age_min: int | None = None,
+        patient_age_max: int | None = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        sort: str = 'order_datetime_desc',
+        limit: int | None = None,
+        exam_item: str | None = None,
+    ) -> list[str]:
+        """
+        Return exam_id list matching filters, capped by optional limit.
+        """
+        where_clause, params, _ = StudyService._build_search_conditions(
+            q=q,
+            exam_status=exam_status,
+            exam_source=exam_source,
+            exam_equipment=exam_equipment,
+            application_order_no=application_order_no,
+            patient_gender=patient_gender,
+            exam_description=exam_description,
+            exam_room=exam_room,
+            patient_age_min=patient_age_min,
+            patient_age_max=patient_age_max,
+            start_date=start_date,
+            end_date=end_date,
+            exam_ids=None,
+            sort=sort,
+            exam_item=exam_item,
+        )
+
+        limit_clause = "LIMIT %s" if limit is not None else ""
+        sql = f"""
+            SELECT exam_id
+            FROM medical_examinations_fact
+            WHERE {where_clause}
+            {limit_clause}
+        """
+        if limit is not None:
+            params.append(limit)
+
+        with connection.cursor() as cursor:
+            cursor.execute(sql, params)
+            rows = cursor.fetchall()
+            return [row[0] for row in rows]
+
+    @staticmethod
     def _build_search_conditions(
         q: str | None = None,
         exam_status: str | None = None,
@@ -559,6 +617,7 @@ class StudyService:
         end_date: str | None = None,
         exam_ids: list[str] | None = None,
         sort: str = 'order_datetime_desc',
+        exam_item: str | None = None,
     ) -> tuple[str, list[Any], str]:
         """
         Build SQL WHERE clause, parameters, and ORDER BY clause.
@@ -687,6 +746,10 @@ class StudyService:
         if application_order_no:
             conditions.append("application_order_no = %s")
             params.append(application_order_no)
+
+        if exam_item:
+            conditions.append("exam_item = %s")
+            params.append(exam_item)
 
         if patient_age_min is not None:
             conditions.append("patient_age >= %s")
