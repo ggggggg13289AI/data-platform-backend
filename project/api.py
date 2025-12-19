@@ -27,30 +27,38 @@ from project.models import Project, ProjectMember
 from project.schemas import (
     AddMemberRequest,
     AddStudiesRequest,
+    BatchAssignByQueryDetail,
+    BatchAssignQueryFilters,
+    BatchAssignByQueryRequest,
+    BatchAssignByQueryResponse,
     BatchAssignRequest,
     CreateProjectRequest,
     MemberInfo,
+    ProjectAdvancedSearchRequest,
     ProjectDetailResponse,
+    ProjectListAdvancedSearchRequest,
     ProjectListItem,
+    ProjectResourceItem,
+    ProjectSearchResponse,
     ProjectStatistics,
     ProjectStudyItem,
     RemoveStudiesRequest,
     UpdateMemberRoleRequest,
     UpdateProjectRequest,
-    ProjectResourceItem,
-    ProjectSearchResponse,
-    ProjectAdvancedSearchRequest,
-    ProjectListAdvancedSearchRequest,
 )
 from project.service import ProjectBatchLimitExceeded, ProjectService
 from project.services.resource_aggregator import ResourceAggregator
 from project.services.search_registry import ProjectSearchRegistry
 import project.services.search_providers  # Trigger registration
 from report.api import ReportDetailResponse
+from study.services import StudyService
 
 logger = logging.getLogger(__name__)
 
 router = Router(auth=JWTAuth())
+
+QUERY_ASSIGN_SERVER_CAP = 10_000
+FAILED_ITEMS_SAMPLE_LIMIT = 20
 
 
 ASSIGNMENT_SORT_MAP = {
@@ -63,6 +71,47 @@ ASSIGNMENT_SORT_MAP = {
 VALID_MEMBER_ROLES = {choice[0] for choice in ProjectMember.ROLE_CHOICES}
 SEARCH_RESULT_MULTIPLIER = 3
 MAX_PROVIDER_RESULTS = 200
+
+#
+# @router.get('/', response=list[ProjectListItem])
+# @paginate(ProjectPagination)
+# def list_projects(
+#     request,
+#     q: str = '',
+#     status: str | None = None,
+#     tags: str | None = None,
+#     created_by: str | None = None,
+#     sort: str = ProjectService.DEFAULT_SORT,
+# ):
+#     queryset = ProjectService.get_projects_queryset(
+#         user=request.user,
+#         q=q or None,
+#         status=status,
+#         tags=tags,
+#         created_by=created_by,
+#         sort=sort,
+#     )
+#     return queryset
+#
+#
+# @router.get('', response=list[ProjectListItem])
+# @paginate(ProjectPagination)
+# def list_projects_no_slash(
+#     request,
+#     q: str = '',
+#     status: str | None = None,
+#     tags: str | None = None,
+#     created_by: str | None = None,
+#     sort: str = ProjectService.DEFAULT_SORT,
+# ):
+#     return list_projects(
+#         request,
+#         q=q,
+#         status=status,
+#         tags=tags,
+#         created_by=created_by,
+#         sort=sort,
+#     )
 
 
 @router.get('/', response=list[ProjectListItem])
@@ -96,14 +145,17 @@ def list_projects_no_slash(
     created_by: str | None = None,
     sort: str = ProjectService.DEFAULT_SORT,
 ):
-    return list_projects(
-        request,
-        q=q,
+    # 直接返回 queryset，避免雙重分頁裝飾器衝突
+    queryset = ProjectService.get_projects_queryset(
+        user=request.user,
+        q=q or None,
         status=status,
         tags=tags,
         created_by=created_by,
         sort=sort,
     )
+    return queryset
+
 
 
 @router.post('/', response={201: ProjectDetailResponse})
@@ -286,6 +338,157 @@ def batch_assign_studies(request, payload: BatchAssignRequest):
         'details': results,
     }
 
+
+@router.post('/batch-assign/query', response={200: BatchAssignByQueryResponse})
+def batch_assign_studies_by_query(request, payload: BatchAssignByQueryRequest):
+    """
+    依查詢條件批次將研究分配到多個專案。
+    """
+    filters = payload.filters or BatchAssignQueryFilters()
+    effective_max_batch = min(payload.max_batch_size or QUERY_ASSIGN_SERVER_CAP, QUERY_ASSIGN_SERVER_CAP)
+
+    def normalize_single(value):
+        if isinstance(value, list):
+            return value[0] if value else None
+        return value
+
+    def normalize_to_list(value):
+        if value is None:
+            return None
+        if isinstance(value, list):
+            return [v for v in value if v]
+        return [value] if value else None
+
+    matched_count = StudyService.count_studies(
+        q=filters.q,
+        exam_status=normalize_single(filters.exam_status),
+        exam_source=normalize_single(filters.exam_source),
+        exam_equipment=filters.exam_equipment,
+        application_order_no=filters.application_order_no,
+        patient_gender=normalize_to_list(filters.patient_gender),
+        exam_description=filters.exam_description,
+        exam_room=filters.exam_room,
+        patient_age_min=filters.patient_age_min,
+        patient_age_max=filters.patient_age_max,
+        start_date=filters.start_date,
+        end_date=filters.end_date,
+        exam_item=filters.exam_item,
+    )
+
+    if matched_count > effective_max_batch:
+        error_detail = json.dumps({
+            'code': 'too_many_items',
+            'message': f'一次最多僅能處理 {effective_max_batch} 筆資料',
+            'requested_count': matched_count,
+            'max_batch_size': effective_max_batch,
+        }, ensure_ascii=False)
+        raise HttpError(400, error_detail)
+
+    exam_ids = StudyService.get_exam_ids_by_filters(
+        q=filters.q,
+        exam_status=normalize_single(filters.exam_status),
+        exam_source=normalize_single(filters.exam_source),
+        exam_equipment=filters.exam_equipment,
+        application_order_no=filters.application_order_no,
+        patient_gender=normalize_to_list(filters.patient_gender),
+        exam_description=filters.exam_description,
+        exam_room=filters.exam_room,
+        patient_age_min=filters.patient_age_min,
+        patient_age_max=filters.patient_age_max,
+        start_date=filters.start_date,
+        end_date=filters.end_date,
+        sort='order_datetime_desc',
+        limit=effective_max_batch,
+        exam_item=filters.exam_item,
+    )
+
+    exam_ids = list(dict.fromkeys(exam_ids))
+    if not exam_ids:
+        return BatchAssignByQueryResponse(
+            success=True,
+            matched_count=matched_count,
+            max_batch_size=effective_max_batch,
+            projects_updated=0,
+            details=[],
+        )
+
+    def chunked(sequence: list[str], size: int) -> list[list[str]]:
+        return [sequence[i:i + size] for i in range(0, len(sequence), size)]
+
+    def assign_to_project(project, ids: list[str]):
+        added_total = 0
+        skipped_total = 0
+        failed_items: list[dict[str, str]] = []
+
+        for batch in chunked(ids, ProjectService.MAX_BATCH_SIZE):
+            result = ProjectService.add_studies_to_project(
+                project=project,
+                exam_ids=batch,
+                user=request.user,
+            )
+            added_total += result.get('added_count', 0)
+            skipped_total += result.get('skipped_count', 0)
+            failed_items.extend(result.get('failed_items', []))
+
+        return added_total, skipped_total, failed_items
+
+    details: list[BatchAssignByQueryDetail] = []
+    projects_with_permission = 0
+    total_added = 0
+
+    for project_id in payload.project_ids:
+        project = get_object_or_404(Project, id=project_id)
+
+        if not ProjectPermissions.check_permission(
+            project,
+            request.user,
+            ProjectPermissions.PERMISSION_MANAGE_STUDIES,
+        ):
+            details.append(
+                BatchAssignByQueryDetail(
+                    project_id=str(project.id),
+                    project_name=project.name,
+                    added_count=0,
+                    skipped_count=0,
+                    failed_items_sample=[],
+                    failed_items_truncated=False,
+                    failed_items_sample_limit=FAILED_ITEMS_SAMPLE_LIMIT,
+                    failed_reason='permission_denied',
+                )
+            )
+            continue
+
+        projects_with_permission += 1
+        added_count, skipped_count, failed_items = assign_to_project(project, exam_ids)
+        total_added += added_count
+
+        failed_sample = failed_items[:FAILED_ITEMS_SAMPLE_LIMIT]
+        details.append(
+            BatchAssignByQueryDetail(
+                project_id=str(project.id),
+                project_name=project.name,
+                added_count=added_count,
+                skipped_count=skipped_count,
+                failed_items_sample=[
+                    {'exam_id': item.get('exam_id', ''), 'reason': item.get('reason', '')}
+                    for item in failed_sample
+                ],
+                failed_items_truncated=len(failed_items) > FAILED_ITEMS_SAMPLE_LIMIT,
+                failed_items_sample_limit=FAILED_ITEMS_SAMPLE_LIMIT,
+                failed_reason=None,
+            )
+        )
+
+    if projects_with_permission == 0:
+        raise HttpError(403, 'permission_denied')
+
+    return BatchAssignByQueryResponse(
+        success=True,
+        matched_count=matched_count,
+        max_batch_size=effective_max_batch,
+        projects_updated=projects_with_permission,
+        details=details,
+    )
 
 @router.get('/{project_id}', response=ProjectDetailResponse)
 @require_view

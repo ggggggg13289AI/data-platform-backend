@@ -90,6 +90,52 @@ class BatchAssignRequest(Schema):
     project_ids: list[str]
 
 
+class BatchAssignQueryFilters(Schema):
+    q: str | None = None
+    exam_status: str | list[str] | None = None
+    exam_source: str | list[str] | None = None
+    exam_item: str | None = None
+    exam_equipment: list[str] | None = None
+    application_order_no: str | None = None
+    patient_gender: str | list[str] | None = None
+    exam_description: list[str] | None = None
+    exam_room: list[str] | None = None
+    patient_age_min: int | None = None
+    patient_age_max: int | None = None
+    start_date: str | None = None
+    end_date: str | None = None
+
+
+class BatchAssignByQueryRequest(Schema):
+    project_ids: list[str]
+    filters: BatchAssignQueryFilters
+    max_batch_size: int | None = None
+
+
+class FailedAssignmentItem(Schema):
+    exam_id: str
+    reason: str
+
+
+class BatchAssignByQueryDetail(Schema):
+    project_id: str
+    project_name: str | None = None
+    added_count: int
+    skipped_count: int
+    failed_items_sample: list[FailedAssignmentItem] = []
+    failed_items_truncated: bool = False
+    failed_items_sample_limit: int = 20
+    failed_reason: str | None = None
+
+
+class BatchAssignByQueryResponse(Schema):
+    success: bool
+    matched_count: int
+    max_batch_size: int
+    projects_updated: int
+    details: list[BatchAssignByQueryDetail]
+
+
 class AddMemberRequest(Schema):
     user_id: str
     role: str = ProjectMember.ROLE_VIEWER
