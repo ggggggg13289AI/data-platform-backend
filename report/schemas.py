@@ -695,3 +695,22 @@ class AdvancedSearchResponse(Schema):
     filters: ReportFilterOptionsResponse
     """過濾選項"""
 
+
+class ReportExportRequest(Schema):
+    """
+    報告匯出請求 Schema - POST /reports/export 的請求負載。
+
+    僅需報告 ID 列表，後端會返回 CSV 或 ZIP 檔案。
+    """
+
+    report_ids: list[str]
+    """要匯出的報告 ID 清單"""
+
+    format: Literal['csv', 'zip'] | None = 'zip'
+    """匯出格式，預設 zip"""
+
+    filename: str | None = None
+    """自訂檔名，可為空"""
+
+    filters: AdvancedSearchFilters | None = None
+    """預留欄位：未來支援依篩選條件匯出"""

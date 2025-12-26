@@ -6,7 +6,7 @@ PRAGMATIC DESIGN: Simple endpoints matching actual use cases.
 
 import logging
 
-from django.http import Http404
+from django.http import Http404, HttpResponse
 from ninja import Query, Router
 from ninja.pagination import paginate
 from ninja.errors import HttpError
@@ -18,6 +18,7 @@ from report.schemas import (
     ImportResponse,
     AdvancedSearchRequest,
     AdvancedSearchResponse,
+    ReportExportRequest,
     ReportDetailResponse,
     ReportFilterOptionsResponse,
     ReportImportRequest,
@@ -236,6 +237,25 @@ def advanced_search_reports(request, payload: AdvancedSearchRequest):
         return ReportService.advanced_search(payload)
     except AdvancedQueryValidationError as exc:
         raise HttpError(400, str(exc)) from exc
+
+
+@report_router.post('/export')
+def export_reports_endpoint(request, payload: ReportExportRequest):
+    """
+    Export selected reports as CSV or ZIP blob.
+    """
+    try:
+        data, content_type, filename = ReportService.export_reports(
+            report_ids=payload.report_ids,
+            export_format=payload.format,
+            filename=payload.filename,
+        )
+    except ValueError as exc:
+        raise HttpError(400, str(exc)) from exc
+
+    response = HttpResponse(data, content_type=content_type)
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
 
 
 @report_router.get('/latest', response=list[ReportResponse])

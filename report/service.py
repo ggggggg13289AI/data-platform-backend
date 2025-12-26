@@ -5,8 +5,11 @@ PRAGMATIC DESIGN: Direct functions without over-engineering.
 Focuses on actual user scenarios: report import, deduplication, retrieval.
 """
 
+import csv
 import hashlib
+import io
 import logging
+import zipfile
 from datetime import datetime
 from typing import Any
 
@@ -36,6 +39,26 @@ class ReportService:
         'verified_at_desc': ('-verified_at', '-created_at', 'uid'),
     }
     DEFAULT_SORT_KEY = 'verified_at_desc'
+    EXPORT_FIELDNAMES = [
+        'report_id',
+        'uid',
+        'title',
+        'report_type',
+        'version_number',
+        'verified_at',
+        'created_at',
+        'physician',
+        'exam_id',
+        'patient_name',
+        'patient_age',
+        'patient_gender',
+        'exam_source',
+        'exam_item',
+        'exam_status',
+        'order_datetime',
+        'source_url',
+        'content_raw',
+    ]
 
     @staticmethod
     def _serialize_report(report: Report, study_map: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -908,6 +931,94 @@ class ReportService:
         }
 
         return stats
+
+    @classmethod
+    def _build_export_rows(cls, reports: list[Report]) -> list[dict[str, str]]:
+        """Build export rows with report + study metadata."""
+        if not reports:
+            return []
+
+        study_map = cls._batch_load_studies([r.report_id for r in reports if r.report_id])
+        rows: list[dict[str, str]] = []
+
+        for report in reports:
+            metadata = report.metadata if isinstance(report.metadata, dict) else {}
+            study_info = study_map.get(report.report_id, {}) if report.report_id else {}
+
+            rows.append({
+                'report_id': report.report_id or '',
+                'uid': report.uid,
+                'title': report.title,
+                'report_type': report.report_type,
+                'version_number': str(report.version_number),
+                'verified_at': report.verified_at.isoformat() if report.verified_at else '',
+                'created_at': report.created_at.isoformat() if report.created_at else '',
+                'physician': metadata.get('physician', '') if isinstance(metadata, dict) else '',
+                'exam_id': study_info.get('exam_id', ''),
+                'patient_name': study_info.get('patient_name', ''),
+                'patient_age': str(study_info.get('patient_age', '')) if study_info.get('patient_age') is not None else '',
+                'patient_gender': study_info.get('patient_gender', ''),
+                'exam_source': study_info.get('exam_source', ''),
+                'exam_item': study_info.get('exam_item', ''),
+                'exam_status': study_info.get('exam_status', ''),
+                'order_datetime': study_info.get('order_datetime', ''),
+                'source_url': report.source_url or '',
+                'content_raw': report.content_raw or '',
+            })
+
+        return rows
+
+    @classmethod
+    def _rows_to_csv(cls, rows: list[dict[str, str]]) -> bytes:
+        """Serialize rows to CSV bytes with UTF-8 BOM for Excel compatibility."""
+        buffer = io.StringIO()
+        writer = csv.DictWriter(buffer, fieldnames=cls.EXPORT_FIELDNAMES)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow(row)
+        return buffer.getvalue().encode('utf-8-sig')
+
+    @classmethod
+    def export_reports(
+        cls,
+        report_ids: list[str],
+        export_format: str | None = 'zip',
+        filename: str | None = None,
+    ) -> tuple[bytes, str, str]:
+        """
+        Generate export payload (CSV or ZIP) for selected reports.
+        """
+        normalized_ids = [rid for rid in dict.fromkeys(report_ids or []) if rid]
+        if not normalized_ids:
+            raise ValueError('report_ids is required')
+
+        reports = list(
+            Report.objects
+            .filter(report_id__in=normalized_ids, is_latest=True)
+            .order_by('report_id')
+        )
+        if not reports:
+            raise ValueError('找不到對應的報告')
+
+        rows = cls._build_export_rows(reports)
+        csv_bytes = cls._rows_to_csv(rows)
+
+        export_format = (export_format or 'zip').lower()
+        timestamp = timezone.now().strftime('%Y%m%d-%H%M%S')
+        base_filename = filename or f'reports_export_{timestamp}'
+
+        if export_format == 'csv':
+            final_name = base_filename if base_filename.lower().endswith('.csv') else f'{base_filename}.csv'
+            return csv_bytes, 'text/csv', final_name
+
+        if export_format == 'zip':
+            final_name = base_filename if base_filename.lower().endswith('.zip') else f'{base_filename}.zip'
+            zip_buffer = io.BytesIO()
+            with zipfile.ZipFile(zip_buffer, 'w', compression=zipfile.ZIP_DEFLATED) as zip_file:
+                zip_file.writestr('reports.csv', csv_bytes)
+            return zip_buffer.getvalue(), 'application/zip', final_name
+
+        raise ValueError('Unsupported export format')
 
 
 class ReportImportConfig:
