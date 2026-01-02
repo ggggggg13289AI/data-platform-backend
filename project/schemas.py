@@ -6,13 +6,13 @@ from pydantic import root_validator
 from pydantic.fields import FieldInfo
 
 from project.models import Project, ProjectMember
+from report.schemas import AdvancedSearchNode, ReportResponse
 from study.schemas import StudyListItem as BaseStudyListItem
-from report.schemas import ReportResponse, AdvancedSearchNode
 
 
 class CreateProjectRequest(Schema):
     name: str
-    description: str | None = ''
+    description: str | None = ""
     tags: list[str] = []
     status: str | None = Project.STATUS_ACTIVE
     settings: dict[str, Any] | None = {}
@@ -164,25 +164,25 @@ class ProjectStudyItem(BaseStudyListItem):
     @root_validator(pre=True)
     def flatten_assignment(cls, values):
         # Handle StudyProjectAssignment object
-        if hasattr(values, 'study') and hasattr(values, 'assigned_at'):
+        if hasattr(values, "study") and hasattr(values, "assigned_at"):
             study = values.study
             # Extract base fields from study
             data = {}
             # Get field names from BaseStudyListItem - Pydantic v1 __fields__ is a dict
             base_fields = cast(dict[str, FieldInfo], BaseStudyListItem.__fields__)
             for field_name in base_fields:
-                 if hasattr(study, field_name):
-                     data[field_name] = getattr(study, field_name)
+                if hasattr(study, field_name):
+                    data[field_name] = getattr(study, field_name)
 
             # Extract assignment fields
-            data['assigned_at'] = values.assigned_at
+            data["assigned_at"] = values.assigned_at
 
             # Handle UserInfo for assigned_by
             user = values.assigned_by
-            data['assigned_by'] = {
-                'id': str(user.id),
-                'name': user.get_full_name() or user.username,
-                'email': user.email
+            data["assigned_by"] = {
+                "id": str(user.id),
+                "name": user.get_full_name() or user.username,
+                "email": user.email,
             }
             return data
         return values
@@ -208,6 +208,7 @@ class ProjectResourceItem(Schema):
     """
     Unified resource item (Study or Report) keyed by Accession Number.
     """
+
     resource_type: str  # 'study', 'report'
     accession_number: str
     resource_timestamp: datetime
@@ -216,6 +217,7 @@ class ProjectResourceItem(Schema):
     report: ReportResponse | None = None
 
     assignment: ProjectResourceAssignment | None = None
+
 
 class SearchResultItem(Schema):
     resource_type: str
@@ -238,9 +240,10 @@ class ProjectAdvancedSearchRequest(Schema):
     Project Resource Advanced Search Request Schema.
     Supports multi-condition queries using JSON DSL.
     """
-    mode: str = 'multi'  # 'basic' or 'multi'
+
+    mode: str = "multi"  # 'basic' or 'multi'
     tree: AdvancedSearchNode | None = None
-    resource_types: list[str] = ['study', 'report']
+    resource_types: list[str] = ["study", "report"]
     page: int = 1
     page_size: int = 20
 
@@ -250,7 +253,8 @@ class ProjectListAdvancedSearchRequest(Schema):
     Project List Advanced Search Request Schema.
     Supports multi-condition queries using JSON DSL for project listing.
     """
-    mode: str = 'multi'  # 'basic' or 'multi'
+
+    mode: str = "multi"  # 'basic' or 'multi'
     tree: AdvancedSearchNode | None = None
     page: int = 1
     page_size: int = 20

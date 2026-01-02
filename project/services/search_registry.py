@@ -1,6 +1,7 @@
-from dataclasses import dataclass
-from typing import Any, Callable, Dict, List
 import logging
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -11,25 +12,25 @@ class SearchResult:
     accession_number: str
     score: float
     snippet: str
-    resource_payload: Dict[str, Any]
+    resource_payload: dict[str, Any]
     resource_timestamp: str
 
 
 class ProjectSearchRegistry:
-    _providers: Dict[str, Callable[[str, str, int], List[SearchResult]]] = {}
+    _providers: dict[str, Callable[[str, str, int], list[SearchResult]]] = {}
 
     @classmethod
     def register_provider(
         cls,
         resource_type: str,
-        provider_func: Callable[[str, str, int], List[SearchResult]],
-    ) -> Callable[[str, str, int], List[SearchResult]]:
+        provider_func: Callable[[str, str, int], list[SearchResult]],
+    ) -> Callable[[str, str, int], list[SearchResult]]:
         cls._providers[resource_type] = provider_func
         return provider_func
 
     @classmethod
     def register(cls, resource_type: str):
-        def decorator(func: Callable[[str, str, int], List[SearchResult]]):
+        def decorator(func: Callable[[str, str, int], list[SearchResult]]):
             return cls.register_provider(resource_type, func)
 
         return decorator
@@ -39,15 +40,13 @@ class ProjectSearchRegistry:
         cls,
         project_id: str,
         query: str,
-        resource_types: List[str] | None = None,
+        resource_types: list[str] | None = None,
         per_provider_limit: int = 50,
-    ) -> List[SearchResult]:
+    ) -> list[SearchResult]:
         providers = cls._providers
         if resource_types:
             providers = {
-                name: provider
-                for name, provider in providers.items()
-                if name in resource_types
+                name: provider for name, provider in providers.items() if name in resource_types
             }
 
         results: list[SearchResult] = []
@@ -63,14 +62,14 @@ class ProjectSearchRegistry:
         results.sort(
             key=lambda item: (
                 item.score,
-                item.resource_timestamp or '',
+                item.resource_timestamp or "",
             ),
             reverse=True,
         )
         return results
 
     @staticmethod
-    def _normalize_scores(results: List[SearchResult]) -> None:
+    def _normalize_scores(results: list[SearchResult]) -> None:
         max_score = max((item.score for item in results), default=0.0)
         if max_score <= 0:
             for item in results:
@@ -78,5 +77,3 @@ class ProjectSearchRegistry:
             return
         for item in results:
             item.score = item.score / max_score
-
-

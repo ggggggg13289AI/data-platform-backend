@@ -26,31 +26,31 @@ class ProjectBatchLimitExceeded(ValueError):
     def __init__(self, requested_count: int, max_allowed: int):
         self.requested_count = requested_count
         self.max_allowed = max_allowed
-        super().__init__(f'Batch size {requested_count} exceeds max allowed {max_allowed}')
+        super().__init__(f"Batch size {requested_count} exceeds max allowed {max_allowed}")
 
 
 class ProjectService:
     """專案服務類別"""
 
-    DEFAULT_SORT = '-updated_at'
+    DEFAULT_SORT = "-updated_at"
     MAX_BATCH_SIZE = 500
 
     ALLOWED_SORT_FIELDS = {
-        'name',
-        '-name',
-        'created_at',
-        '-created_at',
-        'updated_at',
-        '-updated_at',
-        'study_count',
-        '-study_count',
+        "name",
+        "-name",
+        "created_at",
+        "-created_at",
+        "updated_at",
+        "-updated_at",
+        "study_count",
+        "-study_count",
     }
 
     @staticmethod
     def create_project(
         name: str,
         user,
-        description: str = '',
+        description: str = "",
         tags: Sequence[str] | None = None,
         status: str = Project.STATUS_ACTIVE,
         settings: dict | None = None,
@@ -59,7 +59,7 @@ class ProjectService:
         with transaction.atomic():
             project = Project.objects.create(
                 name=name,
-                description=description or '',
+                description=description or "",
                 status=status or Project.STATUS_ACTIVE,
                 tags=list(tags or []),
                 settings=settings or {},
@@ -80,32 +80,32 @@ class ProjectService:
         project: Project,
         q: str | None = None,
         report_type: str | None = None,
-        sort: str = '-verified_at',
+        sort: str = "-verified_at",
     ) -> QuerySet[Report]:
         """取得專案相關報告 (透過 Study)"""
         # 1. Get exam_ids in project
         # Optimization: Use subquery or direct filter if DB supports it efficiently
         # But Django ORM handles __in with subquery automatically for QuerySets
-        exam_ids = StudyProjectAssignment.objects.filter(project=project).values('study_id')
+        exam_ids = StudyProjectAssignment.objects.filter(project=project).values("study_id")
 
         # 2. Filter Reports where report_id IN exam_ids
         # Using is_latest=True by default for lists
         queryset = Report.objects.filter(report_id__in=exam_ids, is_latest=True)
 
         if q:
-             queryset = queryset.filter(Q(title__icontains=q) | Q(content_processed__icontains=q))
+            queryset = queryset.filter(Q(title__icontains=q) | Q(content_processed__icontains=q))
 
         if report_type:
             queryset = queryset.filter(report_type=report_type)
 
-        if sort == '-verified_at':
-            queryset = queryset.order_by('-verified_at')
-        elif sort == 'verified_at':
-            queryset = queryset.order_by('verified_at')
-        elif sort == '-created_at':
-            queryset = queryset.order_by('-created_at')
-        elif sort == 'title':
-            queryset = queryset.order_by('title')
+        if sort == "-verified_at":
+            queryset = queryset.order_by("-verified_at")
+        elif sort == "verified_at":
+            queryset = queryset.order_by("verified_at")
+        elif sort == "-created_at":
+            queryset = queryset.order_by("-created_at")
+        elif sort == "title":
+            queryset = queryset.order_by("title")
 
         return queryset
 
@@ -120,19 +120,19 @@ class ProjectService:
         sort: str = DEFAULT_SORT,
     ) -> QuerySet[Project]:
         """建立專案查詢集"""
-        if user is None or not getattr(user, 'is_authenticated', False):
+        if user is None or not getattr(user, "is_authenticated", False):
             return Project.objects.none()
 
         queryset = (
             Project.objects.filter(project_members__user=user)
-            .select_related('created_by')
+            .select_related("created_by")
             .prefetch_related(
                 Prefetch(
-                    'project_members',
-                    queryset=ProjectMember.objects.select_related('user'),
+                    "project_members",
+                    queryset=ProjectMember.objects.select_related("user"),
                 )
             )
-            .annotate(member_count=Count('project_members', distinct=True))
+            .annotate(member_count=Count("project_members", distinct=True))
             .distinct()
         )
 
@@ -143,7 +143,7 @@ class ProjectService:
             queryset = queryset.filter(status=status)
 
         if tags:
-            tag_list = tags.split(',') if isinstance(tags, str) else list(tags)
+            tag_list = tags.split(",") if isinstance(tags, str) else list(tags)
             for tag in filter(None, tag_list):
                 queryset = queryset.filter(tags__contains=[tag])
 
@@ -161,12 +161,12 @@ class ProjectService:
         normalized_ids = [exam_id for exam_id in dict.fromkeys(exam_ids) if exam_id]
         if not normalized_ids:
             return {
-                'success': True,
-                'added_count': 0,
-                'skipped_count': 0,
-                'failed_items': [],
-                'requested_count': 0,
-                'max_batch_size': cls.MAX_BATCH_SIZE,
+                "success": True,
+                "added_count": 0,
+                "skipped_count": 0,
+                "failed_items": [],
+                "requested_count": 0,
+                "max_batch_size": cls.MAX_BATCH_SIZE,
             }
 
         if len(normalized_ids) > cls.MAX_BATCH_SIZE:
@@ -174,25 +174,24 @@ class ProjectService:
 
         with transaction.atomic():
             studies = Study.objects.filter(exam_id__in=normalized_ids)
-            found_ids = set(studies.values_list('exam_id', flat=True))
+            found_ids = set(studies.values_list("exam_id", flat=True))
             missing_ids = sorted(set(normalized_ids) - found_ids)
 
             failed_items: list[dict[str, str]] = [
-                {'exam_id': exam_id, 'reason': 'not_found'}
-                for exam_id in missing_ids
+                {"exam_id": exam_id, "reason": "not_found"} for exam_id in missing_ids
             ]
 
             existing = set(
                 StudyProjectAssignment.objects.filter(
                     project=project,
                     study_id__in=normalized_ids,
-                ).values_list('study_id', flat=True)
+                ).values_list("study_id", flat=True)
             )
 
             new_exam_ids = [exam_id for exam_id in normalized_ids if exam_id not in existing]
 
             failed_items.extend(
-                {'exam_id': exam_id, 'reason': 'already_assigned'} for exam_id in existing
+                {"exam_id": exam_id, "reason": "already_assigned"} for exam_id in existing
             )
 
             assignments = [
@@ -211,12 +210,12 @@ class ProjectService:
                 project.increment_study_count(added_count)
 
             return {
-                'success': True,
-                'added_count': added_count,
-                'skipped_count': len(existing),
-                'failed_items': failed_items,
-                'requested_count': len(normalized_ids),
-                'max_batch_size': cls.MAX_BATCH_SIZE,
+                "success": True,
+                "added_count": added_count,
+                "skipped_count": len(existing),
+                "failed_items": failed_items,
+                "requested_count": len(normalized_ids),
+                "max_batch_size": cls.MAX_BATCH_SIZE,
             }
 
     @staticmethod
@@ -224,7 +223,7 @@ class ProjectService:
         """批量移除研究"""
         normalized_ids = [exam_id for exam_id in dict.fromkeys(exam_ids) if exam_id]
         if not normalized_ids:
-            return {'success': True, 'removed_count': 0}
+            return {"success": True, "removed_count": 0}
 
         with transaction.atomic():
             deleted_count, _ = StudyProjectAssignment.objects.filter(
@@ -235,18 +234,20 @@ class ProjectService:
             if deleted_count:
                 project.decrement_study_count(deleted_count)
 
-            return {'success': True, 'removed_count': deleted_count}
+            return {"success": True, "removed_count": deleted_count}
 
     @staticmethod
-    def add_member(project: Project, user_id: str, role: str = ProjectMember.ROLE_VIEWER) -> ProjectMember:
+    def add_member(
+        project: Project, user_id: str, role: str = ProjectMember.ROLE_VIEWER
+    ) -> ProjectMember:
         """新增成員"""
         try:
             user = User.objects.get(id=user_id)
         except User.DoesNotExist as exc:
-            raise ValueError('使用者不存在') from exc
+            raise ValueError("使用者不存在") from exc
 
         if ProjectMember.objects.filter(project=project, user=user).exists():
-            raise ValueError('使用者已是專案成員')
+            raise ValueError("使用者已是專案成員")
 
         return ProjectMember.objects.create(
             project=project,
@@ -260,13 +261,13 @@ class ProjectService:
         try:
             member = ProjectMember.objects.get(project=project, user_id=user_id)
         except ProjectMember.DoesNotExist as exc:
-            raise ValueError('專案成員不存在') from exc
+            raise ValueError("專案成員不存在") from exc
 
         if member.role == ProjectMember.ROLE_OWNER:
-            raise ValueError('無法移除專案 Owner')
+            raise ValueError("無法移除專案 Owner")
 
         member.delete()
-        return {'success': True}
+        return {"success": True}
 
     @staticmethod
     def update_member_role(project: Project, user_id: str, new_role: str) -> ProjectMember:
@@ -274,13 +275,13 @@ class ProjectService:
         try:
             member = ProjectMember.objects.get(project=project, user_id=user_id)
         except ProjectMember.DoesNotExist as exc:
-            raise ValueError('專案成員不存在') from exc
+            raise ValueError("專案成員不存在") from exc
 
         if member.role == ProjectMember.ROLE_OWNER or new_role == ProjectMember.ROLE_OWNER:
-            raise ValueError('無法變更 Owner 角色')
+            raise ValueError("無法變更 Owner 角色")
 
         member.role = new_role
-        member.save(update_fields=['role'])
+        member.save(update_fields=["role"])
         return member
 
     @staticmethod
@@ -288,33 +289,31 @@ class ProjectService:
         """取得專案統計資訊"""
         modality_dist = (
             StudyProjectAssignment.objects.filter(project=project)
-            .values('study__exam_source')
-            .annotate(count=Count('id'))
-            .order_by('-count')
+            .values("study__exam_source")
+            .annotate(count=Count("id"))
+            .order_by("-count")
         )
         modality_distribution = {
-            (item['study__exam_source'] or 'unknown'): item['count'] for item in modality_dist
+            (item["study__exam_source"] or "unknown"): item["count"] for item in modality_dist
         }
 
         member_count = ProjectMember.objects.filter(project=project).count()
 
         last_assignment = (
-            StudyProjectAssignment.objects.filter(project=project)
-            .order_by('-assigned_at')
-            .first()
+            StudyProjectAssignment.objects.filter(project=project).order_by("-assigned_at").first()
         )
 
         last_activity_at = last_assignment.assigned_at if last_assignment else None
 
         return {
-            'project_id': str(project.id),
-            'project_name': project.name,
-            'study_count': project.study_count,
-            'member_count': member_count,
-            'created_at': project.created_at.isoformat() if project.created_at else None,
-            'updated_at': project.updated_at.isoformat() if project.updated_at else None,
-            'last_activity_at': last_activity_at.isoformat() if last_activity_at else None,
-            'modality_distribution': modality_distribution,
+            "project_id": str(project.id),
+            "project_name": project.name,
+            "study_count": project.study_count,
+            "member_count": member_count,
+            "created_at": project.created_at.isoformat() if project.created_at else None,
+            "updated_at": project.updated_at.isoformat() if project.updated_at else None,
+            "last_activity_at": last_activity_at.isoformat() if last_activity_at else None,
+            "modality_distribution": modality_distribution,
         }
 
     @classmethod
@@ -326,7 +325,6 @@ class ProjectService:
         """
         Advanced multi-condition search for projects using JSON DSL.
         """
-        from project.schemas import ProjectListAdvancedSearchRequest
         from report.services import AdvancedQueryBuilder, AdvancedQueryValidationError
 
         # Start with base queryset
@@ -339,33 +337,36 @@ class ProjectService:
             sort=payload.sort or cls.DEFAULT_SORT,
         )
 
-        if payload.mode == 'multi' and payload.tree:
+        if payload.mode == "multi" and payload.tree:
             # Use AdvancedQueryBuilder to process query tree
             try:
                 builder_payload = payload.tree.dict(exclude_none=True)
                 builder = AdvancedQueryBuilder(builder_payload)
                 result = builder.build()
-                
+
                 # Apply filters to queryset
                 if result.filters:
                     queryset = queryset.filter(result.filters)
             except AdvancedQueryValidationError as exc:
-                raise ValueError(f'Invalid query: {exc}') from exc
-        elif payload.mode == 'basic':
+                raise ValueError(f"Invalid query: {exc}") from exc
+        elif payload.mode == "basic":
             # Basic mode: extract text search from tree if available
             if payload.tree:
+
                 def extract_text(node: dict) -> str:
-                    if node.get('field') and node.get('value'):
-                        value = node.get('value')
+                    if node.get("field") and node.get("value"):
+                        value = node.get("value")
                         if isinstance(value, str):
                             return value
-                    if node.get('conditions'):
-                        texts = [extract_text(c) for c in node.get('conditions', [])]
-                        return ' '.join([t for t in texts if t])
-                    return ''
-                
+                    if node.get("conditions"):
+                        texts = [extract_text(c) for c in node.get("conditions", [])]
+                        return " ".join([t for t in texts if t])
+                    return ""
+
                 search_text = extract_text(payload.tree.dict(exclude_none=True)).strip()
                 if search_text:
-                    queryset = queryset.filter(Q(name__icontains=search_text) | Q(description__icontains=search_text))
+                    queryset = queryset.filter(
+                        Q(name__icontains=search_text) | Q(description__icontains=search_text)
+                    )
 
         return queryset
