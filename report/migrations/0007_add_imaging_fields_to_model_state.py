@@ -7,6 +7,7 @@ WITHOUT actually creating them in the database (they already exist).
 
 This allows Django ORM to filter on these fields while PostgreSQL manages their values.
 """
+
 from django.db import migrations, models
 
 
@@ -26,29 +27,29 @@ class Migration(migrations.Migration):
     """
 
     dependencies = [
-        ('report', '0006_add_gin_trigram_indexes'),
+        ("report", "0006_add_gin_trigram_indexes"),
     ]
 
     operations = [
         migrations.SeparateDatabaseAndState(
             state_operations=[
                 migrations.AddField(
-                    model_name='report',
-                    name='imaging_findings',
+                    model_name="report",
+                    name="imaging_findings",
                     field=models.TextField(
                         blank=True,
                         editable=False,
-                        help_text='影像發現區塊，由 PostgreSQL GENERATED COLUMN 自動從 content_raw 解析',
+                        help_text="影像發現區塊，由 PostgreSQL GENERATED COLUMN 自動從 content_raw 解析",
                         null=True,
                     ),
                 ),
                 migrations.AddField(
-                    model_name='report',
-                    name='impression',
+                    model_name="report",
+                    name="impression",
                     field=models.TextField(
                         blank=True,
                         editable=False,
-                        help_text='診斷意見區塊，由 PostgreSQL GENERATED COLUMN 自動從 content_raw 解析',
+                        help_text="診斷意見區塊，由 PostgreSQL GENERATED COLUMN 自動從 content_raw 解析",
                         null=True,
                     ),
                 ),

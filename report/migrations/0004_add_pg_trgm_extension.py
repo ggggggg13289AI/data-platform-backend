@@ -15,7 +15,7 @@ class Migration(migrations.Migration):
     """
 
     dependencies = [
-        ('report', '0003_populate_search_vector'),
+        ("report", "0003_populate_search_vector"),
     ]
 
     operations = [

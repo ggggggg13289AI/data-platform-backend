@@ -28,7 +28,7 @@ class Migration(migrations.Migration):
     """
 
     dependencies = [
-        ('report', '0007_add_imaging_fields_to_model_state'),
+        ("report", "0007_add_imaging_fields_to_model_state"),
     ]
 
     operations = [
@@ -70,7 +70,6 @@ class Migration(migrations.Migration):
                 DROP FUNCTION IF EXISTS extract_impression(text);
             """,
         ),
-
         # Step 2: 重建 GENERATED columns 使用新函數
         migrations.RunSQL(
             sql="""

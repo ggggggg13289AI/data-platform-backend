@@ -6,20 +6,20 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('report', '0001_initial'),
+        ("report", "0001_initial"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='report',
-            name='search_vector',
+            model_name="report",
+            name="search_vector",
             field=django.contrib.postgres.search.SearchVectorField(blank=True, null=True),
         ),
         migrations.AddIndex(
-            model_name='report',
-            index=django.contrib.postgres.indexes.GinIndex(fields=['search_vector'],
-                                                           name='one_page_te_search__134beb_gin'),
+            model_name="report",
+            index=django.contrib.postgres.indexes.GinIndex(
+                fields=["search_vector"], name="one_page_te_search__134beb_gin"
+            ),
         ),
     ]

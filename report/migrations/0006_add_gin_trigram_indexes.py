@@ -23,7 +23,7 @@ class Migration(migrations.Migration):
     """
 
     dependencies = [
-        ('report', '0005_add_imaging_generated_columns'),
+        ("report", "0005_add_imaging_generated_columns"),
     ]
 
     # Set atomic = False to allow CREATE INDEX CONCURRENTLY

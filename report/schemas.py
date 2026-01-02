@@ -17,10 +17,10 @@ from ninja import Schema
 class ReportImportRequest(Schema):
     """
     報告導入請求 Schema - 定義報告導入 API 的輸入格式。
-    
+
     此 Schema 驗證從爬蟲系統提交的報告導入請求。
     包含報告的基本信息和元資料。
-    
+
     參數
     ----------
     uid : str
@@ -43,7 +43,7 @@ class ReportImportRequest(Schema):
         報告日期字符串，可為空
     verified_at : str | None
         驗證時間 (ISO 8601 格式)，可為空
-    
+
     範例
     --------
     >>> payload = {
@@ -58,31 +58,31 @@ class ReportImportRequest(Schema):
 
     uid: str
     """原始爬蟲標識符"""
-    
+
     title: str
     """報告標題"""
-    
+
     content: str
     """報告完整內容"""
-    
+
     report_type: str
     """報告格式類型 (PDF, HTML, TXT, XRay, MRI, CT 等)"""
-    
+
     source_url: str
     """報告來源 URL"""
-    
+
     report_id: str | None = None
     """內部報告編號，可為空"""
-    
+
     chr_no: str | None = None
     """字符代碼 (遺留系統欄位)，可為空"""
-    
+
     mod: str | None = None
     """模式/類型代碼 (遺留系統欄位)，可為空"""
-    
+
     report_date: str | None = None
     """報告日期字符串，可為空"""
-    
+
     verified_at: str | None = None
     """驗證時間 (ISO 8601 格式)，可為空"""
 
@@ -90,10 +90,10 @@ class ReportImportRequest(Schema):
 class StudyInfoResponse(Schema):
     """
     檢查資訊 Schema - 嵌入在報告回應中的檢查信息。
-    
+
     此 Schema 包含與報告相關的醫學影像檢查的詳細信息，
     用於在檢索報告時同時提供背景信息。
-    
+
     參數
     ----------
     exam_id : str | None
@@ -122,34 +122,34 @@ class StudyInfoResponse(Schema):
 
     exam_id: str | None = None
     """檢查 ID"""
-    
+
     patient_name: str | None = None
     """患者名稱"""
-    
+
     patient_age: int | None = None
     """患者年齡"""
-    
+
     patient_gender: str | None = None
     """患者性別"""
-    
+
     exam_source: str | None = None
     """檢查來源"""
-    
+
     exam_item: str | None = None
     """檢查項目"""
-    
+
     exam_status: str | None = None
     """檢查狀態"""
-    
+
     equipment_type: str | None = None
     """設備類型"""
-    
+
     order_datetime: str | None = None
     """訂單時間"""
-    
+
     check_in_datetime: str | None = None
     """簽到時間"""
-    
+
     report_certification_datetime: str | None = None
     """報告認證時間"""
 
@@ -157,10 +157,10 @@ class StudyInfoResponse(Schema):
 class ReportResponse(Schema):
     """
     報告回應 Schema - 基礎報告檢索回應格式。
-    
+
     此 Schema 定義標準的報告回應格式，包含報告的基本信息和預覽。
     用於列表和簡短展示場景。
-    
+
     參數
     ----------
     uid : str
@@ -187,7 +187,7 @@ class ReportResponse(Schema):
         完整原始內容，可為空
     study : StudyInfoResponse | None
         相關檢查信息，可為空
-    
+
     範例
     --------
     >>> response = {
@@ -205,42 +205,43 @@ class ReportResponse(Schema):
 
     uid: str
     """原始爬蟲標識符"""
-    
+
     report_id: str | None = None
     """內部報告編號，可為空"""
-    
+
     exam_id: str | None = None
     """檢查 ID"""
-    
+
     title: str
     """報告標題"""
-    
+
     report_type: str
     """報告格式類型"""
-    
+
     version_number: int
     """版本號"""
-    
+
     is_latest: bool
     """是否為最新版本"""
-    
+
     created_at: str
     """建立時間"""
-    
+
     verified_at: str | None = None
     """驗證時間，可為空"""
-    
+
     content_preview: str
     """內容預覽 (前 500 字元)"""
-    
+
     content_raw: str | None = None
     """完整原始內容，可為空"""
-    
+
     study: StudyInfoResponse | None = None
     """相關檢查信息，可為空"""
 
     class Config:
         """Pydantic 配置"""
+
         orm_mode = True
         """啟用 ORM 模式，支援直接從 Django 模型轉換"""
 
@@ -248,21 +249,21 @@ class ReportResponse(Schema):
 class ReportDetailResponse(ReportResponse):
     """
     報告詳細回應 Schema - 完整內容報告回應格式。
-    
+
     此 Schema 繼承自 ReportResponse，額外提供完整內容和來源 URL。
     用於詳細頁面展示場景。
-    
+
     參數
     ----------
     content_raw : str
         完整報告原始內容 (必填，不同於基類)
     source_url : str
         報告來源 URL
-    
+
     繼承欄位
     --------
     所有 ReportResponse 的欄位都適用
-    
+
     範例
     --------
     >>> detail = {
@@ -282,7 +283,7 @@ class ReportDetailResponse(ReportResponse):
 
     content_raw: str
     """完整報告原始內容"""
-    
+
     source_url: str
     """報告來源 URL"""
 
@@ -290,9 +291,9 @@ class ReportDetailResponse(ReportResponse):
 class ReportVersionResponse(Schema):
     """
     報告版本回應 Schema - 報告版本歷史回應格式。
-    
+
     此 Schema 用於返回報告的版本信息，包括版本號、變更類型等。
-    
+
     參數
     ----------
     version_number : int
@@ -309,16 +310,16 @@ class ReportVersionResponse(Schema):
 
     version_number: int
     """版本號"""
-    
+
     changed_at: str
     """變更時間"""
-    
+
     verified_at: str | None
     """驗證時間，可為空"""
-    
+
     change_type: str
     """變更類型"""
-    
+
     change_description: str
     """變更描述"""
 
@@ -326,9 +327,9 @@ class ReportVersionResponse(Schema):
 class AIAnnotationResponse(Schema):
     """
     AI 註解回應 Schema - AI 註解回應格式。
-    
+
     此 Schema 用於返回報告的 AI 分析結果和用戶修正。
-    
+
     參數
     ----------
     id : str
@@ -351,25 +352,25 @@ class AIAnnotationResponse(Schema):
 
     id: str
     """註解 ID (UUID)"""
-    
+
     report_id: str
     """報告 UID"""
-    
+
     annotation_type: str
     """註解類型"""
-    
+
     content: str
     """註解內容"""
-    
+
     created_at: str
     """建立時間"""
-    
+
     updated_at: str | None = None
     """更新時間，可為空"""
-    
+
     created_by: str | None = None
     """創建者名稱，可為空"""
-    
+
     metadata: dict | None = None
     """元資料 (JSON)，可為空"""
 
@@ -377,9 +378,9 @@ class AIAnnotationResponse(Schema):
 class DateRange(Schema):
     """
     日期範圍 Schema - 可重用的日期範圍元資料。
-    
+
     此 Schema 用於表示時間範圍，常用於過濾和報表。
-    
+
     參數
     ----------
     start : str | None
@@ -390,7 +391,7 @@ class DateRange(Schema):
 
     start: str | None = None
     """開始日期，可為空"""
-    
+
     end: str | None = None
     """結束日期，可為空"""
 
@@ -398,10 +399,10 @@ class DateRange(Schema):
 class ReportFilterOptionsResponse(Schema):
     """
     報告過濾選項回應 Schema - 搜尋過濾下拉菜單選項。
-    
+
     此 Schema 用於返回可用於過濾的所有選項值，
     通常用於前端下拉菜單的動態填充。
-    
+
     參數
     ----------
     report_types : list[str]
@@ -416,13 +417,13 @@ class ReportFilterOptionsResponse(Schema):
 
     report_types: list[str]
     """可用的報告類型列表"""
-    
+
     report_statuses: list[str]
     """可用的報告狀態列表"""
-    
+
     mods: list[str]
     """可用的模式類型列表"""
-    
+
     verified_date_range: DateRange
     """報告驗證時間的範圍"""
 
@@ -430,10 +431,10 @@ class ReportFilterOptionsResponse(Schema):
 class ImportResponse(Schema):
     """
     導入操作回應 Schema - 報告導入操作的結果。
-    
+
     此 Schema 用於返回導入操作的結果，包括是否為新報告、
     執行的操作類型等信息。
-    
+
     參數
     ----------
     uid : str
@@ -446,7 +447,7 @@ class ImportResponse(Schema):
         執行的操作類型 (create, update, deduplicate 等)
     version_number : int
         報告版本號
-    
+
     範例
     --------
     >>> response = {
@@ -460,16 +461,16 @@ class ImportResponse(Schema):
 
     uid: str
     """原始爬蟲標識符"""
-    
+
     report_id: str
     """內部報告編號"""
-    
+
     is_new: bool
     """是否為新建報告"""
-    
+
     action: str
     """執行的操作類型"""
-    
+
     version_number: int
     """報告版本號"""
 
@@ -477,9 +478,9 @@ class ImportResponse(Schema):
 class AdvancedSearchFilters(Schema):
     """
     進階搜尋過濾器 Schema - 與 DSL 一起應用的附加過濾器。
-    
+
     此 Schema 定義進階搜尋支援的所有過濾維度。
-    
+
     參數
     ----------
     report_type : str | None
@@ -502,25 +503,25 @@ class AdvancedSearchFilters(Schema):
 
     report_type: str | None = None
     """報告類型，可為空"""
-    
+
     report_status: str | None = None
     """報告狀態，可為空"""
-    
+
     report_format: list[str] | None = None
     """報告格式列表，可為空"""
-    
+
     physician: str | None = None
     """醫生名稱，可為空"""
-    
+
     report_id: str | None = None
     """報告 ID，可為空"""
-    
+
     exam_id: str | None = None
     """檢查 ID，可為空"""
-    
+
     date_from: str | None = None
     """開始日期，可為空"""
-    
+
     date_to: str | None = None
     """結束日期，可為空"""
 
@@ -528,9 +529,9 @@ class AdvancedSearchFilters(Schema):
 class BasicAdvancedQuery(Schema):
     """
     基礎進階查詢 Schema - 簡單進階搜尋模式的負載。
-    
+
     此 Schema 用於簡單的全文搜尋查詢。
-    
+
     參數
     ----------
     text : str
@@ -544,10 +545,10 @@ class BasicAdvancedQuery(Schema):
 class AdvancedSearchNode(Schema):
     """
     進階搜尋節點 Schema - JSON DSL 的遞歸節點定義。
-    
+
     此 Schema 支援構建複雜的搜尋條件樹，
     每個節點可以是條件也可以是操作符組合。
-    
+
     參數
     ----------
     operator : str | None
@@ -558,11 +559,11 @@ class AdvancedSearchNode(Schema):
         搜尋值，可為任何類型
     conditions : list['AdvancedSearchNode'] | None
         子條件列表，支援遞歸，可為空
-    
+
     範例
     --------
     AND 操作符的組合:
-    
+
     >>> node = {
     ...     "operator": "AND",
     ...     "conditions": [
@@ -574,25 +575,25 @@ class AdvancedSearchNode(Schema):
 
     operator: str | None = None
     """邏輯操作符，可為空"""
-    
+
     field: str | None = None
     """搜尋欄位，可為空"""
-    
+
     value: Any = None
     """搜尋值"""
-    
-    conditions: list['AdvancedSearchNode'] | None = None
+
+    conditions: list[AdvancedSearchNode] | None = None
     """子條件列表，可為空"""
 
 
 class AdvancedSearchRequest(Schema):
     """
     進階搜尋請求 Schema - POST /reports/search/advanced 的請求負載。
-    
+
     此 Schema 支援兩種搜尋模式：
     1. basic: 簡單全文搜尋
     2. multi: 複雜的多條件 DSL 搜尋
-    
+
     參數
     ----------
     mode : Literal['basic', 'multi']
@@ -609,20 +610,20 @@ class AdvancedSearchRequest(Schema):
         頁碼，預設為 1
     page_size : int
         每頁記錄數，預設為 20
-    
+
     範例
     --------
     基礎模式:
-    
+
     >>> request = {
     ...     "mode": "basic",
     ...     "basic": {"text": "CT 掃描"},
     ...     "page": 1,
     ...     "page_size": 20
     ... }
-    
+
     多條件模式:
-    
+
     >>> request = {
     ...     "mode": "multi",
     ...     "tree": {
@@ -633,24 +634,24 @@ class AdvancedSearchRequest(Schema):
     ... }
     """
 
-    mode: Literal['basic', 'multi'] = 'basic'
+    mode: Literal["basic", "multi"] = "basic"
     """搜尋模式，預設 basic"""
-    
+
     basic: BasicAdvancedQuery | None = None
     """簡單查詢，可為空"""
-    
+
     tree: AdvancedSearchNode | None = None
     """DSL 查詢樹，可為空"""
-    
+
     filters: AdvancedSearchFilters | None = None
     """附加過濾器，可為空"""
-    
+
     sort: str | None = None
     """排序規則，可為空"""
-    
+
     page: int = 1
     """頁碼"""
-    
+
     page_size: int = 20
     """每頁記錄數"""
 
@@ -658,9 +659,9 @@ class AdvancedSearchRequest(Schema):
 class AdvancedSearchResponse(Schema):
     """
     進階搜尋回應 Schema - POST /reports/search/advanced 的回應負載。
-    
+
     此 Schema 返回分頁搜尋結果及過濾選項。
-    
+
     參數
     ----------
     items : list[ReportResponse]
@@ -679,19 +680,19 @@ class AdvancedSearchResponse(Schema):
 
     items: list[ReportResponse]
     """搜尋結果"""
-    
+
     total: int
     """結果總數"""
-    
+
     page: int
     """當前頁碼"""
-    
+
     page_size: int
     """每頁記錄數"""
-    
+
     pages: int
     """總頁數"""
-    
+
     filters: ReportFilterOptionsResponse
     """過濾選項"""
 
@@ -706,7 +707,7 @@ class ReportExportRequest(Schema):
     report_ids: list[str]
     """要匯出的報告 ID 清單"""
 
-    format: Literal['csv', 'zip'] | None = 'zip'
+    format: Literal["csv", "zip"] | None = "zip"
     """匯出格式，預設 zip"""
 
     filename: str | None = None

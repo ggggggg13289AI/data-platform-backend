@@ -10,9 +10,8 @@ from .query_builder import (
 )
 
 __all__ = [
-    'AdvancedQueryBuilder',
-    'AdvancedQueryValidationError',
-    'InvalidRegexPatternError',
-    'QueryBuildResult',
+    "AdvancedQueryBuilder",
+    "AdvancedQueryValidationError",
+    "InvalidRegexPatternError",
+    "QueryBuildResult",
 ]
-

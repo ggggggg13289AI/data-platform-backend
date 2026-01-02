@@ -5,8 +5,9 @@ Advanced query builder for report search DSL.
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Any, Iterable
+from typing import Any
 
 from django.contrib.postgres.search import SearchQuery
 from django.db.models import Q
@@ -22,7 +23,7 @@ class InvalidRegexPatternError(AdvancedQueryValidationError):
     def __init__(self, pattern: str, error_message: str):
         self.pattern = pattern
         self.error_message = error_message
-        super().__init__(f'Invalid regex pattern: {pattern} - {error_message}')
+        super().__init__(f"Invalid regex pattern: {pattern} - {error_message}")
 
 
 @dataclass
@@ -44,48 +45,92 @@ class AdvancedQueryBuilder:
 
     MAX_DEPTH = 5
     MAX_NODES = 20
-    SEARCH_CONFIG = 'simple'
+    SEARCH_CONFIG = "simple"
 
-    LOGICAL_OPERATORS = {'AND', 'OR', 'NOT'}
+    LOGICAL_OPERATORS = {"AND", "OR", "NOT"}
 
-    TEXT_OPERATORS = {'contains', 'not_contains', 'equals', 'not_equals', 'starts_with', 'ends_with'}
-    LIST_OPERATORS = {'in', 'not_in'}
-    RANGE_OPERATORS = {'between', 'gte', 'lte'}
-    REGEX_OPERATORS = {'regex', 'iregex'}  # case-sensitive and case-insensitive regex
+    TEXT_OPERATORS = {
+        "contains",
+        "not_contains",
+        "equals",
+        "not_equals",
+        "starts_with",
+        "ends_with",
+    }
+    LIST_OPERATORS = {"in", "not_in"}
+    RANGE_OPERATORS = {"between", "gte", "lte"}
+    REGEX_OPERATORS = {"regex", "iregex"}  # case-sensitive and case-insensitive regex
 
     # Report field configuration
     REPORT_FIELD_CONFIG: dict[str, dict[str, Any]] = {
-        'title': {'field': 'title', 'operators': TEXT_OPERATORS},
-        'report_type': {'field': 'report_type', 'operators': TEXT_OPERATORS | LIST_OPERATORS},
-        'report_id': {'field': 'report_id', 'operators': TEXT_OPERATORS},
-        'uid': {'field': 'uid', 'operators': TEXT_OPERATORS},
-        'mod': {'field': 'mod', 'operators': TEXT_OPERATORS},
-        'verified_at': {'field': 'verified_at', 'operators': RANGE_OPERATORS},
-        'created_at': {'field': 'created_at', 'operators': RANGE_OPERATORS},
-        'content': {'field': 'search_vector', 'operators': {'search'}},
+        "title": {"field": "title", "operators": TEXT_OPERATORS},
+        "report_type": {"field": "report_type", "operators": TEXT_OPERATORS | LIST_OPERATORS},
+        "report_id": {"field": "report_id", "operators": TEXT_OPERATORS},
+        "uid": {"field": "uid", "operators": TEXT_OPERATORS},
+        "mod": {"field": "mod", "operators": TEXT_OPERATORS},
+        "verified_at": {"field": "verified_at", "operators": RANGE_OPERATORS},
+        "created_at": {"field": "created_at", "operators": RANGE_OPERATORS},
+        "content": {"field": "search_vector", "operators": {"search"}},
         # Imaging report specific fields (PostgreSQL generated columns)
-        'content_raw': {'field': 'content_raw', 'operators': TEXT_OPERATORS | REGEX_OPERATORS},
-        'imaging_findings': {'field': 'imaging_findings', 'operators': TEXT_OPERATORS | REGEX_OPERATORS},
-        'impression': {'field': 'impression', 'operators': TEXT_OPERATORS | REGEX_OPERATORS},
+        "content_raw": {"field": "content_raw", "operators": TEXT_OPERATORS | REGEX_OPERATORS},
+        "imaging_findings": {
+            "field": "imaging_findings",
+            "operators": TEXT_OPERATORS | REGEX_OPERATORS,
+        },
+        "impression": {"field": "impression", "operators": TEXT_OPERATORS | REGEX_OPERATORS},
     }
 
     # Study field configuration (cross-model query via subquery)
     STUDY_FIELD_CONFIG: dict[str, dict[str, Any]] = {
         # Patient Info
-        'study.patient_name': {'db_field': 'patient_name', 'operators': TEXT_OPERATORS, 'type': 'text'},
-        'study.patient_age': {'db_field': 'patient_age', 'operators': RANGE_OPERATORS, 'type': 'integer'},
-        'study.patient_gender': {'db_field': 'patient_gender', 'operators': LIST_OPERATORS, 'type': 'choice'},
-        
+        "study.patient_name": {
+            "db_field": "patient_name",
+            "operators": TEXT_OPERATORS,
+            "type": "text",
+        },
+        "study.patient_age": {
+            "db_field": "patient_age",
+            "operators": RANGE_OPERATORS,
+            "type": "integer",
+        },
+        "study.patient_gender": {
+            "db_field": "patient_gender",
+            "operators": LIST_OPERATORS,
+            "type": "choice",
+        },
         # Exam Info
-        'study.exam_source': {'db_field': 'exam_source', 'operators': TEXT_OPERATORS | LIST_OPERATORS, 'type': 'text'},
-        'study.exam_item': {'db_field': 'exam_item', 'operators': TEXT_OPERATORS, 'type': 'text'},
-        'study.exam_status': {'db_field': 'exam_status', 'operators': LIST_OPERATORS, 'type': 'choice'},
-        'study.equipment_type': {'db_field': 'equipment_type', 'operators': TEXT_OPERATORS | LIST_OPERATORS, 'type': 'text'},
-        
+        "study.exam_source": {
+            "db_field": "exam_source",
+            "operators": TEXT_OPERATORS | LIST_OPERATORS,
+            "type": "text",
+        },
+        "study.exam_item": {"db_field": "exam_item", "operators": TEXT_OPERATORS, "type": "text"},
+        "study.exam_status": {
+            "db_field": "exam_status",
+            "operators": LIST_OPERATORS,
+            "type": "choice",
+        },
+        "study.equipment_type": {
+            "db_field": "equipment_type",
+            "operators": TEXT_OPERATORS | LIST_OPERATORS,
+            "type": "text",
+        },
         # Time Range
-        'study.order_datetime': {'db_field': 'order_datetime', 'operators': RANGE_OPERATORS, 'type': 'datetime'},
-        'study.check_in_datetime': {'db_field': 'check_in_datetime', 'operators': RANGE_OPERATORS, 'type': 'datetime'},
-        'study.report_certification_datetime': {'db_field': 'report_certification_datetime', 'operators': RANGE_OPERATORS, 'type': 'datetime'},
+        "study.order_datetime": {
+            "db_field": "order_datetime",
+            "operators": RANGE_OPERATORS,
+            "type": "datetime",
+        },
+        "study.check_in_datetime": {
+            "db_field": "check_in_datetime",
+            "operators": RANGE_OPERATORS,
+            "type": "datetime",
+        },
+        "study.report_certification_datetime": {
+            "db_field": "report_certification_datetime",
+            "operators": RANGE_OPERATORS,
+            "type": "datetime",
+        },
     }
 
     # Combined field configuration
@@ -101,7 +146,7 @@ class AdvancedQueryBuilder:
     def build(self) -> QueryBuildResult:
         """Entrypoint for converting payload to Q / SearchQuery."""
         if not self.payload:
-            raise AdvancedQueryValidationError('Query payload is required')
+            raise AdvancedQueryValidationError("Query payload is required")
 
         filters, search_query = self._build_node(self.payload, depth=1)
         return QueryBuildResult(filters=filters or Q(), search_query=search_query)
@@ -113,19 +158,19 @@ class AdvancedQueryBuilder:
         self._increment_nodes()
         if depth > self.MAX_DEPTH:
             raise AdvancedQueryValidationError(
-                f'Max depth ({self.MAX_DEPTH}) exceeded. Simplify the query.'
+                f"Max depth ({self.MAX_DEPTH}) exceeded. Simplify the query."
             )
 
-        if isinstance(node, dict) and 'conditions' in node:
+        if isinstance(node, dict) and "conditions" in node:
             return self._build_group(node, depth)
         return self._build_condition(node)
 
     def _build_group(self, node: dict[str, Any], depth: int) -> tuple[Q, SearchQuery | None]:
-        operator = (node.get('operator') or 'AND').upper()
+        operator = (node.get("operator") or "AND").upper()
         if operator not in self.LOGICAL_OPERATORS:
-            raise AdvancedQueryValidationError(f'Unsupported logical operator: {operator}')
+            raise AdvancedQueryValidationError(f"Unsupported logical operator: {operator}")
 
-        conditions = node.get('conditions')
+        conditions = node.get("conditions")
         if not isinstance(conditions, Iterable):
             raise AdvancedQueryValidationError('Group "conditions" must be a list')
 
@@ -134,14 +179,14 @@ class AdvancedQueryBuilder:
             child_results.append(self._build_node(child, depth + 1))
 
         if not child_results:
-            raise AdvancedQueryValidationError('Groups must contain at least one condition')
+            raise AdvancedQueryValidationError("Groups must contain at least one condition")
 
-        filters = self._combine_filters(child_results, 'AND' if operator == 'NOT' else operator)
+        filters = self._combine_filters(child_results, "AND" if operator == "NOT" else operator)
         search_query = self._combine_search_queries(
-            child_results, 'AND' if operator == 'NOT' else operator
+            child_results, "AND" if operator == "NOT" else operator
         )
 
-        if operator == 'NOT':
+        if operator == "NOT":
             filters = ~filters
             search_query = ~search_query if search_query is not None else None
 
@@ -149,31 +194,30 @@ class AdvancedQueryBuilder:
 
     def _build_condition(self, node: Any) -> tuple[Q, SearchQuery | None]:
         if not isinstance(node, dict):
-            raise AdvancedQueryValidationError('Condition nodes must be objects')
+            raise AdvancedQueryValidationError("Condition nodes must be objects")
 
-        field_key = node.get('field')
-        operator = (node.get('operator') or 'equals').lower()
-        value = node.get('value')
+        field_key = node.get("field")
+        operator = (node.get("operator") or "equals").lower()
+        value = node.get("value")
 
         if not field_key or field_key not in self.FIELD_CONFIG:
-            raise AdvancedQueryValidationError(f'Unsupported field: {field_key}')
+            raise AdvancedQueryValidationError(f"Unsupported field: {field_key}")
 
         # Check if this is a Study field (cross-model query)
-        if field_key.startswith('study.'):
+        if field_key.startswith("study."):
             return self._build_study_condition(field_key, operator, value), None
 
         field_meta = self.FIELD_CONFIG[field_key]
-        if operator not in field_meta['operators']:
-            allowed = ', '.join(sorted(field_meta['operators']))
+        if operator not in field_meta["operators"]:
+            allowed = ", ".join(sorted(field_meta["operators"]))
             raise AdvancedQueryValidationError(
-                f'Operator "{operator}" is not allowed for field "{field_key}". '
-                f'Allowed: {allowed}'
+                f'Operator "{operator}" is not allowed for field "{field_key}". Allowed: {allowed}'
             )
 
-        if field_key == 'content':
+        if field_key == "content":
             return self._build_search_condition(value)
 
-        field_name = field_meta['field']
+        field_name = field_meta["field"]
 
         if operator in self.TEXT_OPERATORS:
             return self._build_text_condition(field_name, operator, value), None
@@ -192,16 +236,16 @@ class AdvancedQueryBuilder:
     def _build_text_condition(self, field: str, operator: str, raw_value: Any) -> Q:
         value = self._require_string(raw_value, field)
         lookup_map = {
-            'contains': 'icontains',
-            'not_contains': 'icontains',
-            'equals': 'iexact',
-            'not_equals': 'iexact',
-            'starts_with': 'istartswith',
-            'ends_with': 'iendswith',
+            "contains": "icontains",
+            "not_contains": "icontains",
+            "equals": "iexact",
+            "not_equals": "iexact",
+            "starts_with": "istartswith",
+            "ends_with": "iendswith",
         }
         lookup = lookup_map[operator]
-        condition = Q(**{f'{field}__{lookup}': value})
-        if operator.startswith('not_'):
+        condition = Q(**{f"{field}__{lookup}": value})
+        if operator.startswith("not_"):
             return ~condition
         return condition
 
@@ -218,21 +262,19 @@ class AdvancedQueryBuilder:
                 raise AdvancedQueryValidationError(f'Field "{field}" expects a non-empty list')
             values = raw_value
         else:
-            raise AdvancedQueryValidationError(
-                f'Field "{field}" expects a string or list value'
-            )
+            raise AdvancedQueryValidationError(f'Field "{field}" expects a string or list value')
 
-        condition = Q(**{f'{field}__in': values})
-        if operator == 'not_in':
+        condition = Q(**{f"{field}__in": values})
+        if operator == "not_in":
             return ~condition
         return condition
 
     def _build_range_condition(self, field: str, operator: str, raw_value: Any) -> Q:
-        if operator == 'between':
+        if operator == "between":
             if not isinstance(raw_value, dict):
                 raise AdvancedQueryValidationError(f'Field "{field}" expects a range object')
-            start = raw_value.get('start')
-            end = raw_value.get('end')
+            start = raw_value.get("start")
+            end = raw_value.get("end")
             if start is None and end is None:
                 raise AdvancedQueryValidationError(
                     f'Field "{field}" range requires at least one bound'
@@ -240,17 +282,17 @@ class AdvancedQueryBuilder:
             query = Q()
             if start is not None:
                 coerced_start = self._coerce_range_value(start, field)
-                query &= Q(**{f'{field}__gte': coerced_start})
+                query &= Q(**{f"{field}__gte": coerced_start})
             if end is not None:
                 coerced_end = self._coerce_range_value(end, field)
-                query &= Q(**{f'{field}__lte': coerced_end})
+                query &= Q(**{f"{field}__lte": coerced_end})
             return query
 
         # Use type-aware coercion instead of string-only validation
         # This fixes Bug #3 and #4: integer age values are now accepted
         value = self._coerce_range_value(raw_value, field)
-        lookup = 'gte' if operator == 'gte' else 'lte'
-        return Q(**{f'{field}__{lookup}': value})
+        lookup = "gte" if operator == "gte" else "lte"
+        return Q(**{f"{field}__{lookup}": value})
 
     def _build_regex_condition(self, field: str, operator: str, raw_value: Any) -> Q:
         """
@@ -267,8 +309,8 @@ class AdvancedQueryBuilder:
         self._validate_regex_pattern(pattern)
 
         # Map operator to Django lookup
-        lookup = 'iregex' if operator == 'iregex' else 'regex'
-        return Q(**{f'{field}__{lookup}': pattern})
+        lookup = "iregex" if operator == "iregex" else "regex"
+        return Q(**{f"{field}__{lookup}": pattern})
 
     @staticmethod
     def _validate_regex_pattern(pattern: str) -> None:
@@ -280,31 +322,30 @@ class AdvancedQueryBuilder:
         try:
             re.compile(pattern)
         except re.error as e:
-            raise InvalidRegexPatternError(pattern, str(e))
+            raise InvalidRegexPatternError(pattern, str(e)) from e
 
     def _build_study_condition(self, field_key: str, operator: str, value: Any) -> Q:
         """
         Build subquery filter for Study fields.
-        
+
         Uses Q(report_id__in=Study.objects.filter(...).values_list('exam_id', flat=True))
         to maintain performance without ForeignKey relationship.
         """
         from study.models import Study
-        
+
         if field_key not in self.STUDY_FIELD_CONFIG:
-            raise AdvancedQueryValidationError(f'Unsupported Study field: {field_key}')
-        
+            raise AdvancedQueryValidationError(f"Unsupported Study field: {field_key}")
+
         field_meta = self.STUDY_FIELD_CONFIG[field_key]
-        db_field = field_meta['db_field']
-        
+        db_field = field_meta["db_field"]
+
         # Validate operator
-        if operator not in field_meta['operators']:
-            allowed = ', '.join(sorted(field_meta['operators']))
+        if operator not in field_meta["operators"]:
+            allowed = ", ".join(sorted(field_meta["operators"]))
             raise AdvancedQueryValidationError(
-                f'Operator "{operator}" is not allowed for field "{field_key}". '
-                f'Allowed: {allowed}'
+                f'Operator "{operator}" is not allowed for field "{field_key}". Allowed: {allowed}'
             )
-        
+
         # Build Study filter based on operator type
         if operator in self.TEXT_OPERATORS:
             study_q = self._build_text_condition(db_field, operator, value)
@@ -316,18 +357,18 @@ class AdvancedQueryBuilder:
             raise AdvancedQueryValidationError(
                 f'Operator "{operator}" not supported for Study field "{field_key}"'
             )
-        
+
         # Execute subquery to get matching exam_ids
-        matching_exam_ids = Study.objects.filter(study_q).values_list('exam_id', flat=True)
-        
+        matching_exam_ids = Study.objects.filter(study_q).values_list("exam_id", flat=True)
+
         # Convert to Report filter
         return Q(report_id__in=matching_exam_ids)
 
     def _build_search_condition(self, raw_value: Any) -> tuple[Q, SearchQuery]:
-        value = self._require_string(raw_value, 'content')
+        value = self._require_string(raw_value, "content")
         if not value.strip():
-            raise AdvancedQueryValidationError('Full-text search value cannot be empty')
-        search_query = SearchQuery(value.strip(), config=self.SEARCH_CONFIG, search_type='plain')
+            raise AdvancedQueryValidationError("Full-text search value cannot be empty")
+        search_query = SearchQuery(value.strip(), config=self.SEARCH_CONFIG, search_type="plain")
         return Q(), search_query
 
     @staticmethod
@@ -337,7 +378,7 @@ class AdvancedQueryBuilder:
     ) -> Q:
         combined = Q()
         for filters, _ in results:
-            if operator == 'AND':
+            if operator == "AND":
                 combined &= filters
             else:
                 combined |= filters
@@ -354,14 +395,14 @@ class AdvancedQueryBuilder:
 
         combined = queries[0]
         for query in queries[1:]:
-            combined = combined & query if operator == 'AND' else combined | query
+            combined = combined & query if operator == "AND" else combined | query
         return combined
 
     def _increment_nodes(self) -> None:
         self._node_count += 1
         if self._node_count > self.MAX_NODES:
             raise AdvancedQueryValidationError(
-                f'Max conditions ({self.MAX_NODES}) exceeded. Reduce the number of rules.'
+                f"Max conditions ({self.MAX_NODES}) exceeded. Reduce the number of rules."
             )
 
     @staticmethod
@@ -410,4 +451,3 @@ class AdvancedQueryBuilder:
         raise AdvancedQueryValidationError(
             f'Field "{field}" expects a string or numeric value, got {type(raw_value).__name__}'
         )
-

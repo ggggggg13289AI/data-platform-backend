@@ -24,7 +24,7 @@ class Migration(migrations.Migration):
     """
 
     dependencies = [
-        ('report', '0004_add_pg_trgm_extension'),
+        ("report", "0004_add_pg_trgm_extension"),
     ]
 
     operations = [
