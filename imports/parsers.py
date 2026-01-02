@@ -233,7 +233,7 @@ def parse_excel(
     except ImportError:
         raise ImportError(
             "openpyxl is required for Excel file support. Install with: pip install openpyxl"
-        )
+        ) from None
 
     path = Path(file_path)
     if not path.exists():
@@ -359,7 +359,7 @@ def read_excel_rows(file_path: str, sheet_name: str | None = None) -> list[dict[
     try:
         import openpyxl
     except ImportError:
-        raise ImportError("openpyxl is required for Excel file support")
+        raise ImportError("openpyxl is required for Excel file support") from None
 
     wb = openpyxl.load_workbook(file_path, read_only=True, data_only=True)
     ws = wb[sheet_name] if sheet_name else wb.active

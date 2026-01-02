@@ -64,7 +64,6 @@ def save_uploaded_file(file, filename: str) -> str:
     ensure_temp_dir()
 
     # Generate unique filename
-    ext = Path(filename).suffix.lower()
     unique_name = f"{uuid.uuid4()}_{filename}"
     file_path = IMPORT_TEMP_DIR / unique_name
 
@@ -370,7 +369,7 @@ def _bulk_import_studies(rows: list[dict], mapping: dict) -> tuple[int, int, lis
         "order_datetime": now,
     }
 
-    for row_num, data in all_data:
+    for _row_num, data in all_data:
         exam_id = data.pop("exam_id")
 
         # 合併預設值（資料優先）
@@ -489,9 +488,14 @@ def _import_report_row(row: dict, mapping: dict) -> None:
 
             data[target_field] = value
 
+    # Validate required field
+    uid = data.get("uid")
+    if not uid:
+        raise ValueError("uid is required for report import")
+
     # Use existing import service
     ReportService.import_or_update_report(
-        uid=data.get("uid"),
+        uid=uid,
         title=data.get("title", ""),
         content=data.get("content", ""),
         report_type=data.get("report_type", "Unknown"),

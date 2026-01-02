@@ -90,7 +90,7 @@ def upload_file(request: HttpRequest, file: UploadedFile = File(...)):
         )
     except Exception as e:
         logger.exception("File upload failed")
-        raise HttpError(500, f"Upload failed: {str(e)}")
+        raise HttpError(500, f"Upload failed: {str(e)}") from e
 
 
 @imports_router.post(
@@ -105,12 +105,12 @@ def preview_file(request: HttpRequest, payload: PreviewRequest):
     try:
         task_id = UUID(payload.task_id)
     except ValueError:
-        raise HttpError(400, "Invalid task_id format")
+        raise HttpError(400, "Invalid task_id format") from None
 
     try:
         task = ImportTask.objects.get(task_id=task_id)
     except ImportTask.DoesNotExist:
-        raise HttpError(404, "Import task not found")
+        raise HttpError(404, "Import task not found") from None
 
     try:
         preview_data = get_preview(task, payload.sheet_name)
@@ -127,10 +127,10 @@ def preview_file(request: HttpRequest, payload: PreviewRequest):
             ),
         )
     except FileNotFoundError:
-        raise HttpError(404, "Uploaded file not found. It may have expired.")
+        raise HttpError(404, "Uploaded file not found. It may have expired.") from None
     except Exception as e:
         logger.exception("Preview generation failed")
-        raise HttpError(400, f"Preview failed: {str(e)}")
+        raise HttpError(400, f"Preview failed: {str(e)}") from e
 
 
 @imports_router.post(
@@ -151,13 +151,13 @@ def execute_import_endpoint(request: HttpRequest, payload: ExecuteRequest):
         task_id = UUID(payload.task_id)
     except ValueError:
         logger.error(f"[IMPORT API] Invalid task_id format: {payload.task_id}")
-        raise HttpError(400, "Invalid task_id format")
+        raise HttpError(400, "Invalid task_id format") from None
 
     try:
         task = ImportTask.objects.get(task_id=task_id)
     except ImportTask.DoesNotExist:
         logger.error(f"[IMPORT API] Task not found: {task_id}")
-        raise HttpError(404, "Import task not found")
+        raise HttpError(404, "Import task not found") from None
 
     logger.info(f"[IMPORT API] Found task: status={task.status}, total_rows={task.total_rows}")
 
@@ -203,7 +203,7 @@ def execute_import_endpoint(request: HttpRequest, payload: ExecuteRequest):
         )
     except Exception as e:
         logger.exception("[IMPORT API] Import execution failed")
-        raise HttpError(500, f"Import failed: {str(e)}")
+        raise HttpError(500, f"Import failed: {str(e)}") from e
 
 
 @imports_router.get("/tasks/{task_id}", response={200: TaskStatusResponse, 404: ErrorResponse})
@@ -216,12 +216,12 @@ def get_task_status(request: HttpRequest, task_id: str):
     try:
         task_uuid = UUID(task_id)
     except ValueError:
-        raise HttpError(400, "Invalid task_id format")
+        raise HttpError(400, "Invalid task_id format") from None
 
     try:
         task = ImportTask.objects.get(task_id=task_uuid)
     except ImportTask.DoesNotExist:
-        raise HttpError(404, "Import task not found")
+        raise HttpError(404, "Import task not found") from None
 
     # Build error details if present
     error_details = None
