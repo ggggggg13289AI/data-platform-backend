@@ -6,10 +6,11 @@ Logs every API request with response time for performance monitoring.
 import json
 import logging
 import time
+
 from django.conf import settings
 from django.urls import Resolver404, resolve
 
-logger = logging.getLogger('request_timing')
+logger = logging.getLogger("request_timing")
 
 
 class RequestTimingMiddleware:
@@ -46,132 +47,140 @@ class RequestTimingMiddleware:
         # Record start time
         start_time = time.time()
 
-        #region agent log
+        # region agent log
         try:
             entry_log = {
-                'sessionId': 'debug-session',
-                'runId': 'run1',
-                'hypothesisId': 'H1|H2|H3',
-                'location': 'common/middleware.py:RequestTimingMiddleware.__call__',
-                'message': 'request_entry',
-                'data': {
-                    'method': request.method,
-                    'path': request.path,
-                    'full_path': request.get_full_path(),
-                    'host': request.get_host(),
-                    'scheme': request.scheme,
-                    'content_type': request.META.get('CONTENT_TYPE'),
-                    'content_length': request.META.get('CONTENT_LENGTH'),
+                "sessionId": "debug-session",
+                "runId": "run1",
+                "hypothesisId": "H1|H2|H3",
+                "location": "common/middleware.py:RequestTimingMiddleware.__call__",
+                "message": "request_entry",
+                "data": {
+                    "method": request.method,
+                    "path": request.path,
+                    "full_path": request.get_full_path(),
+                    "host": request.get_host(),
+                    "scheme": request.scheme,
+                    "content_type": request.META.get("CONTENT_TYPE"),
+                    "content_length": request.META.get("CONTENT_LENGTH"),
                 },
-                'timestamp': int(time.time() * 1000),
+                "timestamp": int(time.time() * 1000),
             }
-            with open('/mnt/d/00_Chen/spider/image_data_platform/.cursor/debug.log', 'a', encoding='utf-8') as debug_log_file:
-                debug_log_file.write(json.dumps(entry_log, ensure_ascii=False) + '\n')
+            with open(
+                "/mnt/d/00_Chen/spider/image_data_platform/.cursor/debug.log", "a", encoding="utf-8"
+            ) as debug_log_file:
+                debug_log_file.write(json.dumps(entry_log, ensure_ascii=False) + "\n")
         except Exception:
             # We never let debug logging break request handling
             pass
-        #endregion
+        # endregion
 
         # Process request through view and other middleware
         try:
             response = self.get_response(request)
         except Exception as exc:  # noqa: BLE001
-            #region agent log
+            # region agent log
             try:
                 error_log = {
-                    'sessionId': 'debug-session',
-                    'runId': 'run1',
-                    'hypothesisId': 'H1|H2|H3',
-                    'location': 'common/middleware.py:RequestTimingMiddleware.__call__',
-                    'message': 'request_exception',
-                    'data': {
-                        'method': request.method,
-                        'path': request.path,
-                        'full_path': request.get_full_path(),
-                        'exception_type': type(exc).__name__,
-                        'exception_message': str(exc),
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "H1|H2|H3",
+                    "location": "common/middleware.py:RequestTimingMiddleware.__call__",
+                    "message": "request_exception",
+                    "data": {
+                        "method": request.method,
+                        "path": request.path,
+                        "full_path": request.get_full_path(),
+                        "exception_type": type(exc).__name__,
+                        "exception_message": str(exc),
                     },
-                    'timestamp': int(time.time() * 1000),
+                    "timestamp": int(time.time() * 1000),
                 }
-                with open('/mnt/d/00_Chen/spider/image_data_platform/.cursor/debug.log', 'a', encoding='utf-8') as debug_log_file:
-                    debug_log_file.write(json.dumps(error_log, ensure_ascii=False) + '\n')
+                with open(
+                    "/mnt/d/00_Chen/spider/image_data_platform/.cursor/debug.log",
+                    "a",
+                    encoding="utf-8",
+                ) as debug_log_file:
+                    debug_log_file.write(json.dumps(error_log, ensure_ascii=False) + "\n")
             except Exception:
                 pass
-            #endregion
+            # endregion
             raise
 
         # Calculate duration in milliseconds
         duration_ms = (time.time() - start_time) * 1000
 
         # Get response size for monitoring
-        content_length = len(response.content) if hasattr(response, 'content') else 0
+        content_length = len(response.content) if hasattr(response, "content") else 0
 
         # Detect would-be APPEND_SLASH redirect situations to validate hypotheses
         append_slash_candidate = False
         append_slash_target = None
-        if (
-            response.status_code == 404
-            and settings.APPEND_SLASH
-            and not request.path.endswith('/')
-        ):
-            append_slash_target = f'{request.path}/'
+        if response.status_code == 404 and settings.APPEND_SLASH and not request.path.endswith("/"):
+            append_slash_target = f"{request.path}/"
             try:
                 resolve(append_slash_target)
                 append_slash_candidate = True
             except Resolver404:
                 append_slash_candidate = False
-            #region agent log
+            # region agent log
             try:
                 append_log = {
-                    'sessionId': 'debug-session',
-                    'runId': 'run1',
-                    'hypothesisId': 'H4',
-                    'location': 'common/middleware.py:RequestTimingMiddleware.__call__',
-                    'message': 'append_slash_check',
-                    'data': {
-                        'path': request.path,
-                        'append_slash_target': append_slash_target,
-                        'candidate': append_slash_candidate,
-                        'method': request.method,
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "H4",
+                    "location": "common/middleware.py:RequestTimingMiddleware.__call__",
+                    "message": "append_slash_check",
+                    "data": {
+                        "path": request.path,
+                        "append_slash_target": append_slash_target,
+                        "candidate": append_slash_candidate,
+                        "method": request.method,
                     },
-                    'timestamp': int(time.time() * 1000),
+                    "timestamp": int(time.time() * 1000),
                 }
-                with open('/mnt/d/00_Chen/spider/image_data_platform/.cursor/debug.log', 'a', encoding='utf-8') as debug_log_file:
-                    debug_log_file.write(json.dumps(append_log, ensure_ascii=False) + '\n')
+                with open(
+                    "/mnt/d/00_Chen/spider/image_data_platform/.cursor/debug.log",
+                    "a",
+                    encoding="utf-8",
+                ) as debug_log_file:
+                    debug_log_file.write(json.dumps(append_log, ensure_ascii=False) + "\n")
             except Exception:
                 pass
-            #endregion
+            # endregion
 
         # Log request with timing (Apache Combined Log Format + timing)
         logger.info(
             f'"{request.method} {request.get_full_path()} '
             f'{request.META.get("SERVER_PROTOCOL", "HTTP/1.1")}" '
-            f'{response.status_code} {content_length} '
-            f'[{duration_ms:.0f}ms]'
+            f"{response.status_code} {content_length} "
+            f"[{duration_ms:.0f}ms]"
         )
 
-        #region agent log
+        # region agent log
         try:
             exit_log = {
-                'sessionId': 'debug-session',
-                'runId': 'run1',
-                'hypothesisId': 'H1|H2|H3',
-                'location': 'common/middleware.py:RequestTimingMiddleware.__call__',
-                'message': 'request_exit',
-                'data': {
-                    'method': request.method,
-                    'path': request.path,
-                    'full_path': request.get_full_path(),
-                    'status_code': response.status_code,
-                    'content_length': content_length,
-                    'duration_ms': duration_ms,
+                "sessionId": "debug-session",
+                "runId": "run1",
+                "hypothesisId": "H1|H2|H3",
+                "location": "common/middleware.py:RequestTimingMiddleware.__call__",
+                "message": "request_exit",
+                "data": {
+                    "method": request.method,
+                    "path": request.path,
+                    "full_path": request.get_full_path(),
+                    "status_code": response.status_code,
+                    "content_length": content_length,
+                    "duration_ms": duration_ms,
                 },
-                'timestamp': int(time.time() * 1000),
+                "timestamp": int(time.time() * 1000),
             }
-            with open('/mnt/d/00_Chen/spider/image_data_platform/.cursor/debug.log', 'a', encoding='utf-8') as debug_log_file:
-                debug_log_file.write(json.dumps(exit_log, ensure_ascii=False) + '\n')
+            with open(
+                "/mnt/d/00_Chen/spider/image_data_platform/.cursor/debug.log", "a", encoding="utf-8"
+            ) as debug_log_file:
+                debug_log_file.write(json.dumps(exit_log, ensure_ascii=False) + "\n")
         except Exception:
             pass
-        #endregion
+        # endregion
 
         return response

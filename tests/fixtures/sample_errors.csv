@@ -1,0 +1,6 @@
+uid,title,content,report_type,report_date
+RPT001,Valid Report,This is valid content.,X-Ray,2024-01-15
+,Missing UID,Content without uid.,CT,2024-01-16
+RPT003,,Content without title.,MRI,2024-01-17
+RPT004,Missing Content,,Ultrasound,2024-01-18
+RPT005,Missing Type,Valid content here.,,2024-01-19

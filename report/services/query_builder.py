@@ -4,6 +4,7 @@ Advanced query builder for report search DSL.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any, Iterable
 
@@ -13,6 +14,15 @@ from django.db.models import Q
 
 class AdvancedQueryValidationError(Exception):
     """Raised when the advanced search payload is invalid."""
+
+
+class InvalidRegexPatternError(AdvancedQueryValidationError):
+    """Raised when an invalid regex pattern is provided."""
+
+    def __init__(self, pattern: str, error_message: str):
+        self.pattern = pattern
+        self.error_message = error_message
+        super().__init__(f'Invalid regex pattern: {pattern} - {error_message}')
 
 
 @dataclass
@@ -41,6 +51,7 @@ class AdvancedQueryBuilder:
     TEXT_OPERATORS = {'contains', 'not_contains', 'equals', 'not_equals', 'starts_with', 'ends_with'}
     LIST_OPERATORS = {'in', 'not_in'}
     RANGE_OPERATORS = {'between', 'gte', 'lte'}
+    REGEX_OPERATORS = {'regex', 'iregex'}  # case-sensitive and case-insensitive regex
 
     # Report field configuration
     REPORT_FIELD_CONFIG: dict[str, dict[str, Any]] = {
@@ -52,6 +63,10 @@ class AdvancedQueryBuilder:
         'verified_at': {'field': 'verified_at', 'operators': RANGE_OPERATORS},
         'created_at': {'field': 'created_at', 'operators': RANGE_OPERATORS},
         'content': {'field': 'search_vector', 'operators': {'search'}},
+        # Imaging report specific fields (PostgreSQL generated columns)
+        'content_raw': {'field': 'content_raw', 'operators': TEXT_OPERATORS | REGEX_OPERATORS},
+        'imaging_findings': {'field': 'imaging_findings', 'operators': TEXT_OPERATORS | REGEX_OPERATORS},
+        'impression': {'field': 'impression', 'operators': TEXT_OPERATORS | REGEX_OPERATORS},
     }
 
     # Study field configuration (cross-model query via subquery)
@@ -169,6 +184,9 @@ class AdvancedQueryBuilder:
         if operator in self.RANGE_OPERATORS:
             return self._build_range_condition(field_name, operator, value), None
 
+        if operator in self.REGEX_OPERATORS:
+            return self._build_regex_condition(field_name, operator, value), None
+
         raise AdvancedQueryValidationError(f'Unhandled operator "{operator}"')
 
     def _build_text_condition(self, field: str, operator: str, raw_value: Any) -> Q:
@@ -188,10 +206,23 @@ class AdvancedQueryBuilder:
         return condition
 
     def _build_list_condition(self, field: str, operator: str, raw_value: Any) -> Q:
-        if not isinstance(raw_value, list) or len(raw_value) == 0:
-            raise AdvancedQueryValidationError(f'Field "{field}" expects a non-empty list')
+        # Be liberal in what we accept (Linus principle)
+        # Accept single value and wrap it in a list for 'in' operator
+        # This fixes Bug #2: gender search with single value
+        if isinstance(raw_value, str):
+            if not raw_value.strip():
+                raise AdvancedQueryValidationError(f'Field "{field}" expects a non-empty value')
+            values = [raw_value.strip()]
+        elif isinstance(raw_value, list):
+            if len(raw_value) == 0:
+                raise AdvancedQueryValidationError(f'Field "{field}" expects a non-empty list')
+            values = raw_value
+        else:
+            raise AdvancedQueryValidationError(
+                f'Field "{field}" expects a string or list value'
+            )
 
-        condition = Q(**{f'{field}__in': raw_value})
+        condition = Q(**{f'{field}__in': values})
         if operator == 'not_in':
             return ~condition
         return condition
@@ -202,20 +233,54 @@ class AdvancedQueryBuilder:
                 raise AdvancedQueryValidationError(f'Field "{field}" expects a range object')
             start = raw_value.get('start')
             end = raw_value.get('end')
-            if not start and not end:
+            if start is None and end is None:
                 raise AdvancedQueryValidationError(
                     f'Field "{field}" range requires at least one bound'
                 )
             query = Q()
-            if start:
-                query &= Q(**{f'{field}__gte': start})
-            if end:
-                query &= Q(**{f'{field}__lte': end})
+            if start is not None:
+                coerced_start = self._coerce_range_value(start, field)
+                query &= Q(**{f'{field}__gte': coerced_start})
+            if end is not None:
+                coerced_end = self._coerce_range_value(end, field)
+                query &= Q(**{f'{field}__lte': coerced_end})
             return query
 
-        value = self._require_string(raw_value, field)
+        # Use type-aware coercion instead of string-only validation
+        # This fixes Bug #3 and #4: integer age values are now accepted
+        value = self._coerce_range_value(raw_value, field)
         lookup = 'gte' if operator == 'gte' else 'lte'
         return Q(**{f'{field}__{lookup}': value})
+
+    def _build_regex_condition(self, field: str, operator: str, raw_value: Any) -> Q:
+        """
+        Build regex condition for PostgreSQL regex matching.
+
+        Uses Django's __regex and __iregex lookups which map to PostgreSQL's
+        ~ (case-sensitive) and ~* (case-insensitive) operators.
+
+        The pattern is validated before being sent to the database.
+        """
+        pattern = self._require_string(raw_value, field)
+
+        # Validate regex pattern before sending to database
+        self._validate_regex_pattern(pattern)
+
+        # Map operator to Django lookup
+        lookup = 'iregex' if operator == 'iregex' else 'regex'
+        return Q(**{f'{field}__{lookup}': pattern})
+
+    @staticmethod
+    def _validate_regex_pattern(pattern: str) -> None:
+        """
+        Validate regex pattern syntax before database execution.
+
+        Raises InvalidRegexPatternError if the pattern is invalid.
+        """
+        try:
+            re.compile(pattern)
+        except re.error as e:
+            raise InvalidRegexPatternError(pattern, str(e))
 
     def _build_study_condition(self, field_key: str, operator: str, value: Any) -> Q:
         """
@@ -307,4 +372,42 @@ class AdvancedQueryBuilder:
         if not trimmed:
             raise AdvancedQueryValidationError(f'Field "{field}" cannot be empty')
         return trimmed
+
+    @staticmethod
+    def _coerce_range_value(raw_value: Any, field: str) -> str | int | float:
+        """
+        Coerce range query value to appropriate type.
+
+        Accepts:
+        - str: Pass through after trimming
+        - int/float: Pass through directly
+        - None/empty: Raise validation error
+
+        Returns value suitable for Django Q filter.
+
+        Design Principle (Linus Torvalds - Good Taste):
+        - Eliminate special cases by handling all numeric types uniformly
+        - Be liberal in what we accept at the boundary
+        """
+        if raw_value is None:
+            raise AdvancedQueryValidationError(f'Field "{field}" cannot be empty')
+
+        if isinstance(raw_value, bool):
+            # Reject booleans explicitly (they pass isinstance int check in Python)
+            raise AdvancedQueryValidationError(
+                f'Field "{field}" expects a string or numeric value, got bool'
+            )
+
+        if isinstance(raw_value, (int, float)):
+            return raw_value
+
+        if isinstance(raw_value, str):
+            trimmed = raw_value.strip()
+            if not trimmed:
+                raise AdvancedQueryValidationError(f'Field "{field}" cannot be empty')
+            return trimmed
+
+        raise AdvancedQueryValidationError(
+            f'Field "{field}" expects a string or numeric value, got {type(raw_value).__name__}'
+        )
 

@@ -16,7 +16,6 @@ Usage:
 """
 
 
-
 class ServiceConfig:
     """Service layer configuration constants.
 
@@ -26,7 +25,7 @@ class ServiceConfig:
 
     # ========== Cache Configuration ==========
 
-    FILTER_OPTIONS_CACHE_KEY: str = 'study_filter_options'
+    FILTER_OPTIONS_CACHE_KEY: str = "study_filter_options"
     """Redis cache key for filter options.
 
     Filter options (exam statuses, sources, equipment types, etc.) are cached
@@ -131,7 +130,7 @@ class DatabaseConfig:
     These values are used for database operations and query construction.
     """
 
-    TABLE_NAME: str = 'medical_examinations_fact'
+    TABLE_NAME: str = "medical_examinations_fact"
     """Primary table name for medical examination records.
 
     This table uses a data warehouse-style naming convention ('_fact' suffix)
@@ -143,12 +142,12 @@ class DatabaseConfig:
     # ========== Index Configuration ==========
 
     INDEXED_FIELDS: list[str] = [
-        'exam_id',           # Primary key
-        'medical_record_no', # Common lookup
-        'patient_name',      # Search field
-        'exam_status',       # Filter field
-        'exam_source',       # Filter field
-        'order_datetime',    # Sort field
+        "exam_id",  # Primary key
+        "medical_record_no",  # Common lookup
+        "patient_name",  # Search field
+        "exam_status",  # Filter field
+        "exam_source",  # Filter field
+        "order_datetime",  # Sort field
     ]
     """Fields with database indexes for query optimization.
 
@@ -168,7 +167,7 @@ class APIConfig:
 
     # ========== Response Format ==========
 
-    DATETIME_FORMAT: str = 'iso8601'
+    DATETIME_FORMAT: str = "iso8601"
     """Datetime serialization format.
 
     All datetime fields are serialized to ISO 8601 format without timezone:
@@ -177,7 +176,7 @@ class APIConfig:
     This matches FastAPI default behavior for API contract compatibility.
     """
 
-    DATETIME_EXAMPLE: str = '2025-11-10T10:30:00'
+    DATETIME_EXAMPLE: str = "2025-11-10T10:30:00"
     """Example datetime string for documentation.
 
     Used in API documentation and validation error messages to show
@@ -186,16 +185,16 @@ class APIConfig:
 
     # ========== Sort Options ==========
 
-    DEFAULT_SORT_ORDER: str = 'order_datetime_desc'
+    DEFAULT_SORT_ORDER: str = "order_datetime_desc"
     """Default sort order when not specified in request.
 
     Most recent examinations first is the expected user behavior.
     """
 
     VALID_SORT_OPTIONS: list[str] = [
-        'order_datetime_desc',  # Most recent first (default)
-        'order_datetime_asc',   # Oldest first
-        'patient_name_asc',     # Alphabetical by patient
+        "order_datetime_desc",  # Most recent first (default)
+        "order_datetime_asc",  # Oldest first
+        "patient_name_asc",  # Alphabetical by patient
     ]
     """Valid sort parameter values.
 
@@ -206,12 +205,12 @@ class APIConfig:
     # ========== Filter Options ==========
 
     REQUIRED_FILTER_FIELDS: list[str] = [
-        'exam_statuses',
-        'exam_sources',
-        'equipment_types',
-        'exam_rooms',
-        'exam_equipments',
-        'exam_descriptions',
+        "exam_statuses",
+        "exam_sources",
+        "equipment_types",
+        "exam_rooms",
+        "exam_equipments",
+        "exam_descriptions",
     ]
     """Required fields in filter options response.
 
@@ -266,6 +265,7 @@ class CacheConfig:
 
 # ========== Validation Constants ==========
 
+
 class ValidationConfig:
     """Input validation configuration.
 
@@ -273,13 +273,13 @@ class ValidationConfig:
     """
 
     # Date format validation
-    DATE_FORMAT_REGEX: str = r'^\d{4}-\d{2}-\d{2}$'
+    DATE_FORMAT_REGEX: str = r"^\d{4}-\d{2}-\d{2}$"
     """Regex pattern for date validation (YYYY-MM-DD).
 
     Used to validate start_date and end_date parameters before parsing.
     """
 
-    DATE_FORMAT_EXAMPLE: str = '2025-11-10'
+    DATE_FORMAT_EXAMPLE: str = "2025-11-10"
     """Example date string for error messages."""
 
     # Text search validation
@@ -303,6 +303,7 @@ class ValidationConfig:
 
 # ========== Export Configuration Dictionary ==========
 
+
 def get_all_config() -> dict:
     """Get all configuration as dictionary for debugging/logging.
 
@@ -314,31 +315,31 @@ def get_all_config() -> dict:
         >>> print(f"Cache TTL: {config['service']['cache_ttl']}")
     """
     return {
-        'service': {
-            'cache_key': ServiceConfig.FILTER_OPTIONS_CACHE_KEY,
-            'cache_ttl': ServiceConfig.FILTER_OPTIONS_CACHE_TTL,
-            'batch_size': ServiceConfig.BULK_CREATE_BATCH_SIZE,
-            'default_page_size': ServiceConfig.DEFAULT_PAGE_SIZE,
-            'max_page_size': ServiceConfig.MAX_PAGE_SIZE,
-            'search_field_count': ServiceConfig.TEXT_SEARCH_FIELD_COUNT,
+        "service": {
+            "cache_key": ServiceConfig.FILTER_OPTIONS_CACHE_KEY,
+            "cache_ttl": ServiceConfig.FILTER_OPTIONS_CACHE_TTL,
+            "batch_size": ServiceConfig.BULK_CREATE_BATCH_SIZE,
+            "default_page_size": ServiceConfig.DEFAULT_PAGE_SIZE,
+            "max_page_size": ServiceConfig.MAX_PAGE_SIZE,
+            "search_field_count": ServiceConfig.TEXT_SEARCH_FIELD_COUNT,
         },
-        'database': {
-            'table_name': DatabaseConfig.TABLE_NAME,
-            'indexed_fields': DatabaseConfig.INDEXED_FIELDS,
+        "database": {
+            "table_name": DatabaseConfig.TABLE_NAME,
+            "indexed_fields": DatabaseConfig.INDEXED_FIELDS,
         },
-        'api': {
-            'datetime_format': APIConfig.DATETIME_FORMAT,
-            'default_sort': APIConfig.DEFAULT_SORT_ORDER,
-            'valid_sorts': APIConfig.VALID_SORT_OPTIONS,
+        "api": {
+            "datetime_format": APIConfig.DATETIME_FORMAT,
+            "default_sort": APIConfig.DEFAULT_SORT_ORDER,
+            "valid_sorts": APIConfig.VALID_SORT_OPTIONS,
         },
-        'cache': {
-            'circuit_breaker_enabled': CacheConfig.ENABLE_CACHE_CIRCUIT_BREAKER,
-            'failure_threshold': CacheConfig.CIRCUIT_BREAKER_FAILURE_THRESHOLD,
-            'circuit_timeout': CacheConfig.CIRCUIT_BREAKER_TIMEOUT,
+        "cache": {
+            "circuit_breaker_enabled": CacheConfig.ENABLE_CACHE_CIRCUIT_BREAKER,
+            "failure_threshold": CacheConfig.CIRCUIT_BREAKER_FAILURE_THRESHOLD,
+            "circuit_timeout": CacheConfig.CIRCUIT_BREAKER_TIMEOUT,
         },
-        'validation': {
-            'date_format': ValidationConfig.DATE_FORMAT_EXAMPLE,
-            'max_query_length': ValidationConfig.MAX_SEARCH_QUERY_LENGTH,
-            'age_range': (ValidationConfig.MIN_PATIENT_AGE, ValidationConfig.MAX_PATIENT_AGE),
-        }
+        "validation": {
+            "date_format": ValidationConfig.DATE_FORMAT_EXAMPLE,
+            "max_query_length": ValidationConfig.MAX_SEARCH_QUERY_LENGTH,
+            "age_range": (ValidationConfig.MIN_PATIENT_AGE, ValidationConfig.MAX_PATIENT_AGE),
+        },
     }

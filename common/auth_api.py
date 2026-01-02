@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 auth_router = Router()
 
 
-@auth_router.post('/login', response=CustomTokenObtainPairOutSchema)
+@auth_router.post("/login", response=CustomTokenObtainPairOutSchema)
 def user_login(
     request: HttpRequest,
     username: Form[str],
@@ -84,10 +84,10 @@ def user_login(
     try:
         # Validate form data
         if not username or not password:
-            logger.warning('Login failed: Missing username or password')
-            raise HttpError(400, '請提供用戶名和密碼 / Username and password required')
+            logger.warning("Login failed: Missing username or password")
+            raise HttpError(400, "請提供用戶名和密碼 / Username and password required")
 
-        logger.info(f'Login attempt for user: {username}')
+        logger.info(f"Login attempt for user: {username}")
 
         # Authenticate user using Django's authenticate
         user = authenticate(
@@ -97,7 +97,7 @@ def user_login(
         )
 
         if user is not None:
-            logger.info(f'User login successful: {username}')
+            logger.info(f"User login successful: {username}")
 
             # Generate JWT tokens and user info directly
             token_data = CustomTokenObtainPairInputSchema.get_token(user)
@@ -105,17 +105,17 @@ def user_login(
             # Return the complete token response
             return CustomTokenObtainPairOutSchema(**token_data)
         else:
-            logger.warning(f'Login failed for user: {username}')
-            raise HttpError(401, '帳號或密碼錯誤 / Invalid username or password')
+            logger.warning(f"Login failed for user: {username}")
+            raise HttpError(401, "帳號或密碼錯誤 / Invalid username or password")
 
     except HttpError:
         raise
     except Exception as e:
-        logger.error(f'Login error: {str(e)}')
-        raise HttpError(500, '登入失敗，請稍後再試 / Login failed, please try again') from e
+        logger.error(f"Login error: {str(e)}")
+        raise HttpError(500, "登入失敗，請稍後再試 / Login failed, please try again") from e
 
 
-@auth_router.post('/refresh', response=TokenRefreshOutputSchema)
+@auth_router.post("/refresh", response=TokenRefreshOutputSchema)
 def refresh_token(request: HttpRequest, refresh_data: TokenRefreshInputSchema):
     """
     Refresh access token using refresh token.
@@ -152,7 +152,7 @@ def refresh_token(request: HttpRequest, refresh_data: TokenRefreshInputSchema):
     return refresh_data.to_response_schema()
 
 
-@auth_router.post('/logout', response=StatusResponse, auth=JWTAuth())
+@auth_router.post("/logout", response=StatusResponse, auth=JWTAuth())
 def user_logout(request: HttpRequest):
     """
     JWT logout endpoint.
@@ -187,27 +187,27 @@ def user_logout(request: HttpRequest):
     try:
         # Get username from JWT auth
         username = (
-            request.auth.username if hasattr(request.auth, 'username') else 'unknown'  # type: ignore[attr-defined]
+            request.auth.username if hasattr(request.auth, "username") else "unknown"  # type: ignore[attr-defined]
         )
-        logger.info(f'User logout: {username}')
+        logger.info(f"User logout: {username}")
 
         # Note: With JWT, logout is primarily client-side
         # Token blacklisting can be added here if needed
 
         return StatusResponse(
-            status='success',
-            message='登出成功 / Logout successful',
+            status="success",
+            message="登出成功 / Logout successful",
         )
 
     except Exception as e:
-        logger.error(f'Logout error: {str(e)}')
+        logger.error(f"Logout error: {str(e)}")
         return StatusResponse(
-            status='error',
-            message='登出失敗 / Logout failed',
+            status="error",
+            message="登出失敗 / Logout failed",
         )
 
 
-@auth_router.get('/me', response=UserResponse, auth=JWTAuth())
+@auth_router.get("/me", response=UserResponse, auth=JWTAuth())
 def get_current_user(request: HttpRequest):
     """
     Get current authenticated user via JWT.
@@ -249,7 +249,7 @@ def get_current_user(request: HttpRequest):
         user = request.auth  # type: ignore[attr-defined]
 
         return UserResponse(
-            status='success',
+            status="success",
             user=UserInfo(
                 id=user.id,
                 username=user.username,
@@ -261,9 +261,9 @@ def get_current_user(request: HttpRequest):
         )
 
     except Exception as e:
-        logger.error(f'Get current user error: {str(e)}')
+        logger.error(f"Get current user error: {str(e)}")
         return UserResponse(
-            status='error',
+            status="error",
             user=None,
-            message='取得使用者資訊失敗 / Failed to get user information',
+            message="取得使用者資訊失敗 / Failed to get user information",
         )

@@ -316,6 +316,29 @@ class Report(models.Model):
         help_text='PostgreSQL 全文搜尋向量，自動生成'
     )
     """全文搜尋向量"""
+
+    # ============================================================================
+    # PostgreSQL Generated Columns (Imaging Report Fields)
+    # These fields are auto-extracted from content_raw by PostgreSQL.
+    # Defined here to enable Django ORM filtering, but managed by database.
+    # ============================================================================
+
+    imaging_findings = models.TextField(
+        null=True,
+        blank=True,
+        editable=False,
+        help_text='影像發現區塊，由 PostgreSQL GENERATED COLUMN 自動從 content_raw 解析'
+    )
+    """影像發現 (PostgreSQL generated column)"""
+
+    impression = models.TextField(
+        null=True,
+        blank=True,
+        editable=False,
+        help_text='診斷意見區塊，由 PostgreSQL GENERATED COLUMN 自動從 content_raw 解析'
+    )
+    """診斷意見 (PostgreSQL generated column)"""
+
     class Meta:
         """
         Django 模型元選項。

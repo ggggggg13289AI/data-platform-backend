@@ -16,8 +16,8 @@ class UserInfo(Schema):
     id: int
     username: str
     email: str
-    first_name: str = ''
-    last_name: str = ''
+    first_name: str = ""
+    last_name: str = ""
 
 
 class CustomTokenObtainPairOutSchema(Schema):
@@ -31,8 +31,8 @@ class CustomTokenObtainPairOutSchema(Schema):
     access_token: str  # Renamed from 'access' for frontend compatibility
     refresh_token: str  # Renamed from 'refresh' for frontend compatibility
     user: UserInfo
-    status: str = 'success'
-    message: str = '登入成功 / Login successful'
+    status: str = "success"
+    message: str = "登入成功 / Login successful"
 
 
 class CustomTokenObtainPairInputSchema(TokenObtainInputSchemaBase):
@@ -64,15 +64,15 @@ class CustomTokenObtainPairInputSchema(TokenObtainInputSchemaBase):
         refresh_token = RefreshToken.for_user(user)
 
         return {
-            'access_token': str(access_token),  # Renamed for frontend
-            'refresh_token': str(refresh_token),  # Renamed for frontend
-            'user': {
-                'id': user.id,
-                'username': user.username,
-                'email': user.email,
-                'first_name': user.first_name,
-                'last_name': user.last_name,
+            "access_token": str(access_token),  # Renamed for frontend
+            "refresh_token": str(refresh_token),  # Renamed for frontend
+            "user": {
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
             },
-            'status': 'success',
-            'message': '登入成功 / Login successful',
+            "status": "success",
+            "message": "登入成功 / Login successful",
         }

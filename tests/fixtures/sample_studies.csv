@@ -1,0 +1,6 @@
+exam_id,patient_name,patient_gender,modality,exam_status,study_datetime
+EXM001,John Smith,M,CT,completed,2024-01-15 09:30:00
+EXM002,Jane Doe,F,MRI,completed,2024-01-15 10:45:00
+EXM003,Bob Johnson,M,X-Ray,completed,2024-01-16 08:00:00
+EXM004,Alice Williams,F,Ultrasound,pending,2024-01-16 14:30:00
+EXM005,Charlie Brown,M,PET,in_progress,2024-01-17 11:15:00
