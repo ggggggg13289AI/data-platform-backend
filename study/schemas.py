@@ -22,7 +22,7 @@ from ninja import Field, Schema
 class StudyDetail(Schema):
     """
     Complete study record with all available information.
-    
+
     Used for the detail endpoint GET /api/v1/studies/{exam_id}.
     Contains all fields from the Study model in their full form.
 
@@ -67,47 +67,47 @@ class StudyDetail(Schema):
 
     CRITICAL: Response format MUST match API contract exactly.
     """
-    
+
     # Required fields
-    exam_id: str = Field(..., description='Unique examination identifier')
-    patient_name: str = Field(..., description='Patient full name')
-    exam_status: str = Field(..., description='Current examination status')
-    exam_source: str = Field(..., description='Examination modality (CT, MRI, X-ray)')
-    exam_item: str = Field(..., description='Specific procedure type')
-    equipment_type: str = Field(..., description='Equipment type classification')
-    order_datetime: datetime = Field(..., description='When exam was ordered')
-    
+    exam_id: str = Field(..., description="Unique examination identifier")
+    patient_name: str = Field(..., description="Patient full name")
+    exam_status: str = Field(..., description="Current examination status")
+    exam_source: str = Field(..., description="Examination modality (CT, MRI, X-ray)")
+    exam_item: str = Field(..., description="Specific procedure type")
+    equipment_type: str = Field(..., description="Equipment type classification")
+    order_datetime: datetime = Field(..., description="When exam was ordered")
+
     # Optional fields (patient identifiers)
-    medical_record_no: str | None = Field(None, description='Patient medical record number')
-    application_order_no: str | None = Field(None, description='Application order number')
-    
+    medical_record_no: str | None = Field(None, description="Patient medical record number")
+    application_order_no: str | None = Field(None, description="Application order number")
+
     # Optional fields (patient demographics)
-    patient_gender: str | None = Field(None, description='Patient gender (M/F/U)')
-    patient_birth_date: str | None = Field(None, description='Patient birth date (YYYY-MM-DD)')
-    patient_age: int | None = Field(None, description='Patient age in years')
-    
+    patient_gender: str | None = Field(None, description="Patient gender (M/F/U)")
+    patient_birth_date: str | None = Field(None, description="Patient birth date (YYYY-MM-DD)")
+    patient_age: int | None = Field(None, description="Patient age in years")
+
     # Optional fields (exam details)
-    exam_description: str | None = Field(None, description='Detailed exam description')
-    exam_room: str | None = Field(None, description='Hospital room/facility')
-    exam_equipment: str | None = Field(None, description='Equipment name/model')
-    
+    exam_description: str | None = Field(None, description="Detailed exam description")
+    exam_room: str | None = Field(None, description="Hospital room/facility")
+    exam_equipment: str | None = Field(None, description="Equipment name/model")
+
     # Optional fields (temporal)
-    check_in_datetime: datetime | None = Field(None, description='When patient checked in')
-    report_certification_datetime: datetime | None = Field(None, description='When report was certified')
-    
+    check_in_datetime: datetime | None = Field(None, description="When patient checked in")
+    report_certification_datetime: datetime | None = Field(
+        None, description="When report was certified"
+    )
+
     # Optional fields (authorization)
-    certified_physician: str | None = Field(None, description='Physician who certified report')
-    data_load_time: datetime | None = Field(None, description='When record was loaded')
+    certified_physician: str | None = Field(None, description="Physician who certified report")
+    data_load_time: datetime | None = Field(None, description="When record was loaded")
 
     class Config:
         # Allow creation from Django model instances using .from_attributes()
         from_attributes = True
-        
+
         # Custom JSON encoder for datetime fields - ensures ISO format
         # All datetime objects are serialized to ISO 8601 format without timezone
-        json_encoders = {
-            datetime: lambda v: v.isoformat() if v else None
-        }
+        json_encoders = {datetime: lambda v: v.isoformat() if v else None}
 
 
 class StudyListItem(Schema):
@@ -159,38 +159,38 @@ class StudyListItem(Schema):
 
     CRITICAL: Response format MUST match API contract exactly.
     """
-    
+
     # Required fields
-    exam_id: str = Field(..., description='Unique examination identifier')
-    patient_name: str = Field(..., description='Patient full name')
-    exam_status: str = Field(..., description='Examination status')
-    exam_source: str = Field(..., description='Examination modality (CT, MRI, X-ray)')
-    exam_item: str = Field(..., description='Specific procedure type')
-    order_datetime: datetime = Field(..., description='When exam was ordered')
-    
+    exam_id: str = Field(..., description="Unique examination identifier")
+    patient_name: str = Field(..., description="Patient full name")
+    exam_status: str = Field(..., description="Examination status")
+    exam_source: str = Field(..., description="Examination modality (CT, MRI, X-ray)")
+    exam_item: str = Field(..., description="Specific procedure type")
+    order_datetime: datetime = Field(..., description="When exam was ordered")
+
     # Optional fields (identifiers)
-    medical_record_no: str | None = Field(None, description='Patient medical record number')
-    application_order_no: str | None = Field(None, description='Application order number')
-    
+    medical_record_no: str | None = Field(None, description="Patient medical record number")
+    application_order_no: str | None = Field(None, description="Application order number")
+
     # Optional fields (patient info - subset for list view)
-    patient_gender: str | None = Field(None, description='Patient gender (M/F/U)')
-    patient_age: int | None = Field(None, description='Patient age in years')
-    
+    patient_gender: str | None = Field(None, description="Patient gender (M/F/U)")
+    patient_age: int | None = Field(None, description="Patient age in years")
+
     # Optional fields (exam info - subset for list view)
-    exam_description: str | None = Field(None, description='Brief exam description')
-    
+    exam_description: str | None = Field(None, description="Brief exam description")
+
     # Optional temporal fields
-    check_in_datetime: datetime | None = Field(None, description='When patient checked in')
-    report_certification_datetime: datetime | None = Field(None, description='When report was certified')
-    
+    check_in_datetime: datetime | None = Field(None, description="When patient checked in")
+    report_certification_datetime: datetime | None = Field(
+        None, description="When report was certified"
+    )
+
     # Optional field (authorization)
-    certified_physician: str | None = Field(None, description='Physician who certified report')
+    certified_physician: str | None = Field(None, description="Physician who certified report")
 
     class Config:
         # Custom JSON encoder for datetime fields
-        json_encoders = {
-            datetime: lambda v: v.isoformat() if v else None
-        }
+        json_encoders = {datetime: lambda v: v.isoformat() if v else None}
 
 
 class FilterOptions(Schema):
@@ -210,19 +210,19 @@ class FilterOptions(Schema):
     Fields:
         exam_statuses (list[str]): All distinct examination statuses
             Examples: ['pending', 'completed', 'cancelled']
-            
+
         exam_sources (list[str]): All distinct examination modalities
             Examples: ['CT', 'MRI', 'X-ray', 'Ultrasound']
-            
+
         equipment_types (list[str]): All distinct equipment type classifications
             Examples: ['CT Scanner', 'MRI Scanner', 'X-ray Machine']
-            
+
         exam_rooms (list[str]): All distinct examination rooms/facilities
             Examples: ['Room A', 'Room B', 'Operating Theater 1']
-            
+
         exam_equipments (list[str]): All distinct equipment names/models
             Examples: ['GE LightSpeed 16', 'Siemens SOMATOM']
-            
+
         exam_descriptions (list[str]): All distinct examination descriptions
             Limited to prevent excessive response size
             Examples: ['Routine chest imaging', 'Follow-up CT scan']
@@ -251,30 +251,25 @@ class FilterOptions(Schema):
 
     CRITICAL: Response format MUST match API contract exactly.
     """
-    
+
     exam_statuses: list[str] = Field(
-        ..., 
-        description='All distinct examination statuses (sorted alphabetically)'
+        ..., description="All distinct examination statuses (sorted alphabetically)"
     )
     exam_sources: list[str] = Field(
-        ..., 
-        description='All distinct examination modalities/sources (sorted alphabetically)'
+        ..., description="All distinct examination modalities/sources (sorted alphabetically)"
     )
     equipment_types: list[str] = Field(
-        ..., 
-        description='All distinct equipment type classifications (sorted alphabetically)'
+        ..., description="All distinct equipment type classifications (sorted alphabetically)"
     )
     exam_rooms: list[str] = Field(
-        ..., 
-        description='All distinct examination rooms/facilities (sorted alphabetically)'
+        ..., description="All distinct examination rooms/facilities (sorted alphabetically)"
     )
     exam_equipments: list[str] = Field(
-        ..., 
-        description='All distinct equipment names/models (sorted alphabetically)'
+        ..., description="All distinct equipment names/models (sorted alphabetically)"
     )
     exam_descriptions: list[str] = Field(
-        ..., 
-        description='All distinct exam descriptions - limited to prevent large response (sorted alphabetically)'
+        ...,
+        description="All distinct exam descriptions - limited to prevent large response (sorted alphabetically)",
     )
 
 
@@ -294,12 +289,12 @@ class StudySearchResponse(Schema):
             - Each item is a StudyListItem with selected fields
             - Contains only the records for the current page
             - Sorted according to requested sort order
-            
+
         count (int): Total count of matching records
             - Full count across ALL pages
             - Allows frontend to calculate total pages
             - Not affected by limit/offset pagination
-            
+
         filters (FilterOptions): Available filter values
             - All distinct values for each filterable field
             - Used to populate filter UI dropdowns
@@ -337,25 +332,16 @@ class StudySearchResponse(Schema):
     CRITICAL: Response structure MUST match API contract exactly.
     This ensures compatibility with frontend and other backend services.
     """
-    
+
     items: list[StudyListItem] = Field(
-        ..., 
-        description='Paginated array of study records for current page'
+        ..., description="Paginated array of study records for current page"
     )
-    count: int = Field(
-        ..., 
-        description='Total count of all matching records (across all pages)'
-    )
-    filters: FilterOptions = Field(
-        ..., 
-        description='Available filter options for UI refinement'
-    )
+    count: int = Field(..., description="Total count of all matching records (across all pages)")
+    filters: FilterOptions = Field(..., description="Available filter options for UI refinement")
 
     class Config:
         # Custom JSON encoder for datetime fields in nested StudyListItem objects
-        json_encoders = {
-            datetime: lambda v: v.isoformat() if v else None
-        }
+        json_encoders = {datetime: lambda v: v.isoformat() if v else None}
 
 
 class StudySearchRequest(Schema):
@@ -373,41 +359,41 @@ class StudySearchRequest(Schema):
             - Case-insensitive PostgreSQL ILIKE search
             - Max length: 200 characters
             - Example: "chest imaging"
-            
+
         exam_status (str | None): Filter by examination status
             - Valid values: 'pending', 'completed', 'cancelled'
             - Exact match (case-sensitive)
             - Example: "completed"
-            
+
         exam_source (str | None): Filter by examination modality
             - Valid values: 'CT', 'MRI', 'X-ray', 'Ultrasound', etc.
             - Exact match (case-sensitive)
             - Example: "CT"
-            
+
         exam_item (str | None): Filter by specific procedure type
             - Examples: "Chest CT", "Spine MRI"
             - Exact match
-            
+
         start_date (str | None): Filter start date (ISO 8601)
             - Format: YYYY-MM-DD
             - Compares against check_in_datetime (inclusive)
             - Example: "2024-01-01"
-            
+
         end_date (str | None): Filter end date (ISO 8601)
             - Format: YYYY-MM-DD
             - Compares against check_in_datetime (inclusive)
             - Example: "2024-12-31"
-            
+
         page (int): Page number (pagination)
             - Default: 1 (first page)
             - Minimum: 1
             - Used with page_size to calculate offset
-            
+
         page_size (int): Items per page (pagination)
             - Default: 20 items
             - Range: 1-100 items
             - Prevents excessively large responses
-            
+
         sort (str): Sort order
             - Default: 'order_datetime_desc' (newest first)
             - Valid values: 'order_datetime_asc', 'order_datetime_desc', 'patient_name_asc'
@@ -441,46 +427,25 @@ class StudySearchRequest(Schema):
     CRITICAL: All parameters are optional (None by default).
     At least one filter should be provided for meaningful results.
     """
-    
+
     q: str | None = Field(
-        None, 
-        max_length=200, 
-        description='Text search query across 9 fields (case-insensitive)'
+        None, max_length=200, description="Text search query across 9 fields (case-insensitive)"
     )
     exam_status: str | None = Field(
-        None, 
-        description='Filter by exam status (pending/completed/cancelled)'
+        None, description="Filter by exam status (pending/completed/cancelled)"
     )
     exam_source: str | None = Field(
-        None, 
-        description='Filter by exam modality/source (CT/MRI/X-ray/etc.)'
+        None, description="Filter by exam modality/source (CT/MRI/X-ray/etc.)"
     )
-    exam_item: str | None = Field(
-        None, 
-        description='Filter by specific procedure type'
-    )
+    exam_item: str | None = Field(None, description="Filter by specific procedure type")
     start_date: str | None = Field(
-        None, 
-        description='Filter start date (ISO 8601 format: YYYY-MM-DD)'
+        None, description="Filter start date (ISO 8601 format: YYYY-MM-DD)"
     )
-    end_date: str | None = Field(
-        None, 
-        description='Filter end date (ISO 8601 format: YYYY-MM-DD)'
-    )
-    
-    page: int = Field(
-        1, 
-        ge=1, 
-        description='Page number for pagination (starts at 1)'
-    )
-    page_size: int = Field(
-        20, 
-        ge=1, 
-        le=100, 
-        description='Items per page (max: 100)'
-    )
-    sort: str = Field(
-        'order_datetime_desc', 
-        description='Sort order (order_datetime_desc/order_datetime_asc/patient_name_asc)'
-    )
+    end_date: str | None = Field(None, description="Filter end date (ISO 8601 format: YYYY-MM-DD)")
 
+    page: int = Field(1, ge=1, description="Page number for pagination (starts at 1)")
+    page_size: int = Field(20, ge=1, le=100, description="Items per page (max: 100)")
+    sort: str = Field(
+        "order_datetime_desc",
+        description="Sort order (order_datetime_desc/order_datetime_asc/patient_name_asc)",
+    )

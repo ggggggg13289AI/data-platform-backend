@@ -14,9 +14,11 @@ Design Principles:
     - All datetime fields stored in UTC without timezone info
 """
 
-from django.db import models
-from django.contrib.postgres.search import SearchVectorField
+from typing import Any
+
 from django.contrib.postgres.indexes import GinIndex
+from django.contrib.postgres.search import SearchVectorField
+from django.db import models
 
 
 class Study(models.Model):
@@ -49,155 +51,141 @@ class Study(models.Model):
 
     # ========== PRIMARY KEY AND IDENTIFIERS ==========
     # Composite identification: exam_id is primary key, medical_record_no is natural key
-    
+
     exam_id = models.CharField(
-        max_length=100, 
-        primary_key=True, 
+        max_length=100,
+        primary_key=True,
         db_index=True,
-        help_text='Unique examination identifier - used as primary key'
+        help_text="Unique examination identifier - used as primary key",
     )
     # Indexed for fast lookup by medical record number
     medical_record_no = models.CharField(
-        max_length=100, 
-        null=True, 
-        blank=True, 
+        max_length=100,
+        null=True,
+        blank=True,
         db_index=True,
-        help_text='Patient medical record number from source system'
+        help_text="Patient medical record number from source system",
     )
     # Application order number for reference
     application_order_no = models.CharField(
-        max_length=100, 
-        null=True, 
+        max_length=100,
+        null=True,
         blank=True,
-        help_text='Application order number - used for ordering tracking'
+        help_text="Application order number - used for ordering tracking",
     )
 
     # ========== PATIENT INFORMATION ==========
     # Core patient demographics indexed for search performance
-    
+
     # Patient name - indexed for text search (name-based lookups are common)
     patient_name = models.CharField(
-        max_length=200, 
-        db_index=True,
-        help_text='Patient full name for display and search'
+        max_length=200, db_index=True, help_text="Patient full name for display and search"
     )
     # Gender with enumerated choices for consistency
     patient_gender = models.CharField(
         max_length=10,
         null=True,
         blank=True,
-        choices=[('M', 'Male'), ('F', 'Female'), ('U', 'Unknown')],
-        help_text='Patient gender (M/F/U)'
+        choices=[("M", "Male"), ("F", "Female"), ("U", "Unknown")],
+        help_text="Patient gender (M/F/U)",
     )
     # Birth date as string to support various formats from source systems
     patient_birth_date = models.CharField(
-        max_length=20, 
-        null=True, 
-        blank=True,
-        help_text='Patient date of birth (format: YYYY-MM-DD)'
+        max_length=20, null=True, blank=True, help_text="Patient date of birth (format: YYYY-MM-DD)"
     )
     # Calculated patient age at time of examination
     patient_age = models.IntegerField(
-        null=True, 
-        blank=True,
-        help_text='Patient age in years at examination time'
+        null=True, blank=True, help_text="Patient age in years at examination time"
     )
 
     # ========== EXAMINATION DETAILS ==========
     # Complete information about the examination procedure
-    
+
     # Exam status with enumerated choices for data consistency
     exam_status = models.CharField(
         max_length=20,
         db_index=True,
-        choices=[('pending', 'Pending'), ('completed', 'Completed'), ('cancelled', 'Cancelled')],
-        help_text='Current status of the examination'
+        choices=[("pending", "Pending"), ("completed", "Completed"), ("cancelled", "Cancelled")],
+        help_text="Current status of the examination",
     )
     # Exam source (modality type) - indexed for common filtering
     exam_source = models.CharField(
-        max_length=50, 
+        max_length=50,
         db_index=True,
-        help_text='Examination modality/source (CT, MRI, X-ray, Ultrasound, etc.)'
+        help_text="Examination modality/source (CT, MRI, X-ray, Ultrasound, etc.)",
     )
     # Specific exam procedure type - indexed for filtering and search
     exam_item = models.CharField(
-        max_length=200, 
+        max_length=200,
         db_index=True,
-        help_text='Specific exam procedure (e.g., Chest CT, Spine MRI, Head CT)'
+        help_text="Specific exam procedure (e.g., Chest CT, Spine MRI, Head CT)",
     )
     # Detailed exam description
     exam_description = models.TextField(
-        null=True, 
+        null=True,
         blank=True,
-        help_text='Detailed description of examination procedure and findings'
+        help_text="Detailed description of examination procedure and findings",
     )
     # Examination room/location
     exam_room = models.CharField(
-        max_length=100, 
-        null=True, 
+        max_length=100,
+        null=True,
         blank=True,
-        help_text='Hospital room or facility where exam was performed'
+        help_text="Hospital room or facility where exam was performed",
     )
     # Specific equipment used
     exam_equipment = models.CharField(
-        max_length=200, 
-        null=True, 
+        max_length=200,
+        null=True,
         blank=True,
-        help_text='Specific equipment/scanner name used (e.g., GE LightSpeed 16)'
+        help_text="Specific equipment/scanner name used (e.g., GE LightSpeed 16)",
     )
     # Equipment type classification (required field)
     equipment_type = models.CharField(
         max_length=100,
-        help_text='Equipment type classification (CT Scanner, MRI Scanner, X-ray, etc.)'
+        help_text="Equipment type classification (CT Scanner, MRI Scanner, X-ray, etc.)",
     )
 
     # ========== TEMPORAL INFORMATION ==========
     # All datetime fields stored in UTC without timezone - converted to ISO format in API
     # CRITICAL: Must be ISO 8601 format without timezone in API responses
-    
+
     # Order date/time - when examination was ordered (indexed for sorting/filtering)
     order_datetime = models.DateTimeField(
-        db_index=True,
-        help_text='Date/time when examination was ordered'
+        db_index=True, help_text="Date/time when examination was ordered"
     )
     # Check-in date/time - when patient checked in for exam
     check_in_datetime = models.DateTimeField(
-        null=True, 
-        blank=True,
-        help_text='Date/time when patient checked in for examination'
+        null=True, blank=True, help_text="Date/time when patient checked in for examination"
     )
     # Report certification date/time - when report was finalized
     report_certification_datetime = models.DateTimeField(
-        null=True, 
-        blank=True,
-        help_text='Date/time when examination report was certified'
+        null=True, blank=True, help_text="Date/time when examination report was certified"
     )
 
     # ========== REPORTING AND AUTHORIZATION ==========
     # Information about who certified the results
-    
+
     # Physician who certified the report
     certified_physician = models.CharField(
-        max_length=200, 
-        null=True, 
+        max_length=200,
+        null=True,
         blank=True,
-        help_text='Name of physician who certified the examination report'
+        help_text="Name of physician who certified the examination report",
     )
     # When data was loaded into this system
     data_load_time = models.DateTimeField(
-        null=True, 
-        blank=True,
-        help_text='Date/time when record was imported/loaded into system'
+        null=True, blank=True, help_text="Date/time when record was imported/loaded into system"
     )
 
     # ========== FULL-TEXT SEARCH SUPPORT ==========
     # PostgreSQL search vector for fast full-text search queries
-    
+
     # Search Vector - Populated via signals or periodic tasks (or migration)
     search_vector = SearchVectorField(
-        null=True, 
+        null=True,
         blank=True,
-        help_text='PostgreSQL search vector for full-text search acceleration'
+        help_text="PostgreSQL search vector for full-text search acceleration",
     )
 
     class Meta:
@@ -206,10 +194,10 @@ class Study(models.Model):
 
         Configures database table behavior, default ordering, indexes, and display names.
         """
-        
+
         # Default ordering: most recent examinations first (users expect this)
         # This ordering is used when no explicit sort is provided
-        ordering = ['-order_datetime']
+        ordering = ["-order_datetime"]
 
         # Database indexes for common query patterns
         # Each index is optimized for specific search scenarios:
@@ -220,38 +208,38 @@ class Study(models.Model):
         # 5. Search vector: Full-text search acceleration
         indexes = [
             # Compound index for status filtering with date sorting
-            models.Index(fields=['exam_status', '-order_datetime']),
+            models.Index(fields=["exam_status", "-order_datetime"]),
             # Compound index for modality filtering with date sorting
-            models.Index(fields=['exam_source', '-order_datetime']),
+            models.Index(fields=["exam_source", "-order_datetime"]),
             # Simple index for patient name search
-            models.Index(fields=['patient_name']),
+            models.Index(fields=["patient_name"]),
             # Simple index for exam item (procedure type) filtering
-            models.Index(fields=['exam_item']),
+            models.Index(fields=["exam_item"]),
             # GIN (Generalized Inverted Index) for PostgreSQL full-text search
-            GinIndex(fields=['search_vector']),
+            GinIndex(fields=["search_vector"]),
         ]
 
         # Explicit table name for production database
         # This allows version control and explicit schema management
-        db_table = 'medical_examinations_fact'
+        db_table = "medical_examinations_fact"
 
         # Display names for Django admin (if enabled)
         # Chinese translations for administrative interface
-        verbose_name = '医疗研究'
-        verbose_name_plural = '医疗研究'
+        verbose_name = "医疗研究"
+        verbose_name_plural = "医疗研究"
 
     def __str__(self) -> str:
         """
         Return string representation of the Study record.
-        
+
         Format: 'exam_id: patient_name - exam_item'
         Example: 'EXAM_001: 张三 - 胸部CT'
-        
+
         Used by Django admin and logging for human-readable display.
         """
-        return f'{self.exam_id}: {self.patient_name} - {self.exam_item}'
+        return f"{self.exam_id}: {self.patient_name} - {self.exam_item}"
 
-    def to_dict(self) -> dict[str, any]:
+    def to_dict(self) -> dict[str, Any]:
         """
         Convert Study model to dictionary for API response.
 
@@ -287,25 +275,28 @@ class Study(models.Model):
             queryset results to JSON responses via StudyDetail and StudyListItem schemas.
         """
         return {
-            'exam_id': self.exam_id,
-            'medical_record_no': self.medical_record_no,
-            'application_order_no': self.application_order_no,
-            'patient_name': self.patient_name,
-            'patient_gender': self.patient_gender,
-            'patient_birth_date': self.patient_birth_date,
-            'patient_age': self.patient_age,
-            'exam_status': self.exam_status,
-            'exam_source': self.exam_source,
-            'exam_item': self.exam_item,
-            'exam_description': self.exam_description,
-            'exam_room': self.exam_room,
-            'exam_equipment': self.exam_equipment,
-            'equipment_type': self.equipment_type,
+            "exam_id": self.exam_id,
+            "medical_record_no": self.medical_record_no,
+            "application_order_no": self.application_order_no,
+            "patient_name": self.patient_name,
+            "patient_gender": self.patient_gender,
+            "patient_birth_date": self.patient_birth_date,
+            "patient_age": self.patient_age,
+            "exam_status": self.exam_status,
+            "exam_source": self.exam_source,
+            "exam_item": self.exam_item,
+            "exam_description": self.exam_description,
+            "exam_room": self.exam_room,
+            "exam_equipment": self.exam_equipment,
+            "equipment_type": self.equipment_type,
             # Convert datetime to ISO format (YYYY-MM-DDTHH:MM:SS) without timezone
-            'order_datetime': self.order_datetime.isoformat() if self.order_datetime else None,
-            'check_in_datetime': self.check_in_datetime.isoformat() if self.check_in_datetime else None,
-            'report_certification_datetime': self.report_certification_datetime.isoformat() if self.report_certification_datetime else None,
-            'certified_physician': self.certified_physician,
-            'data_load_time': self.data_load_time.isoformat() if self.data_load_time else None,
+            "order_datetime": self.order_datetime.isoformat() if self.order_datetime else None,
+            "check_in_datetime": self.check_in_datetime.isoformat()
+            if self.check_in_datetime
+            else None,
+            "report_certification_datetime": self.report_certification_datetime.isoformat()
+            if self.report_certification_datetime
+            else None,
+            "certified_physician": self.certified_physician,
+            "data_load_time": self.data_load_time.isoformat() if self.data_load_time else None,
         }
-

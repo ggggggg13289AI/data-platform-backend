@@ -61,11 +61,11 @@ logger = logging.getLogger(__name__)
 router = Router()
 
 
-@router.get('/search', response=list[StudyListItem])
+@router.get("/search", response=list[StudyListItem])
 @paginate(StudyPagination)
 def search_studies(
     request,
-    q: str = Query(default=''),
+    q: str = Query(default=""),
     exam_status: str | None = Query(None),
     exam_source: str | None = Query(None),
     exam_equipment: list[str] | None = Query(None),
@@ -78,8 +78,7 @@ def search_studies(
     patient_age_max: int | None = Query(None),
     start_date: str | None = Query(None),
     end_date: str | None = Query(None),
-    sort: str = Query('order_datetime_desc'),
-
+    sort: str = Query("order_datetime_desc"),
 ):
     """
     Search medical examination studies with advanced filtering and pagination.
@@ -101,50 +100,50 @@ def search_studies(
                 Case-insensitive PostgreSQL ILIKE search
                 Max length: 200 characters
                 Example: q=chest
-                
+
         Exact Match Filters:
             - exam_status (str | None): Examination status filter
                 Valid values: 'pending', 'completed', 'cancelled'
                 Example: exam_status=completed
-                
+
             - exam_source (str | None): Examination modality/source
                 Examples: 'CT', 'MRI', 'X-ray', 'Ultrasound'
                 Example: exam_source=CT
-                
+
             - application_order_no (str | None): Application order number
                 Example: application_order_no=ORD_12345
-                
+
         Multi-Select Filters (Array Parameters):
             - exam_equipment (list[str] | None): Equipment filter
                 Format: exam_equipment=val1&exam_equipment=val2
                 or with brackets: exam_equipment[]=val1&exam_equipment[]=val2
                 Example: exam_equipment=GE&exam_equipment=Siemens
-                
+
             - patient_gender (list[str] | None): Gender filter
                 Valid values: 'M', 'F', 'U'
                 Format: patient_gender=M&patient_gender=F
-                
+
             - exam_description (list[str] | None): Description filter
                 Format: exam_description=val1&exam_description=val2
-                
+
             - exam_room (list[str] | None): Room/facility filter
                 Format: exam_room=RoomA&exam_room=RoomB
-                
+
         Range Filters:
             - patient_age_min (int | None): Minimum patient age (inclusive)
                 Example: patient_age_min=18
-                
+
             - patient_age_max (int | None): Maximum patient age (inclusive)
                 Example: patient_age_max=65
-                
+
             - start_date (str | None): Start date (ISO 8601: YYYY-MM-DD)
                 Filters check_in_datetime >= start_date
                 Example: start_date=2024-01-01
-                
+
             - end_date (str | None): End date (ISO 8601: YYYY-MM-DD)
                 Filters check_in_datetime <= end_date
                 Example: end_date=2024-12-31
-                
+
         Sorting & Pagination:
             - sort (str): Sort order (default: 'order_datetime_desc')
                 Valid values:
@@ -152,11 +151,11 @@ def search_studies(
                   - 'order_datetime_asc': Oldest first
                   - 'patient_name_asc': Alphabetical by patient name
                 Example: sort=order_datetime_desc
-                
+
             - limit (int): Items per page (default: 20, max: 100)
                 Clamped to 1-100 range
                 Example: limit=20
-                
+
             - offset (int): Number of items to skip (default: 0)
                 Example: offset=20  (skip first 20, get items 21-40 with limit=20)
 
@@ -192,7 +191,7 @@ def search_studies(
     Pagination Calculation:
         offset = (page - 1) * page_size
         Example: limit=20, offset=20 retrieves items 21-40
-        
+
     Pagination Implementation:
         The @paginate(StudyPagination) decorator:
         1. Extracts limit and offset from query parameters
@@ -210,13 +209,13 @@ def search_studies(
     Example Requests:
         1. Simple text search with pagination:
            GET /api/v1/studies/search?q=chest&limit=10&offset=0
-           
+
         2. Filter by status and date range:
            GET /api/v1/studies/search?exam_status=completed&start_date=2024-01-01&end_date=2024-12-31&limit=20
-           
+
         3. Multi-select filter:
            GET /api/v1/studies/search?exam_equipment=GE&exam_equipment=Siemens&limit=50
-           
+
         4. Complex query with multiple filters:
            GET /api/v1/studies/search?q=follow-up&exam_source=CT&exam_status=completed&patient_age_min=18&patient_age_max=65&sort=order_datetime_desc&limit=20
 
@@ -244,7 +243,7 @@ def search_studies(
             - patient_gender=F&patient_gender=M (Django Ninja format)
             """
             # Try bracket format first
-            bracket_values = request.GET.getlist(f'{param_name}[]')
+            bracket_values = request.GET.getlist(f"{param_name}[]")
             if bracket_values:
                 return [v for v in bracket_values if v]  # Filter empty strings
 
@@ -256,19 +255,19 @@ def search_studies(
             return None
 
         # Extract array parameters with bracket support
-        exam_equipment_array = get_array_param('exam_equipment') or exam_equipment
-        patient_gender_array = get_array_param('patient_gender') or patient_gender
-        exam_description_array = get_array_param('exam_description') or exam_description
-        exam_room_array = get_array_param('exam_room') or exam_room
+        exam_equipment_array = get_array_param("exam_equipment") or exam_equipment
+        patient_gender_array = get_array_param("patient_gender") or patient_gender
+        exam_description_array = get_array_param("exam_description") or exam_description
+        exam_room_array = get_array_param("exam_room") or exam_room
 
         # Extract pagination parameters from request
         # Support BOTH old (limit/offset) and new (page/page_size) parameter formats
         # for backward compatibility with existing tests and clients
 
         # Try new format first (page/page_size)
-        if 'page' in request.GET or 'page_size' in request.GET:
-            page = int(request.GET.get('page', 1))
-            page_size = int(request.GET.get('page_size', 20))
+        if "page" in request.GET or "page_size" in request.GET:
+            page = int(request.GET.get("page", 1))
+            page_size = int(request.GET.get("page_size", 20))
 
             # Validate pagination parameters
             page = max(1, page)  # Page must be at least 1
@@ -276,8 +275,8 @@ def search_studies(
             offset = (page - 1) * page_size
         else:
             # Fall back to old format (limit/offset) for backward compatibility
-            limit = int(request.GET.get('limit', 20))
-            offset = int(request.GET.get('offset', 0))
+            limit = int(request.GET.get("limit", 20))
+            offset = int(request.GET.get("offset", 0))
 
             # Validate parameters
             # If limit is < 1, use default of 20
@@ -312,15 +311,15 @@ def search_studies(
         return queryset
 
     except Exception as e:
-        logger.error(f'Search failed: {str(e)}')
+        logger.error(f"Search failed: {str(e)}")
         raise
 
 
-@router.get('/export', response={200: None})
+@router.get("/export", response={200: None})
 def export_studies(
     request,
-    format: str = Query('csv', description="Export format: csv or xlsx"),
-    q: str = Query(default=''),
+    format: str = Query("csv", description="Export format: csv or xlsx"),
+    q: str = Query(default=""),
     exam_status: str | None = Query(None),
     exam_source: str | None = Query(None),
     exam_equipment: list[str] | None = Query(None),
@@ -332,7 +331,7 @@ def export_studies(
     patient_age_max: int | None = Query(None),
     start_date: str | None = Query(None),
     end_date: str | None = Query(None),
-    sort: str = Query('order_datetime_desc'),
+    sort: str = Query("order_datetime_desc"),
     exam_ids: list[str] | None = Query(None),
 ):
     """
@@ -355,7 +354,7 @@ def export_studies(
             - Quote character: Double quote (") when needed
             - File extension: .csv
             - Typical file size: ~100KB per 1000 records
-            
+
         XLSX (Excel Workbook):
             - Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
             - Format: Office Open XML spreadsheet
@@ -369,34 +368,34 @@ def export_studies(
             Default: 'csv'
             Valid values: 'csv', 'xlsx'
             Invalid values: Defaults to 'csv'
-            
+
         q (str): Text search query (same as search endpoint)
-        
+
         exam_status (str | None): Status filter (same as search endpoint)
-        
+
         exam_source (str | None): Modality filter (same as search endpoint)
-        
+
         exam_equipment (list[str] | None): Multi-select equipment filter
-        
+
         application_order_no (str | None): Order number filter
-        
+
         patient_gender (list[str] | None): Multi-select gender filter
-        
+
         exam_description (list[str] | None): Multi-select description filter
-        
+
         exam_room (list[str] | None): Multi-select room filter
-        
+
         patient_age_min (int | None): Minimum age filter
-        
+
         patient_age_max (int | None): Maximum age filter
-        
+
         start_date (str | None): Start date filter (YYYY-MM-DD)
-        
+
         end_date (str | None): End date filter (YYYY-MM-DD)
-        
+
         sort (str): Sort order
             Default: 'order_datetime_desc' (newest first)
-            
+
         exam_ids (list[str] | None): Specific exam IDs to export
             Used for "Export Selected" feature
             Overrides other filters when provided
@@ -407,7 +406,7 @@ def export_studies(
         Content-Disposition: attachment; filename="{filename}"
             Instructs browser to download as file
             Filename format: studies_{timestamp}.csv or studies_{timestamp}.xlsx
-            
+
         Access-Control-Expose-Headers: Content-Disposition
             Allows browser to access Content-Disposition in CORS requests
 
@@ -424,7 +423,7 @@ def export_studies(
             exam_source, exam_item, exam_description, exam_room, exam_equipment,
             equipment_type, order_datetime, check_in_datetime,
             report_certification_datetime, certified_physician, data_load_time
-            
+
         XLSX Headers:
             Same column headers in first row, with automatic formatting
             Columns auto-sized for readability
@@ -449,13 +448,13 @@ def export_studies(
     Use Cases:
         1. Export search results for analysis:
            GET /api/v1/studies/export?format=csv&q=chest&limit=100
-           
+
         2. Export by status and date:
            GET /api/v1/studies/export?format=xlsx&exam_status=completed&start_date=2024-01-01
-           
+
         3. Export selected records (from UI checkboxes):
            GET /api/v1/studies/export?format=xlsx&exam_ids=ID123&exam_ids=ID456&exam_ids=ID789
-           
+
         4. Export with complex filters:
            GET /api/v1/studies/export?format=csv&exam_source=CT&patient_age_min=18&patient_age_max=65
 
@@ -478,13 +477,13 @@ def export_studies(
     Example Requests:
         1. Export all completed studies as CSV:
            GET /api/v1/studies/export?format=csv&exam_status=completed
-           
+
         2. Export with advanced filtering:
            GET /api/v1/studies/export?format=xlsx&exam_source=CT&exam_status=completed&start_date=2024-01-01
-           
+
         3. Export selected records:
            GET /api/v1/studies/export?format=xlsx&exam_ids=EXAM_001&exam_ids=EXAM_002
-           
+
         4. Export with text search:
            GET /api/v1/studies/export?format=csv&q=chest&sort=order_datetime_desc
 
@@ -502,7 +501,7 @@ def export_studies(
         # Handle array parameters with bracket support (same as search endpoint)
         def get_array_param(param_name: str) -> list[str] | None:
             """Extract array parameter supporting both bracket and standard formats."""
-            bracket_values = request.GET.getlist(f'{param_name}[]')
+            bracket_values = request.GET.getlist(f"{param_name}[]")
             if bracket_values:
                 return [v for v in bracket_values if v]
             standard_values = request.GET.getlist(param_name)
@@ -511,11 +510,11 @@ def export_studies(
             return None
 
         # Extract array parameters with bracket support
-        exam_equipment_array = get_array_param('exam_equipment') or exam_equipment
-        patient_gender_array = get_array_param('patient_gender') or patient_gender
-        exam_description_array = get_array_param('exam_description') or exam_description
-        exam_room_array = get_array_param('exam_room') or exam_room
-        exam_ids_array = get_array_param('exam_ids') or exam_ids
+        exam_equipment_array = get_array_param("exam_equipment") or exam_equipment
+        patient_gender_array = get_array_param("patient_gender") or patient_gender
+        exam_description_array = get_array_param("exam_description") or exam_description
+        exam_room_array = get_array_param("exam_room") or exam_room
+        exam_ids_array = get_array_param("exam_ids") or exam_ids
 
         # Get filtered queryset (reusing search logic)
         queryset = StudyService.get_studies_queryset(
@@ -536,34 +535,34 @@ def export_studies(
         )
 
         # Generate export based on format
-        if format == 'xlsx':
+        if format == "xlsx":
             content = ExportService.export_to_excel(queryset)
-            content_type = ExportService.get_content_type('xlsx')
-            filename = ExportService.generate_export_filename('xlsx')
+            content_type = ExportService.get_content_type("xlsx")
+            filename = ExportService.generate_export_filename("xlsx")
         else:  # Default to CSV
             content = ExportService.export_to_csv(queryset)
-            content_type = ExportService.get_content_type('csv')
-            filename = ExportService.generate_export_filename('csv')
+            content_type = ExportService.get_content_type("csv")
+            filename = ExportService.generate_export_filename("csv")
 
         # Create HTTP response with file download
         response = HttpResponse(content, content_type=content_type)
-        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
 
         # Add CORS headers if needed
-        response['Access-Control-Expose-Headers'] = 'Content-Disposition'
+        response["Access-Control-Expose-Headers"] = "Content-Disposition"
 
-        logger.info(f'Export generated: {filename} ({len(content)} bytes)')
+        logger.info(f"Export generated: {filename} ({len(content)} bytes)")
         return response
 
     except DatabaseQueryError as e:
-        logger.error(f'Database error in export_studies: {str(e)}')
+        logger.error(f"Database error in export_studies: {str(e)}")
         raise
     except Exception as e:
-        logger.error(f'Export failed: {str(e)}')
+        logger.error(f"Export failed: {str(e)}")
         raise
 
 
-@router.get('/{exam_id}', response=StudyDetail)
+@router.get("/{exam_id}", response=StudyDetail)
 def get_study_detail(request, exam_id: str):
     """
     Get complete study information by examination ID.
@@ -587,7 +586,7 @@ def get_study_detail(request, exam_id: str):
         - All temporal information (order, check-in, certification times)
         - Physician certification
         - Data load timestamp
-        
+
         All datetime fields in ISO 8601 format (YYYY-MM-DDTHH:MM:SS)
         Optional fields may be None/null
 
@@ -618,7 +617,7 @@ def get_study_detail(request, exam_id: str):
     Error Handling:
         - StudyNotFoundError: exam_id doesn't exist
             Returns 404 Not Found with error message
-            
+
         - DatabaseQueryError: Database connection/query failure
             Returns 500 Internal Server Error
             Exception logged for debugging
@@ -626,7 +625,7 @@ def get_study_detail(request, exam_id: str):
     Example Requests:
         1. Get specific examination:
            GET /api/v1/studies/EXAM_001
-           
+
         2. With various IDs:
            GET /api/v1/studies/MRN_20240115_001
            GET /api/v1/studies/CT_CHEST_2024_042
@@ -646,14 +645,14 @@ def get_study_detail(request, exam_id: str):
         raise Http404(str(e)) from e
     except DatabaseQueryError as e:
         # Log database errors and let Django Ninja handle as 500
-        logger.error(f'Database error in get_study_detail: {str(e)}')
+        logger.error(f"Database error in get_study_detail: {str(e)}")
         raise
     except Exception as e:
-        logger.error(f'Unexpected error in get_study_detail: {str(e)}')
+        logger.error(f"Unexpected error in get_study_detail: {str(e)}")
         raise
 
 
-@router.get('/filters/options', response=FilterOptions, operation_id='study_get_filter_options')
+@router.get("/filters/options", response=FilterOptions, operation_id="study_get_filter_options")
 def get_filter_options(request):
     """
     Get available filter options for UI dropdowns and faceted search.
@@ -671,23 +670,23 @@ def get_filter_options(request):
         exam_statuses (list[str]): All distinct examination statuses
             Sorted alphabetically
             Examples: ["cancelled", "completed", "pending"]
-            
+
         exam_sources (list[str]): All distinct examination modalities
             Sorted alphabetically
             Examples: ["CT", "MRI", "X-ray", "Ultrasound"]
-            
+
         equipment_types (list[str]): All distinct equipment type classifications
             Sorted alphabetically
             Examples: ["CT Scanner", "MRI Scanner", "X-ray Machine"]
-            
+
         exam_rooms (list[str]): All distinct examination rooms/facilities
             Sorted alphabetically
             Examples: ["Operating Theater 1", "Room A", "Room B"]
-            
+
         exam_equipments (list[str]): All distinct equipment names/models
             Sorted alphabetically
             Examples: ["GE LightSpeed 16", "Siemens SOMATOM"]
-            
+
         exam_descriptions (list[str]): All distinct examination descriptions
             Limited to 100 rows to prevent excessive response size
             Sorted alphabetically
@@ -769,8 +768,8 @@ def get_filter_options(request):
         return StudyService.get_filter_options()
     except DatabaseQueryError as e:
         # Log database errors and let Django Ninja handle as 500
-        logger.error(f'Database error in get_filter_options: {str(e)}')
+        logger.error(f"Database error in get_filter_options: {str(e)}")
         raise
     except Exception as e:
-        logger.error(f'Unexpected error in get_filter_options: {str(e)}')
+        logger.error(f"Unexpected error in get_filter_options: {str(e)}")
         raise

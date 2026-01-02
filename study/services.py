@@ -88,11 +88,11 @@ class StudyService:
     # Implements "eliminate special cases through better data structures" principle
     # Instead of: if sort == 'x': do_this() elif sort == 'y': do_that()
     # We use: SORT_MAPPING.get(sort, default)
-    
+
     SORT_MAPPING = {
-        'order_datetime_asc': "ORDER BY order_datetime ASC",
-        'patient_name_asc': "ORDER BY patient_name ASC",
-        'order_datetime_desc': "ORDER BY order_datetime DESC",
+        "order_datetime_asc": "ORDER BY order_datetime ASC",
+        "patient_name_asc": "ORDER BY patient_name ASC",
+        "order_datetime_desc": "ORDER BY order_datetime DESC",
     }
 
     @staticmethod
@@ -109,7 +109,7 @@ class StudyService:
         patient_age_max: int | None = None,
         start_date: str | None = None,
         end_date: str | None = None,
-        sort: str = 'order_datetime_desc',
+        sort: str = "order_datetime_desc",
         limit: int | None = None,
         offset: int | None = None,
         exam_ids: list[str] | None = None,
@@ -238,7 +238,7 @@ class StudyService:
             StudyNotFoundError: If study with given exam_id does not exist
                 Message: "Study with exam_id '{exam_id}' not found"
                 HTTP Status: 404 Not Found
-                
+
             DatabaseQueryError: If database query fails
                 Wraps underlying exception for consistent error handling
                 HTTP Status: 500 Internal Server Error
@@ -262,24 +262,24 @@ class StudyService:
         try:
             # Primary key lookup - very fast due to database index
             study = Study.objects.get(exam_id=exam_id)
-            
+
             # Convert model instance to dictionary for API response
             # All datetime fields are converted to ISO format strings
             result: dict[str, Any] = study.to_dict()
             return result
-            
+
         except Study.DoesNotExist:
             # Study not found - convert to domain exception
             raise StudyNotFoundError(exam_id) from None
-            
+
         except Exception as e:
             # Any other database error - wrap in DatabaseQueryError for consistent handling
-            raise DatabaseQueryError('Get study detail', e) from e
+            raise DatabaseQueryError("Get study detail", e) from e
 
     # ========== CACHING CONFIGURATION ==========
     # Cache configuration imported from config.py
     # These constants define cache behavior for filter options performance
-    
+
     FILTER_OPTIONS_CACHE_KEY = ServiceConfig.FILTER_OPTIONS_CACHE_KEY
     FILTER_OPTIONS_CACHE_TTL = ServiceConfig.FILTER_OPTIONS_CACHE_TTL
 
@@ -314,7 +314,7 @@ class StudyService:
         Optimization:
             CRITICAL: Must return distinct, sorted values with no duplicates.
             This matches ../docs/api/API_CONTRACT.md specification exactly.
-            
+
             PostgreSQL DISTINCT with ORDER BY is very efficient on indexed columns:
             - exam_status: indexed, returns ~3 values
             - exam_source: indexed, returns ~5 values
@@ -397,7 +397,7 @@ class StudyService:
                 exam_descriptions=exam_descriptions,
             )
         except Exception as e:
-            raise DatabaseQueryError('Get filter options from database', e) from e
+            raise DatabaseQueryError("Get filter options from database", e) from e
 
     @staticmethod
     def get_filter_options() -> FilterOptions:
@@ -414,11 +414,11 @@ class StudyService:
                 - Key: 'study_filter_options' (configured in ServiceConfig)
                 - TTL: 24 hours (filters change infrequently)
                 - On hit: Return cached FilterOptions immediately
-                
+
             Level 2: Cache Miss (Database)
                 - Miss latency: 50-100ms (total for 6 DISTINCT queries)
                 - On miss: Query database and populate cache
-                
+
             Level 3: Cache Unavailable (Graceful Degradation)
                 - If cache.get() fails: Log warning, continue with DB
                 - If cache.set() fails: Log warning, return DB result anyway
@@ -469,7 +469,9 @@ class StudyService:
             if cached_options is not None:
                 logger.debug("Filter options served from cache")
                 # Type narrowing: cache.get returns Any, but we know it's FilterOptions
-                assert isinstance(cached_options, FilterOptions), "Cached filter options must be FilterOptions"
+                assert isinstance(cached_options, FilterOptions), (
+                    "Cached filter options must be FilterOptions"
+                )
                 return cached_options
         except Exception as e:
             # Cache unavailable - log warning and continue with database query
@@ -484,7 +486,7 @@ class StudyService:
             cache.set(
                 StudyService.FILTER_OPTIONS_CACHE_KEY,
                 filter_options,
-                StudyService.FILTER_OPTIONS_CACHE_TTL
+                StudyService.FILTER_OPTIONS_CACHE_TTL,
             )
         except Exception as e:
             # Cache set failed - log warning but return result anyway
@@ -506,7 +508,7 @@ class StudyService:
         patient_age_max: int | None = None,
         start_date: str | None = None,
         end_date: str | None = None,
-        sort: str = 'order_datetime_desc',
+        sort: str = "order_datetime_desc",
         exam_ids: list[str] | None = None,
         exam_item: str | None = None,
     ) -> int:
@@ -544,7 +546,7 @@ class StudyService:
                 return int(row[0]) if row else 0
 
         except Exception as e:
-            logger.error(f'Count query failed: {str(e)}')
+            logger.error(f"Count query failed: {str(e)}")
             return 0
 
     @staticmethod
@@ -561,7 +563,7 @@ class StudyService:
         patient_age_max: int | None = None,
         start_date: str | None = None,
         end_date: str | None = None,
-        sort: str = 'order_datetime_desc',
+        sort: str = "order_datetime_desc",
         limit: int | None = None,
         exam_item: str | None = None,
     ) -> list[str]:
@@ -616,7 +618,7 @@ class StudyService:
         start_date: str | None = None,
         end_date: str | None = None,
         exam_ids: list[str] | None = None,
-        sort: str = 'order_datetime_desc',
+        sort: str = "order_datetime_desc",
         exam_item: str | None = None,
     ) -> tuple[str, list[Any], str]:
         """
@@ -733,15 +735,15 @@ class StudyService:
 
         def add_in_clause(field: str, values: list[str] | None):
             if values and len(values) > 0:
-                placeholders = ','.join(['%s'] * len(values))
+                placeholders = ",".join(["%s"] * len(values))
                 conditions.append(f"{field} IN ({placeholders})")
                 params.extend(values)
 
-        add_in_clause('exam_equipment', exam_equipment)
-        add_in_clause('patient_gender', patient_gender)
-        add_in_clause('exam_description', exam_description)
-        add_in_clause('exam_room', exam_room)
-        add_in_clause('exam_id', exam_ids)
+        add_in_clause("exam_equipment", exam_equipment)
+        add_in_clause("patient_gender", patient_gender)
+        add_in_clause("exam_description", exam_description)
+        add_in_clause("exam_room", exam_room)
+        add_in_clause("exam_id", exam_ids)
 
         if application_order_no:
             conditions.append("application_order_no = %s")
@@ -762,6 +764,7 @@ class StudyService:
         if start_date:
             try:
                 from datetime import datetime
+
                 start_dt = datetime.fromisoformat(start_date)
                 conditions.append("check_in_datetime >= %s")
                 params.append(start_dt)
@@ -771,6 +774,7 @@ class StudyService:
         if end_date:
             try:
                 from datetime import datetime
+
                 end_dt = datetime.fromisoformat(end_date)
                 conditions.append("check_in_datetime <= %s")
                 params.append(end_dt)
@@ -780,7 +784,6 @@ class StudyService:
         where_clause = " AND ".join(conditions) if conditions else "1=1"
         order_by = StudyService.SORT_MAPPING.get(sort, "ORDER BY order_datetime DESC")
         return where_clause, params, order_by
-
 
     @staticmethod
     def import_studies_from_duckdb(duckdb_connection) -> dict[str, Any]:
@@ -891,17 +894,15 @@ class StudyService:
         # Fetch from DuckDB
         try:
             # Execute query and get results
-            query_result = duckdb_connection.execute(
-                'SELECT * FROM medical_examinations_fact'
-            )
+            query_result = duckdb_connection.execute("SELECT * FROM medical_examinations_fact")
             result = query_result.fetchall()
 
             if not result:
-                return {'imported': 0, 'failed': 0, 'errors': []}
+                return {"imported": 0, "failed": 0, "errors": []}
 
             # Get column names from DuckDB using DESCRIBE
             columns_result = duckdb_connection.execute(
-                'DESCRIBE medical_examinations_fact'
+                "DESCRIBE medical_examinations_fact"
             ).fetchall()
             columns = [col[0] for col in columns_result]
 
@@ -916,32 +917,32 @@ class StudyService:
 
                     # Create Study object (not saving yet)
                     study = Study(
-                        exam_id=row_dict.get('exam_id'),
-                        medical_record_no=row_dict.get('medical_record_no'),
-                        application_order_no=row_dict.get('application_order_no'),
-                        patient_name=row_dict.get('patient_name'),
-                        patient_gender=row_dict.get('patient_gender'),
-                        patient_birth_date=row_dict.get('patient_birth_date'),
-                        patient_age=row_dict.get('patient_age'),
-                        exam_status=row_dict.get('exam_status'),
-                        exam_source=row_dict.get('exam_source'),
-                        exam_item=row_dict.get('exam_item'),
-                        exam_description=row_dict.get('exam_description'),
-                        exam_room=row_dict.get('exam_room'),
-                        exam_equipment=row_dict.get('exam_equipment'),
-                        equipment_type=row_dict.get('equipment_type'),
-                        order_datetime=row_dict.get('order_datetime'),
-                        check_in_datetime=row_dict.get('check_in_datetime'),
-                        report_certification_datetime=row_dict.get('report_certification_datetime'),
-                        certified_physician=row_dict.get('certified_physician'),
-                        data_load_time=row_dict.get('data_load_time'),
+                        exam_id=row_dict.get("exam_id"),
+                        medical_record_no=row_dict.get("medical_record_no"),
+                        application_order_no=row_dict.get("application_order_no"),
+                        patient_name=row_dict.get("patient_name"),
+                        patient_gender=row_dict.get("patient_gender"),
+                        patient_birth_date=row_dict.get("patient_birth_date"),
+                        patient_age=row_dict.get("patient_age"),
+                        exam_status=row_dict.get("exam_status"),
+                        exam_source=row_dict.get("exam_source"),
+                        exam_item=row_dict.get("exam_item"),
+                        exam_description=row_dict.get("exam_description"),
+                        exam_room=row_dict.get("exam_room"),
+                        exam_equipment=row_dict.get("exam_equipment"),
+                        equipment_type=row_dict.get("equipment_type"),
+                        order_datetime=row_dict.get("order_datetime"),
+                        check_in_datetime=row_dict.get("check_in_datetime"),
+                        report_certification_datetime=row_dict.get("report_certification_datetime"),
+                        certified_physician=row_dict.get("certified_physician"),
+                        data_load_time=row_dict.get("data_load_time"),
                     )
 
                     studies_to_create.append(study)
 
                 except Exception as e:
                     failed += 1
-                    errors.append(f'Row {idx + 1}: {str(e)}')
+                    errors.append(f"Row {idx + 1}: {str(e)}")
 
             # OPTIMIZATION: Use bulk_create to insert all at once (1 query instead of N queries)
             # ignore_conflicts=True allows skipping duplicates without error
@@ -950,23 +951,23 @@ class StudyService:
                 created_studies = Study.objects.bulk_create(
                     studies_to_create,
                     batch_size=ServiceConfig.BULK_CREATE_BATCH_SIZE,
-                    ignore_conflicts=True  # Skip duplicate exam_ids
+                    ignore_conflicts=True,  # Skip duplicate exam_ids
                 )
                 imported = len(created_studies)
             except Exception as e:
                 imported = 0
-                errors.append(f'Bulk insert failed: {str(e)}')
+                errors.append(f"Bulk insert failed: {str(e)}")
 
             return {
-                'imported': imported,
-                'failed': failed,
-                'errors': errors,
-                'total': imported + failed,
+                "imported": imported,
+                "failed": failed,
+                "errors": errors,
+                "total": imported + failed,
             }
 
         except Exception as e:
             return {
-                'imported': 0,
-                'failed': 0,
-                'errors': [f'Import failed: {str(e)}'],
+                "imported": 0,
+                "failed": 0,
+                "errors": [f"Import failed: {str(e)}"],
             }
