@@ -78,6 +78,72 @@ python manage.py createsuperuser
 python manage.py collectstatic
 ```
 
+## Mandatory Quality Gates
+
+**🚨 CRITICAL**: After ANY code changes, the following checks MUST pass before submitting for review.
+
+### Backend (Python) - Run in `backend_django/`
+
+```bash
+# 1. Type checking with ty
+uvx ty check <module>
+
+# 2. Linting with ruff (auto-fix enabled)
+uvx ruff check <module> --fix
+
+# 3. Code formatting with ruff
+uvx ruff format <module>
+
+# Example: After editing report module
+uvx ty check report
+uvx ruff check report --fix
+uvx ruff format report
+```
+
+### Frontend (TypeScript/React) - Run in `frontend/`
+
+```bash
+# 1. ESLint checking
+pnpm lint
+
+# 2. TypeScript type checking
+npx tsc --noEmit
+```
+
+### Quality Gate Workflow
+
+```
+Edit Code → Run Quality Checks → Fix Errors → Re-run Checks → All Pass ✅ → Ready for Review
+                    ↓                              ↑
+                  Errors ❌ ─────────────────────────┘
+```
+
+**Modules Reference**:
+| Module | Description |
+|--------|-------------|
+| `common` | Shared utilities, middleware, base classes |
+| `imports` | Data import functionality |
+| `project` | Project management |
+| `report` | Report search and management |
+| `study` | Study/examination operations |
+| `tests` | Test files |
+
+**Quick Check All Backend**:
+```bash
+# Check all modules at once
+for module in common imports project report study; do
+  echo "=== Checking $module ==="
+  uvx ty check $module
+  uvx ruff check $module --fix
+  uvx ruff format $module
+done
+```
+
+**Quick Check Frontend**:
+```bash
+cd ../frontend && pnpm lint && npx tsc --noEmit
+```
+
 ## Architecture
 
 ### Three-Layer Pattern
