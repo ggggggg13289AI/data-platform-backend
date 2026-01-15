@@ -224,3 +224,20 @@ NINJA_JWT = {
     "SLIDING_TOKEN_LIFETIME": timedelta(minutes=5),
     "SLIDING_TOKEN_REFRESH_LIFETIME": timedelta(days=1),
 }
+
+# AI Configuration - Ollama LLM Integration
+AI_CONFIG = {
+    # LLM Provider Settings
+    "PROVIDER": os.getenv("AI_PROVIDER", "ollama"),
+    "MODEL": os.getenv("AI_MODEL", "qwen2.5:7b"),
+    "API_BASE": os.getenv("OLLAMA_API_BASE", "http://localhost:11434"),
+    # Request Settings
+    "TIMEOUT": int(os.getenv("AI_TIMEOUT", "60")),
+    "MAX_TOKENS": int(os.getenv("AI_MAX_TOKENS", "4096")),
+    "TEMPERATURE": float(os.getenv("AI_TEMPERATURE", "0.7")),
+    # Rate Limiting
+    "MAX_CONCURRENT_REQUESTS": int(os.getenv("AI_MAX_CONCURRENT", "3")),
+    # Retry Settings
+    "MAX_RETRIES": int(os.getenv("AI_MAX_RETRIES", "2")),
+    "RETRY_DELAY": float(os.getenv("AI_RETRY_DELAY", "1.0")),
+}
