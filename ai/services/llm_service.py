@@ -164,8 +164,19 @@ class LLMService:
             ) from e
 
         except httpx.HTTPStatusError as e:
-            logger.error(f"LLM HTTP error: {e}")
-            raise LLMConnectionError(f"LLM service error: {e.response.status_code}") from e
+            # Try to get error message from response body
+            error_msg = f"LLM service error: {e.response.status_code}"
+            try:
+                error_data = e.response.json()
+                if "error" in error_data:
+                    error_msg = error_data["error"]
+                    # Model not found is a common issue
+                    if "not found" in error_msg.lower():
+                        error_msg = f"模型 '{model}' 不存在。請執行 'ollama pull {model}' 或更新 AI_MODEL 設定。"
+            except Exception:
+                pass
+            logger.error(f"LLM HTTP error: {error_msg}")
+            raise LLMConnectionError(error_msg) from e
 
         latency_ms = int((time.time() - start_time) * 1000)
 
