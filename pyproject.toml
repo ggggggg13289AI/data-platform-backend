@@ -47,6 +47,10 @@ dependencies = [
     "django-ninja-jwt==5.4.2",
     "django-stubs==5.2.7",
     "django-stubs-ext==5.2.7",
+    "psycopg2-binary==2.9.11",
+    "pandas==2.3.3",
+    "openpyxl==3.1.5",
+    "numpy==2.3.5",
 ]
 
 [tool.setuptools]
