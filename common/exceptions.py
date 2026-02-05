@@ -35,6 +35,7 @@ class StudyServiceError(Exception):
             logger.error(f"Service error: {e}")
             return error_response(str(e))
     """
+
     pass
 
 
@@ -118,7 +119,7 @@ class CacheUnavailableError(StudyServiceError):
         ...     ) from e
     """
 
-    def __init__(self, operation: str, fallback_action: str = 'Operating without cache'):
+    def __init__(self, operation: str, fallback_action: str = "Operating without cache"):
         """Initialize with operation details.
 
         Args:
@@ -127,9 +128,7 @@ class CacheUnavailableError(StudyServiceError):
         """
         self.operation = operation
         self.fallback_action = fallback_action
-        super().__init__(
-            f"Cache unavailable for {operation}. Fallback: {fallback_action}"
-        )
+        super().__init__(f"Cache unavailable for {operation}. Fallback: {fallback_action}")
 
 
 class BulkImportError(StudyServiceError):
@@ -156,11 +155,7 @@ class BulkImportError(StudyServiceError):
     """
 
     def __init__(
-        self,
-        total_records: int,
-        successful: int,
-        failed: int,
-        errors: list[str] | None = None
+        self, total_records: int, successful: int, failed: int, errors: list[str] | None = None
     ):
         """Initialize with import statistics.
 
@@ -221,11 +216,11 @@ class DatabaseQueryError(StudyServiceError):
 
 # Error code mapping for API responses
 ERROR_CODES = {
-    StudyNotFoundError: 'STUDY_NOT_FOUND',
-    InvalidSearchParameterError: 'INVALID_SEARCH_PARAMETER',
-    CacheUnavailableError: 'CACHE_UNAVAILABLE',
-    BulkImportError: 'BULK_IMPORT_FAILED',
-    DatabaseQueryError: 'DATABASE_QUERY_ERROR',
+    StudyNotFoundError: "STUDY_NOT_FOUND",
+    InvalidSearchParameterError: "INVALID_SEARCH_PARAMETER",
+    CacheUnavailableError: "CACHE_UNAVAILABLE",
+    BulkImportError: "BULK_IMPORT_FAILED",
+    DatabaseQueryError: "DATABASE_QUERY_ERROR",
 }
 
 
@@ -243,7 +238,7 @@ def get_error_code(exception: StudyServiceError) -> str:
         >>> get_error_code(exc)
         'STUDY_NOT_FOUND'
     """
-    return ERROR_CODES.get(type(exception), 'STUDY_SERVICE_ERROR')
+    return ERROR_CODES.get(type(exception), "STUDY_SERVICE_ERROR")
 
 
 def to_error_dict(exception: StudyServiceError, request_id: str | None = None) -> dict[str, Any]:
@@ -273,32 +268,32 @@ def to_error_dict(exception: StudyServiceError, request_id: str | None = None) -
         }
     """
     error_dict: dict[str, Any] = {
-        'error': {
-            'code': get_error_code(exception),
-            'message': str(exception),
+        "error": {
+            "code": get_error_code(exception),
+            "message": str(exception),
         }
     }
 
     # Add exception-specific details
     if isinstance(exception, InvalidSearchParameterError):
-        error_dict['error']['details'] = {
-            'param': exception.param,
-            'value': str(exception.value),
-            'reason': exception.reason,
+        error_dict["error"]["details"] = {
+            "param": exception.param,
+            "value": str(exception.value),
+            "reason": exception.reason,
         }
     elif isinstance(exception, StudyNotFoundError):
-        error_dict['error']['details'] = {
-            'exam_id': exception.exam_id,
+        error_dict["error"]["details"] = {
+            "exam_id": exception.exam_id,
         }
     elif isinstance(exception, BulkImportError):
-        error_dict['error']['details'] = {
-            'total_records': exception.total_records,
-            'successful': exception.successful,
-            'failed': exception.failed,
-            'sample_errors': exception.errors[:5] if exception.errors else [],
+        error_dict["error"]["details"] = {
+            "total_records": exception.total_records,
+            "successful": exception.successful,
+            "failed": exception.failed,
+            "sample_errors": exception.errors[:5] if exception.errors else [],
         }
 
     if request_id:
-        error_dict['error']['request_id'] = request_id
+        error_dict["error"]["request_id"] = request_id
 
     return error_dict

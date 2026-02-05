@@ -671,6 +671,165 @@ curl "http://localhost:8000/api/v1/reports/filters/options"
 
 ---
 
+## Advanced Search with Regex (v1.2.0)
+
+### Overview
+
+The Advanced Search API supports regex pattern matching for imaging report fields.
+This feature enables precise pattern-based search on report content, particularly
+useful for searching specific sections of imaging reports.
+
+### Imaging Report Fields
+
+| Field | Description | Supported Operators |
+|-------|-------------|---------------------|
+| `content_raw` | Full report text | text, regex |
+| `imaging_findings` | Imaging Findings section (auto-parsed) | text, regex |
+| `impression` | Impression/Conclusion section (auto-parsed) | text, regex |
+
+**Note**: `imaging_findings` and `impression` are PostgreSQL generated columns
+that automatically extract content from `content_raw` based on section headers.
+
+### Regex Operators
+
+| Operator | Description | PostgreSQL Equivalent |
+|----------|-------------|----------------------|
+| `iregex` | Case-insensitive regex | `~*` |
+| `regex` | Case-sensitive regex | `~` |
+
+### Example Requests
+
+#### 1. Regex Search on Content Raw
+```bash
+POST /api/v1/reports/search/advanced
+Content-Type: application/json
+
+{
+  "mode": "multi",
+  "tree": {
+    "operator": "AND",
+    "conditions": [
+      {
+        "field": "content_raw",
+        "operator": "iregex",
+        "value": "normal.+x-ray"
+      }
+    ]
+  },
+  "page": 1,
+  "page_size": 20
+}
+```
+
+#### 2. Search Imaging Findings with Alternation
+```bash
+POST /api/v1/reports/search/advanced
+Content-Type: application/json
+
+{
+  "mode": "multi",
+  "tree": {
+    "operator": "AND",
+    "conditions": [
+      {
+        "field": "imaging_findings",
+        "operator": "iregex",
+        "value": "(cardiomegaly|effusion)"
+      }
+    ]
+  },
+  "page": 1,
+  "page_size": 20
+}
+```
+
+#### 3. Search Impression Section
+```bash
+POST /api/v1/reports/search/advanced
+Content-Type: application/json
+
+{
+  "mode": "multi",
+  "tree": {
+    "operator": "AND",
+    "conditions": [
+      {
+        "field": "impression",
+        "operator": "iregex",
+        "value": "pneumonia|lung.?infection"
+      }
+    ]
+  },
+  "page": 1,
+  "page_size": 20
+}
+```
+
+#### 4. Combined Regex and Text Search
+```bash
+POST /api/v1/reports/search/advanced
+Content-Type: application/json
+
+{
+  "mode": "multi",
+  "tree": {
+    "operator": "AND",
+    "conditions": [
+      {
+        "field": "report_type",
+        "operator": "equals",
+        "value": "Radiology"
+      },
+      {
+        "field": "imaging_findings",
+        "operator": "iregex",
+        "value": "(cardiomegaly|pleural.+effusion)"
+      }
+    ]
+  },
+  "page": 1,
+  "page_size": 20
+}
+```
+
+### Error Handling
+
+#### Invalid Regex Pattern (400 Bad Request)
+```json
+{
+  "detail": "Invalid regex pattern: (unbalanced[ - unterminated character class"
+}
+```
+
+### Regex Syntax Reference
+
+| Pattern | Description | Example |
+|---------|-------------|---------|
+| `.` | Any single character | `a.c` matches "abc", "adc" |
+| `.*` | Zero or more characters | `a.*c` matches "ac", "abc", "abbc" |
+| `.+` | One or more characters | `a.+c` matches "abc", "abbc" but not "ac" |
+| `\|` | Alternation (OR) | `cat\|dog` matches "cat" or "dog" |
+| `[]` | Character class | `[aeiou]` matches any vowel |
+| `()` | Grouping | `(ab)+` matches "ab", "abab" |
+| `^` | Start of string | `^Normal` matches "Normal chest" |
+| `$` | End of string | `report$` matches "final report" |
+| `\s` | Whitespace | `word\s+word` matches "word word" |
+| `\d` | Digit | `\d{4}` matches "2025" |
+
+### Performance Considerations
+
+- Regex searches use PostgreSQL's `pg_trgm` GIN indexes for acceleration
+- Performance target: p95 < 500ms for regex queries
+- Complex patterns with many alternations may be slower
+- Consider using `contains` operator for simple substring searches
+
+### Database Requirements
+
+- PostgreSQL 12+ (for GENERATED COLUMNS)
+- pg_trgm extension (automatically installed via migration)
+
+---
+
 ## Support & Feedback
 
 For API issues or feedback:
@@ -685,6 +844,6 @@ For API issues or feedback:
 
 - **Created**: 2025-11-12
 - **Status**: Phase 5.4 Complete
-- **Version**: 1.1.0
-- **Test Coverage**: 43 tests (25 unit + 9 integration + 9 performance)
+- **Version**: 1.2.0 (Regex Search Added)
+- **Test Coverage**: 43+ tests (25 unit + 9 integration + 9 performance + regex tests)
 - **Performance Grade**: A+ (Excellent)

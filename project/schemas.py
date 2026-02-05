@@ -6,13 +6,13 @@ from pydantic import root_validator
 from pydantic.fields import FieldInfo
 
 from project.models import Project, ProjectMember
+from report.schemas import AdvancedSearchNode, ReportResponse
 from study.schemas import StudyListItem as BaseStudyListItem
-from report.schemas import ReportResponse
 
 
 class CreateProjectRequest(Schema):
     name: str
-    description: str | None = ''
+    description: str | None = ""
     tags: list[str] = []
     status: str | None = Project.STATUS_ACTIVE
     settings: dict[str, Any] | None = {}
@@ -90,6 +90,52 @@ class BatchAssignRequest(Schema):
     project_ids: list[str]
 
 
+class BatchAssignQueryFilters(Schema):
+    q: str | None = None
+    exam_status: str | list[str] | None = None
+    exam_source: str | list[str] | None = None
+    exam_item: str | None = None
+    exam_equipment: list[str] | None = None
+    application_order_no: str | None = None
+    patient_gender: str | list[str] | None = None
+    exam_description: list[str] | None = None
+    exam_room: list[str] | None = None
+    patient_age_min: int | None = None
+    patient_age_max: int | None = None
+    start_date: str | None = None
+    end_date: str | None = None
+
+
+class BatchAssignByQueryRequest(Schema):
+    project_ids: list[str]
+    filters: BatchAssignQueryFilters
+    max_batch_size: int | None = None
+
+
+class FailedAssignmentItem(Schema):
+    exam_id: str
+    reason: str
+
+
+class BatchAssignByQueryDetail(Schema):
+    project_id: str
+    project_name: str | None = None
+    added_count: int
+    skipped_count: int
+    failed_items_sample: list[FailedAssignmentItem] = []
+    failed_items_truncated: bool = False
+    failed_items_sample_limit: int = 20
+    failed_reason: str | None = None
+
+
+class BatchAssignByQueryResponse(Schema):
+    success: bool
+    matched_count: int
+    max_batch_size: int
+    projects_updated: int
+    details: list[BatchAssignByQueryDetail]
+
+
 class AddMemberRequest(Schema):
     user_id: str
     role: str = ProjectMember.ROLE_VIEWER
@@ -118,25 +164,25 @@ class ProjectStudyItem(BaseStudyListItem):
     @root_validator(pre=True)
     def flatten_assignment(cls, values):
         # Handle StudyProjectAssignment object
-        if hasattr(values, 'study') and hasattr(values, 'assigned_at'):
+        if hasattr(values, "study") and hasattr(values, "assigned_at"):
             study = values.study
             # Extract base fields from study
             data = {}
             # Get field names from BaseStudyListItem - Pydantic v1 __fields__ is a dict
             base_fields = cast(dict[str, FieldInfo], BaseStudyListItem.__fields__)
             for field_name in base_fields:
-                 if hasattr(study, field_name):
-                     data[field_name] = getattr(study, field_name)
+                if hasattr(study, field_name):
+                    data[field_name] = getattr(study, field_name)
 
             # Extract assignment fields
-            data['assigned_at'] = values.assigned_at
+            data["assigned_at"] = values.assigned_at
 
             # Handle UserInfo for assigned_by
             user = values.assigned_by
-            data['assigned_by'] = {
-                'id': str(user.id),
-                'name': user.get_full_name() or user.username,
-                'email': user.email
+            data["assigned_by"] = {
+                "id": str(user.id),
+                "name": user.get_full_name() or user.username,
+                "email": user.email,
             }
             return data
         return values
@@ -162,6 +208,7 @@ class ProjectResourceItem(Schema):
     """
     Unified resource item (Study or Report) keyed by Accession Number.
     """
+
     resource_type: str  # 'study', 'report'
     accession_number: str
     resource_timestamp: datetime
@@ -171,6 +218,7 @@ class ProjectResourceItem(Schema):
 
     assignment: ProjectResourceAssignment | None = None
 
+
 class SearchResultItem(Schema):
     resource_type: str
     accession_number: str
@@ -178,3 +226,36 @@ class SearchResultItem(Schema):
     snippet: str
     resource_payload: dict[str, Any]
     resource_timestamp: str
+
+
+class ProjectSearchResponse(Schema):
+    items: list[SearchResultItem]
+    total: int
+    page: int
+    page_size: int
+
+
+class ProjectAdvancedSearchRequest(Schema):
+    """
+    Project Resource Advanced Search Request Schema.
+    Supports multi-condition queries using JSON DSL.
+    """
+
+    mode: str = "multi"  # 'basic' or 'multi'
+    tree: AdvancedSearchNode | None = None
+    resource_types: list[str] = ["study", "report"]
+    page: int = 1
+    page_size: int = 20
+
+
+class ProjectListAdvancedSearchRequest(Schema):
+    """
+    Project List Advanced Search Request Schema.
+    Supports multi-condition queries using JSON DSL for project listing.
+    """
+
+    mode: str = "multi"  # 'basic' or 'multi'
+    tree: AdvancedSearchNode | None = None
+    page: int = 1
+    page_size: int = 20
+    sort: str | None = None

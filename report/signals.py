@@ -16,10 +16,10 @@ from report.models import Report
 logger = logging.getLogger(__name__)
 
 SEARCH_VECTOR_EXPRESSION = (
-    SearchVector('title', weight='A', config='simple')
-    + SearchVector('content_processed', weight='B', config='simple')
-    + SearchVector('report_id', weight='C', config='simple')
-    + SearchVector('uid', weight='C', config='simple')
+    SearchVector("title", weight="A", config="simple")
+    + SearchVector("content_processed", weight="B", config="simple")
+    + SearchVector("report_id", weight="C", config="simple")
+    + SearchVector("uid", weight="C", config="simple")
 )
 
 
@@ -30,11 +30,10 @@ def refresh_search_vector(sender, instance: Report, **kwargs):
 
     Uses database-level SearchVector expression so Postgres can utilize the GIN index.
     """
-    if connection.vendor != 'postgresql':
+    if connection.vendor != "postgresql":
         return
 
     try:
         Report.objects.filter(pk=instance.pk).update(search_vector=SEARCH_VECTOR_EXPRESSION)
     except Exception as exc:  # pragma: no cover - defensive logging
-        logger.warning('Failed to update search_vector for %s: %s', instance.pk, exc)
-
+        logger.warning("Failed to update search_vector for %s: %s", instance.pk, exc)

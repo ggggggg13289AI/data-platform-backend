@@ -5,25 +5,24 @@ from django.db import migrations
 
 
 def populate_search_vector(apps, schema_editor):
-    Report = apps.get_model('report', 'Report')
+    Report = apps.get_model("report", "Report")
     vector = (
-        SearchVector('title', weight='A', config='simple')
-        + SearchVector('content_processed', weight='B', config='simple')
-        + SearchVector('report_id', weight='C', config='simple')
-        + SearchVector('uid', weight='C', config='simple')
+        SearchVector("title", weight="A", config="simple")
+        + SearchVector("content_processed", weight="B", config="simple")
+        + SearchVector("report_id", weight="C", config="simple")
+        + SearchVector("uid", weight="C", config="simple")
     )
     Report.objects.all().update(search_vector=vector)
 
 
 def reset_search_vector(apps, schema_editor):
-    Report = apps.get_model('report', 'Report')
+    Report = apps.get_model("report", "Report")
     Report.objects.all().update(search_vector=None)
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('report', '0002_report_search_vector_and_more'),
+        ("report", "0002_report_search_vector_and_more"),
     ]
 
     operations = [

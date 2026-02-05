@@ -6,19 +6,20 @@ PRAGMATIC DESIGN: Simple endpoints matching actual use cases.
 
 import logging
 
-from django.http import Http404
+from django.http import Http404, HttpResponse
 from ninja import Query, Router
-from ninja.pagination import paginate
 from ninja.errors import HttpError
+from ninja.pagination import paginate
 
 from common.pagination import ReportPagination
 from report.models import Report
 from report.schemas import (
-    AIAnnotationResponse,
-    ImportResponse,
     AdvancedSearchRequest,
     AdvancedSearchResponse,
+    AIAnnotationResponse,
+    ImportResponse,
     ReportDetailResponse,
+    ReportExportRequest,
     ReportFilterOptionsResponse,
     ReportImportRequest,
     ReportResponse,
@@ -34,7 +35,7 @@ report_router = Router()
 
 
 # Endpoints
-@report_router.post('/import', response=ImportResponse)
+@report_router.post("/import", response=ImportResponse)
 def import_report(request, payload: ReportImportRequest):
     """
     Import or update a report.
@@ -69,18 +70,18 @@ def import_report(request, payload: ReportImportRequest):
         )
 
     except Exception as e:
-        logger.error(f'Report import failed: {str(e)}')
+        logger.error(f"Report import failed: {str(e)}")
         raise
 
 
 def _get_report_search_queryset(
-        q: str,
-        report_type: str | None,
-        report_status: str | None,
-        report_format: str | None,
-        date_from: str | None,
-        date_to: str | None,
-        sort: str,
+    q: str,
+    report_type: str | None,
+    report_status: str | None,
+    report_format: str | None,
+    date_from: str | None,
+    date_to: str | None,
+    sort: str,
 ):
     """
     Internal helper to get filtered report queryset.
@@ -89,7 +90,7 @@ def _get_report_search_queryset(
     # Parse report_format if provided as comma-separated string
     report_formats = []
     if report_format:
-        report_formats = [f.strip() for f in report_format.split(',') if f.strip()]
+        report_formats = [f.strip() for f in report_format.split(",") if f.strip()]
 
     # Get filtered queryset
     return ReportService.get_reports_queryset(
@@ -103,18 +104,25 @@ def _get_report_search_queryset(
     )
 
 
-@report_router.get('/search', response=list[ReportDetailResponse])
+@report_router.get("/search", response=list[ReportDetailResponse])
 def search_reports(
-        request,
-        q: str = Query('', description='Search query'),
-        limit: int = Query(50, description='Result limit (legacy endpoint - use /search/paginated instead)'),
-        offset: int = Query(0, description='Result offset (legacy endpoint)'),
-        report_type: str | None = Query(None, description='Filter by report type'),
-        report_status: str | None = Query(None, description='Filter by report status'),
-        report_format: str | None = Query(None, description='Filter by report format (comma-separated)'),
-        date_from: str | None = Query(None, description='Filter by date from (ISO format)'),
-        date_to: str | None = Query(None, description='Filter by date to (ISO format)'),
-        sort: str = Query('verified_at_desc', description='Sort order: verified_at_desc, verified_at_asc, created_at_desc, title_asc'),
+    request,
+    q: str = Query("", description="Search query"),
+    limit: int = Query(
+        50, description="Result limit (legacy endpoint - use /search/paginated instead)"
+    ),
+    offset: int = Query(0, description="Result offset (legacy endpoint)"),
+    report_type: str | None = Query(None, description="Filter by report type"),
+    report_status: str | None = Query(None, description="Filter by report status"),
+    report_format: str | None = Query(
+        None, description="Filter by report format (comma-separated)"
+    ),
+    date_from: str | None = Query(None, description="Filter by date from (ISO format)"),
+    date_to: str | None = Query(None, description="Filter by date to (ISO format)"),
+    sort: str = Query(
+        "verified_at_desc",
+        description="Sort order: verified_at_desc, verified_at_asc, created_at_desc, title_asc",
+    ),
 ):
     """
     Advanced search for reports with multiple filters.
@@ -148,10 +156,10 @@ def search_reports(
     """
     # Log deprecation warning
     logger.warning(
-        'DEPRECATED: /api/v1/reports/search endpoint is legacy. '
-        'Use /api/v1/reports/search/paginated with page/page_size model instead. '
-        'Legacy endpoint will be removed in v2.0.0. '
-        'See CLIENT_MIGRATION_GUIDE.md for migration details.'
+        "DEPRECATED: /api/v1/reports/search endpoint is legacy. "
+        "Use /api/v1/reports/search/paginated with page/page_size model instead. "
+        "Legacy endpoint will be removed in v2.0.0. "
+        "See CLIENT_MIGRATION_GUIDE.md for migration details."
     )
 
     # Validate legacy parameters
@@ -161,14 +169,13 @@ def search_reports(
     # Get filtered queryset (shared logic with /search/paginated)
     # QuerySet is lazy - SQL not executed yet
     queryset = _get_report_search_queryset(
-        q, report_type, report_status, report_format,
-        date_from, date_to, sort
+        q, report_type, report_status, report_format, date_from, date_to, sort
     )
 
     # Apply database-level pagination via Django ORM slicing
     # Django translates queryset[offset:offset+limit] to SQL LIMIT/OFFSET
     # Database returns only requested rows - NOT all records
-    results = queryset[offset:offset + limit]
+    results = queryset[offset : offset + limit]
 
     # Convert to response objects (legacy format - just List[ReportResponse])
     # List comprehension triggers SQL execution here
@@ -190,17 +197,22 @@ def search_reports(
     ]
 
 
-@report_router.get('/search/paginated', response=list[ReportDetailResponse])
+@report_router.get("/search/paginated", response=list[ReportDetailResponse])
 @paginate(ReportPagination)
 def search_reports_paginated(
-        request,
-        q: str = Query('', description='Search query'),
-        report_type: str | None = Query(None, description='Filter by report type'),
-        report_status: str | None = Query(None, description='Filter by report status'),
-        report_format: str | None = Query(None, description='Filter by report format (comma-separated)'),
-        date_from: str | None = Query(None, description='Filter by date from (ISO format)'),
-        date_to: str | None = Query(None, description='Filter by date to (ISO format)'),
-        sort: str = Query('verified_at_desc', description='Sort order: verified_at_desc, verified_at_asc, created_at_desc, title_asc'),
+    request,
+    q: str = Query("", description="Search query"),
+    report_type: str | None = Query(None, description="Filter by report type"),
+    report_status: str | None = Query(None, description="Filter by report status"),
+    report_format: str | None = Query(
+        None, description="Filter by report format (comma-separated)"
+    ),
+    date_from: str | None = Query(None, description="Filter by date from (ISO format)"),
+    date_to: str | None = Query(None, description="Filter by date to (ISO format)"),
+    sort: str = Query(
+        "verified_at_desc",
+        description="Sort order: verified_at_desc, verified_at_asc, created_at_desc, title_asc",
+    ),
 ):
     """
     Advanced search for reports with proper pagination support.
@@ -220,16 +232,15 @@ def search_reports_paginated(
     """
     # Get filtered queryset (shared logic with /search) - @paginate will handle pagination
     return _get_report_search_queryset(
-        q, report_type, report_status, report_format,
-        date_from, date_to, sort
+        q, report_type, report_status, report_format, date_from, date_to, sort
     )
 
 
-@report_router.post('/search/advanced', response=AdvancedSearchResponse)
+@report_router.post("/search/advanced", response=AdvancedSearchResponse)
 def advanced_search_reports(request, payload: AdvancedSearchRequest):
     """
     Advanced search endpoint that accepts JSON DSL payloads and multi-condition queries.
-    
+
     Returns reports with optional Study information when querying Study fields.
     """
     try:
@@ -238,10 +249,29 @@ def advanced_search_reports(request, payload: AdvancedSearchRequest):
         raise HttpError(400, str(exc)) from exc
 
 
-@report_router.get('/latest', response=list[ReportResponse])
+@report_router.post("/export")
+def export_reports_endpoint(request, payload: ReportExportRequest):
+    """
+    Export selected reports as CSV or ZIP blob.
+    """
+    try:
+        data, content_type, filename = ReportService.export_reports(
+            report_ids=payload.report_ids,
+            export_format=payload.format,
+            filename=payload.filename,
+        )
+    except ValueError as exc:
+        raise HttpError(400, str(exc)) from exc
+
+    response = HttpResponse(data, content_type=content_type)
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
+
+
+@report_router.get("/latest", response=list[ReportResponse])
 def get_latest_reports(
-        request,
-        limit: int = Query(20, description='Result limit'),
+    request,
+    limit: int = Query(20, description="Result limit"),
 ):
     """
     Get latest versions of reports.
@@ -271,11 +301,11 @@ def get_latest_reports(
         ]
 
     except Exception as e:
-        logger.error(f'Fetch failed: {str(e)}')
+        logger.error(f"Fetch failed: {str(e)}")
         raise
 
 
-@report_router.get('/{uid}', response=ReportDetailResponse)
+@report_router.get("/{uid}", response=ReportDetailResponse)
 def get_report_detail(request, uid: str):
     """
     Get full report details including complete content.
@@ -300,13 +330,13 @@ def get_report_detail(request, uid: str):
         )
 
     except Report.DoesNotExist:
-        raise Http404(f'Report not found: {uid}') from None
+        raise Http404(f"Report not found: {uid}") from None
     except Exception as e:
-        logger.error(f'Fetch detail failed: {str(e)}')
+        logger.error(f"Fetch detail failed: {str(e)}")
         raise
 
 
-@report_router.get('/study/{exam_id}', response=ReportDetailResponse)
+@report_router.get("/study/{exam_id}", response=ReportDetailResponse)
 def get_study_report_detail(request, exam_id: str):
     """
     Get full report details including complete content.
@@ -331,13 +361,13 @@ def get_study_report_detail(request, exam_id: str):
         )
 
     except Report.DoesNotExist:
-        raise Http404(f'Report not found: {exam_id}') from None
+        raise Http404(f"Report not found: {exam_id}") from None
     except Exception as e:
-        logger.error(f'Fetch detail failed: {str(e)}')
+        logger.error(f"Fetch detail failed: {str(e)}")
         raise
 
 
-@report_router.get('/{report_id}/versions', response=list[ReportVersionResponse])
+@report_router.get("/{report_id}/versions", response=list[ReportVersionResponse])
 def get_report_versions(request, report_id: str):
     """
     Get all versions of a report with change history.
@@ -347,7 +377,10 @@ def get_report_versions(request, report_id: str):
     """
     try:
         from report.models import ReportVersion
-        versions = ReportVersion.objects.filter(report__report_id=report_id).order_by('-version_number')
+
+        versions = ReportVersion.objects.filter(report__report_id=report_id).order_by(
+            "-version_number"
+        )
 
         return [
             ReportVersionResponse(
@@ -361,12 +394,20 @@ def get_report_versions(request, report_id: str):
         ]
 
     except Exception as e:
-        logger.error(f'Versions fetch failed: {str(e)}')
+        logger.error(f"Versions fetch failed: {str(e)}")
         raise
 
 
-@report_router.get('/filters/options', response=ReportFilterOptionsResponse, operation_id='report_get_filter_options')
-@report_router.get('/options/filters', response=ReportFilterOptionsResponse, operation_id='report_get_filter_options_legacy')
+@report_router.get(
+    "/filters/options",
+    response=ReportFilterOptionsResponse,
+    operation_id="report_get_filter_options",
+)
+@report_router.get(
+    "/options/filters",
+    response=ReportFilterOptionsResponse,
+    operation_id="report_get_filter_options_legacy",
+)
 def get_filter_options(request):
     """
     Get available filter options for report search.
@@ -376,21 +417,21 @@ def get_filter_options(request):
     Example: /api/v1/reports/filters/options
     """
     try:
-        if request.path.endswith('/options/filters'):
+        if request.path.endswith("/options/filters"):
             logger.warning(
-                'DEPRECATED: /api/v1/reports/options/filters will be removed in v2.0.0. '
-                'Use /api/v1/reports/filters/options instead.'
+                "DEPRECATED: /api/v1/reports/options/filters will be removed in v2.0.0. "
+                "Use /api/v1/reports/filters/options instead."
             )
 
         filter_options = ReportService.get_filter_options()
         return ReportFilterOptionsResponse(**filter_options)
 
     except Exception as e:
-        logger.error(f'Fetch filter options failed: {str(e)}')
+        logger.error(f"Fetch filter options failed: {str(e)}")
         raise
 
 
-@report_router.get('/{uid}/annotations', response=list[AIAnnotationResponse])
+@report_router.get("/{uid}/annotations", response=list[AIAnnotationResponse])
 def get_report_annotations(request, uid: str):
     """
     Get AI annotations for a specific report.
@@ -400,7 +441,7 @@ def get_report_annotations(request, uid: str):
         try:
             report = Report.objects.get(pk=uid)
         except Report.DoesNotExist:
-            raise Http404(f'Report not found: {uid}') from None
+            raise Http404(f"Report not found: {uid}") from None
 
         annotations = report.annotations.all()  # type: ignore[attr-defined]
 
@@ -413,12 +454,12 @@ def get_report_annotations(request, uid: str):
                 created_at=a.created_at.isoformat(),
                 updated_at=a.updated_at.isoformat() if a.updated_at else None,
                 created_by=a.created_by.get_full_name() if a.created_by else None,
-                metadata=a.metadata
+                metadata=a.metadata,
             )
             for a in annotations
         ]
     except Http404:
         raise
     except Exception as e:
-        logger.error(f'Fetch annotations failed: {str(e)}')
+        logger.error(f"Fetch annotations failed: {str(e)}")
         raise

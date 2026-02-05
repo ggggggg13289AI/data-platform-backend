@@ -25,6 +25,7 @@ class StudyPaginationInput(Schema):
     - page: Page number (1-based, default 1)
     - page_size: Items per page (default 20, max 100)
     """
+
     page: int = 1  # Default to first page
     page_size: int = 20  # Default page size
 
@@ -37,6 +38,7 @@ class StudyPaginationOutput(Schema):
     Note: Django Ninja's @paginate decorator wraps the paginate_queryset
     output with this format automatically.
     """
+
     items: list[Any]  # List of StudyListItem dictionaries
     count: int  # Total number of items
     filters: FilterOptions  # Available filter options (custom extension)
@@ -67,17 +69,16 @@ class StudyPagination(PaginationBase):
 
     class Input(StudyPaginationInput):
         """Input parameters for pagination."""
+
         pass
 
     class Output(StudyPaginationOutput):
         """Output format for paginated responses."""
+
         pass
 
     def paginate_queryset(
-        self,
-        queryset: QuerySet,
-        pagination: Input,
-        **params: Any
+        self, queryset: QuerySet, pagination: Input, **params: Any
     ) -> dict[str, Any]:
         """
         Paginate the queryset and return formatted output.
@@ -96,7 +97,7 @@ class StudyPagination(PaginationBase):
         """
         # Get total count before pagination
         # Handle RawQuerySet (from raw SQL) vs regular QuerySet
-        if hasattr(queryset, 'count'):
+        if hasattr(queryset, "count"):
             # Regular QuerySet has count() method
             total_count = queryset.count()
         else:
@@ -110,19 +111,19 @@ class StudyPagination(PaginationBase):
 
                 # Convert SELECT * to SELECT COUNT(*)
                 # Find the position after FROM clause
-                count_sql = raw_sql.replace('SELECT *', 'SELECT COUNT(*)', 1)
+                count_sql = raw_sql.replace("SELECT *", "SELECT COUNT(*)", 1)
                 # Remove ORDER BY and LIMIT for count query (optimization)
-                if 'ORDER BY' in count_sql:
-                    count_sql = count_sql[:count_sql.index('ORDER BY')]
-                if 'LIMIT' in count_sql:
-                    count_sql = count_sql[:count_sql.index('LIMIT')]
+                if "ORDER BY" in count_sql:
+                    count_sql = count_sql[: count_sql.index("ORDER BY")]
+                if "LIMIT" in count_sql:
+                    count_sql = count_sql[: count_sql.index("LIMIT")]
 
                 with connection.cursor() as cursor:
                     # For COUNT query, we only need params up to the WHERE clause
                     # If LIMIT/OFFSET were added, we need to exclude those params
                     # The service layer adds [limit, offset] at the end if pagination applied
                     count_params = query_params
-                    if 'LIMIT' in raw_sql:
+                    if "LIMIT" in raw_sql:
                         # Remove last 2 params (limit and offset)
                         count_params = query_params[:-2] if len(query_params) >= 2 else query_params
 
@@ -145,7 +146,7 @@ class StudyPagination(PaginationBase):
         # PERFORMANCE FIX: For RawQuerySet, don't slice here
         # The service layer already applied LIMIT/OFFSET at database level
         # Just iterate over the queryset which will only contain requested rows
-        if hasattr(queryset, 'raw_query'):
+        if hasattr(queryset, "raw_query"):
             # RawQuerySet - already paginated by service layer
             paginated_items = list(queryset)
         else:
@@ -161,9 +162,9 @@ class StudyPagination(PaginationBase):
 
         # Return as dictionary for Django Ninja compatibility
         return {
-            'items': items,
-            'count': total_count,
-            'filters': filters,
+            "items": items,
+            "count": total_count,
+            "filters": filters,
         }
 
 
@@ -198,8 +199,8 @@ class ProjectPagination(PaginationBase):
     ) -> dict[str, Any]:
         from .permissions import ProjectPermissions  # Local import to avoid circular deps
 
-        request = params.get('request')
-        user = getattr(request, 'user', None)
+        request = params.get("request")
+        user = getattr(request, "user", None)
 
         total_count = self._get_total_count(queryset)
 
@@ -212,7 +213,7 @@ class ProjectPagination(PaginationBase):
         paginated_projects = self._slice(queryset, offset, page_size)
 
         items = []
-        if paginated_projects and hasattr(paginated_projects[0], 'study'):
+        if paginated_projects and hasattr(paginated_projects[0], "study"):
             for assignment in paginated_projects:
                 study = assignment.study
                 assigned_by = assignment.assigned_by
@@ -225,40 +226,40 @@ class ProjectPagination(PaginationBase):
                 items.append(
                     {
                         **study_payload,
-                        'assigned_at': assignment.assigned_at,
-                        'assigned_by': {
-                            'id': str(assigned_by.id),
-                            'name': assigned_by.get_full_name() or assigned_by.get_username(),
-                            'email': assigned_by.email,
+                        "assigned_at": assignment.assigned_at,
+                        "assigned_by": {
+                            "id": str(assigned_by.id),
+                            "name": assigned_by.get_full_name() or assigned_by.get_username(),
+                            "email": assigned_by.email,
                         },
                     }
                 )
         else:
             for project in paginated_projects:
-                member_count = getattr(project, 'member_count', None)
+                member_count = getattr(project, "member_count", None)
                 if member_count is None:
                     member_count = project.project_members.count()
 
                 project_dict = project.to_dict()
-                project_dict['member_count'] = member_count
+                project_dict["member_count"] = member_count
                 user_role = ProjectPermissions.get_user_role(project, user)
                 user_permissions = ProjectPermissions.get_user_permissions(project, user)
                 permission_flags = ProjectPermissions.get_permission_flags(project, user)
 
-                project_dict['user_role'] = user_role
-                project_dict['user_permissions'] = user_permissions
+                project_dict["user_role"] = user_role
+                project_dict["user_permissions"] = user_permissions
                 project_dict.update(permission_flags)
 
                 items.append(project_dict)
 
         return {
-            'items': items,
-            'count': total_count,
+            "items": items,
+            "count": total_count,
         }
 
     @staticmethod
     def _get_total_count(data: Any) -> int:
-        if hasattr(data, 'count'):
+        if hasattr(data, "count"):
             try:
                 result = data.count()
                 return int(result) if result is not None else 0
@@ -271,23 +272,25 @@ class ProjectPagination(PaginationBase):
     @staticmethod
     def _slice(data: Any, offset: int, limit: int) -> list[Any]:
         if isinstance(data, list):
-            return data[offset: offset + limit]
-        return list(data[offset: offset + limit])
+            return data[offset : offset + limit]
+        return list(data[offset : offset + limit])
 
 
 class ReportPaginationInput(Schema):
     """Input parameters for report pagination."""
+
     page: int = 1
     page_size: int = 20
 
 
 class ReportPaginationOutput(Schema):
     """Output format for paginated report responses."""
+
     items: list[Any]  # List of ReportResponse dictionaries
-    total: int        # Total number of items
-    page: int         # Current page number
-    page_size: int    # Items per page
-    pages: int        # Total number of pages
+    total: int  # Total number of items
+    page: int  # Current page number
+    page_size: int  # Items per page
+    pages: int  # Total number of pages
     filters: dict[str, Any]
 
 
@@ -304,17 +307,16 @@ class ReportPagination(PaginationBase):
 
     class Input(ReportPaginationInput):
         """Input parameters for pagination."""
+
         pass
 
     class Output(ReportPaginationOutput):
         """Output format for paginated responses."""
+
         pass
 
     def paginate_queryset(
-        self,
-        queryset: QuerySet,
-        pagination: Input,
-        **params: Any
+        self, queryset: QuerySet, pagination: Input, **params: Any
     ) -> dict[str, Any]:
         """
         Paginate the queryset and return formatted output.
@@ -342,35 +344,33 @@ class ReportPagination(PaginationBase):
         # Convert queryset to list of ReportResponse dicts
         items = [
             {
-                'uid': r.uid,
-                'report_id': r.report_id,
-                'title': r.title,
-                'report_type': r.report_type,
-                'version_number': r.version_number,
-                'is_latest': r.is_latest,
-                'created_at': r.created_at.isoformat(),
-                'verified_at': r.verified_at.isoformat() if r.verified_at else None,
-                'content_preview': ReportService.safe_truncate(r.content_raw, 500),
-                'content_raw':r.content_raw,
-                'source_url':r.source_url
+                "uid": r.uid,
+                "report_id": r.report_id,
+                "title": r.title,
+                "report_type": r.report_type,
+                "version_number": r.version_number,
+                "is_latest": r.is_latest,
+                "created_at": r.created_at.isoformat(),
+                "verified_at": r.verified_at.isoformat() if r.verified_at else None,
+                "content_preview": ReportService.safe_truncate(r.content_raw, 500),
+                "content_raw": r.content_raw,
+                "source_url": r.source_url,
             }
             for r in paginated_items
         ]
 
         # Calculate total pages
-        total_pages = BasePaginationHelper.calculate_total_pages(
-            total_count, page_size
-        )
+        total_pages = BasePaginationHelper.calculate_total_pages(total_count, page_size)
 
         # Enrich response with reusable filter options
         filter_options = ReportService.get_filter_options()
 
         # Return as dictionary for Django Ninja compatibility
         return {
-            'items': items,
-            'total': total_count,
-            'page': page,
-            'page_size': page_size,
-            'pages': total_pages,
-            'filters': filter_options,
+            "items": items,
+            "total": total_count,
+            "page": page,
+            "page_size": page_size,
+            "pages": total_pages,
+            "filters": filter_options,
         }

@@ -1,0 +1,6 @@
+uid,title,content,report_type,report_date
+RPT001,Chest X-Ray Report,Normal chest radiograph. No acute cardiopulmonary process.,X-Ray,2024-01-15
+RPT002,CT Abdomen Report,No acute intra-abdominal pathology identified.,CT,2024-01-16
+RPT003,MRI Brain Report,No intracranial abnormality detected.,MRI,2024-01-17
+RPT004,Ultrasound Report,Normal hepatobiliary ultrasound examination.,Ultrasound,2024-01-18
+RPT005,PET Scan Report,No evidence of hypermetabolic malignancy.,PET,2024-01-19

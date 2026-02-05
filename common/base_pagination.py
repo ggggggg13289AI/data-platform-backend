@@ -94,7 +94,7 @@ class QuerySetCounter:
             Total number of items
         """
         # Try QuerySet.count() first
-        if hasattr(data, 'count'):
+        if hasattr(data, "count"):
             try:
                 result = data.count()
                 return int(result) if result is not None else 0
@@ -103,7 +103,7 @@ class QuerySetCounter:
                 pass
 
         # Handle RawQuerySet
-        if hasattr(data, 'raw_query'):
+        if hasattr(data, "raw_query"):
             return QuerySetCounter._count_raw_queryset(data)
 
         # Fallback to list length
@@ -135,19 +135,19 @@ class QuerySetCounter:
             query_params = queryset.params or []
 
             # Convert SELECT * to SELECT COUNT(*)
-            count_sql = raw_sql.replace('SELECT *', 'SELECT COUNT(*)', 1)
+            count_sql = raw_sql.replace("SELECT *", "SELECT COUNT(*)", 1)
 
             # Remove ORDER BY and LIMIT for count query (optimization)
-            if 'ORDER BY' in count_sql:
-                count_sql = count_sql[:count_sql.index('ORDER BY')]
-            if 'LIMIT' in count_sql:
-                count_sql = count_sql[:count_sql.index('LIMIT')]
+            if "ORDER BY" in count_sql:
+                count_sql = count_sql[: count_sql.index("ORDER BY")]
+            if "LIMIT" in count_sql:
+                count_sql = count_sql[: count_sql.index("LIMIT")]
 
             # Execute COUNT query
             with connection.cursor() as cursor:
                 # If LIMIT/OFFSET were added by service layer, exclude those params
                 count_params = query_params
-                if 'LIMIT' in raw_sql:
+                if "LIMIT" in raw_sql:
                     # Remove last 2 params (limit and offset)
                     count_params = query_params[:-2] if len(query_params) >= 2 else query_params
 
@@ -186,16 +186,16 @@ class QuerySetSlicer:
             Sliced data as list
         """
         # Check if RawQuerySet (already paginated)
-        if hasattr(data, 'raw_query'):
+        if hasattr(data, "raw_query"):
             # Service layer already applied LIMIT/OFFSET at database level
             return list(data)
 
         # Regular QuerySet or list - apply Python slicing
         if isinstance(data, list):
-            return data[offset:offset + limit]
+            return data[offset : offset + limit]
 
         # QuerySet - let Django handle efficient slicing
-        return list(data[offset:offset + limit])
+        return list(data[offset : offset + limit])
 
 
 class BasePaginationHelper:

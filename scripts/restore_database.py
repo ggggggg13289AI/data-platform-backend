@@ -25,6 +25,7 @@ Usage:
 Exit codes:
   0 on success, non-zero on failure.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -39,55 +40,55 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
-# Django setup
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
-import django
+# Django setup (must be before Django imports, hence E402 is expected)
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
+import django  # noqa: E402
+
 django.setup()
 
-from django.conf import settings
-from django.core.management import call_command
+from django.conf import settings  # noqa: E402
+from django.core.management import call_command  # noqa: E402
 
 
 def get_db_config() -> dict[str, str]:
     """Extract database configuration from Django settings."""
-    db_config = settings.DATABASES['default']
+    db_config = settings.DATABASES["default"]
     return {
-        'engine': db_config['ENGINE'],
-        'name': db_config['NAME'],
-        'user': db_config['USER'],
-        'password': db_config['PASSWORD'],
-        'host': db_config['HOST'],
-        'port': db_config['PORT'],
+        "engine": db_config["ENGINE"],
+        "name": db_config["NAME"],
+        "user": db_config["USER"],
+        "password": db_config["PASSWORD"],
+        "host": db_config["HOST"],
+        "port": db_config["PORT"],
     }
 
 
 def detect_backup_type(backup_path: Path) -> str:
     """Detect backup type from file extension."""
     # Handle compressed files
-    if backup_path.suffix == '.gz':
-        base_ext = backup_path.stem.split('.')[-1]
+    if backup_path.suffix == ".gz":
+        base_ext = backup_path.stem.split(".")[-1]
     else:
         base_ext = backup_path.suffix[1:]  # Remove leading dot
 
-    if base_ext == 'json':
-        return 'django'
-    elif base_ext == 'sql':
-        return 'postgres'
+    if base_ext == "json":
+        return "django"
+    elif base_ext == "sql":
+        return "postgres"
     else:
         raise ValueError(
-            f"Unknown backup type: {backup_path.suffix}\n"
-            f"Supported: .json, .json.gz, .sql, .sql.gz"
+            f"Unknown backup type: {backup_path.suffix}\nSupported: .json, .json.gz, .sql, .sql.gz"
         )
 
 
 def is_compressed(backup_path: Path) -> bool:
     """Check if backup file is gzip compressed."""
-    return backup_path.suffix == '.gz'
+    return backup_path.suffix == ".gz"
 
 
 def restore_django(backup_path: Path, dry_run: bool) -> None:
     """Restore from Django JSON backup."""
-    print(f"Restoring from Django JSON backup...")
+    print("Restoring from Django JSON backup...")
 
     if dry_run:
         print("[DRY RUN] Would execute: python manage.py loaddata")
@@ -96,9 +97,9 @@ def restore_django(backup_path: Path, dry_run: bool) -> None:
     # Decompress if needed
     if is_compressed(backup_path):
         print("Decompressing backup...")
-        temp_file = backup_path.with_suffix('')
-        with gzip.open(backup_path, 'rb') as f_in:
-            with open(temp_file, 'wb') as f_out:
+        temp_file = backup_path.with_suffix("")
+        with gzip.open(backup_path, "rb") as f_in:
+            with open(temp_file, "wb") as f_out:
                 shutil.copyfileobj(f_in, f_out)
         backup_path = temp_file
 
@@ -107,7 +108,7 @@ def restore_django(backup_path: Path, dry_run: bool) -> None:
         # call_command('flush', '--no-input')
 
         # Load data
-        call_command('loaddata', str(backup_path))
+        call_command("loaddata", str(backup_path))
 
     finally:
         # Clean up temp file
@@ -117,12 +118,12 @@ def restore_django(backup_path: Path, dry_run: bool) -> None:
 
 def restore_postgres(backup_path: Path, dry_run: bool) -> None:
     """Restore from PostgreSQL SQL backup."""
-    print(f"Restoring from PostgreSQL SQL backup...")
+    print("Restoring from PostgreSQL SQL backup...")
 
     db_config = get_db_config()
 
     # Check if psql is available
-    if not shutil.which('psql'):
+    if not shutil.which("psql"):
         raise RuntimeError(
             "psql command not found. Please install PostgreSQL client tools.\n"
             "Download from: https://www.postgresql.org/download/"
@@ -134,62 +135,61 @@ def restore_postgres(backup_path: Path, dry_run: bool) -> None:
 
     # Build psql command
     cmd = [
-        'psql',
-        '--host', db_config['host'],
-        '--port', db_config['port'],
-        '--username', db_config['user'],
-        '--dbname', db_config['name'],
-        '--no-password',
+        "psql",
+        "--host",
+        db_config["host"],
+        "--port",
+        db_config["port"],
+        "--username",
+        db_config["user"],
+        "--dbname",
+        db_config["name"],
+        "--no-password",
     ]
 
     # Set PostgreSQL password in environment
     env = os.environ.copy()
-    env['PGPASSWORD'] = db_config['password']
+    env["PGPASSWORD"] = db_config["password"]
 
     # Prepare input
     if is_compressed(backup_path):
         print("Decompressing backup...")
         # For compressed files, decompress on-the-fly
-        with gzip.open(backup_path, 'rt', encoding='utf-8') as f:
+        with gzip.open(backup_path, "rt", encoding="utf-8") as f:
             sql_content = f.read()
     else:
-        with open(backup_path, 'r', encoding='utf-8') as f:
+        with open(backup_path, encoding="utf-8") as f:
             sql_content = f.read()
 
     # Execute psql
     try:
         result = subprocess.run(
-            cmd,
-            env=env,
-            input=sql_content,
-            capture_output=True,
-            text=True,
-            check=True
+            cmd, env=env, input=sql_content, capture_output=True, text=True, check=True
         )
 
         if result.stdout:
             print(result.stdout)
 
     except subprocess.CalledProcessError as e:
-        raise RuntimeError(f"psql failed: {e.stderr}")
+        raise RuntimeError(f"psql failed: {e.stderr}") from e
 
 
 def confirm_restore(backup_path: Path, db_name: str) -> bool:
     """Ask user to confirm destructive restore operation."""
-    print(f"\n{'!'*60}")
-    print(f"⚠️  WARNING: DESTRUCTIVE OPERATION")
-    print(f"{'!'*60}")
+    print(f"\n{'!' * 60}")
+    print("⚠️  WARNING: DESTRUCTIVE OPERATION")
+    print(f"{'!' * 60}")
     print(f"This will REPLACE data in database: {db_name}")
     print(f"Backup file: {backup_path.name}")
-    print(f"{'!'*60}\n")
+    print(f"{'!' * 60}\n")
 
     response = input("Type 'yes' to confirm restore: ").strip().lower()
-    return response == 'yes'
+    return response == "yes"
 
 
 def format_size(size_bytes: int) -> str:
     """Format file size in human-readable format."""
-    for unit in ['B', 'KB', 'MB', 'GB']:
+    for unit in ["B", "KB", "MB", "GB"]:
         if size_bytes < 1024:
             return f"{size_bytes:.2f} {unit}"
         size_bytes /= 1024
@@ -198,22 +198,18 @@ def format_size(size_bytes: int) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description='Restore medical imaging platform database from backup'
+        description="Restore medical imaging platform database from backup"
     )
     parser.add_argument(
-        'backup_file',
-        type=Path,
-        help='Path to backup file (.json, .json.gz, .sql, .sql.gz)'
+        "backup_file", type=Path, help="Path to backup file (.json, .json.gz, .sql, .sql.gz)"
     )
     parser.add_argument(
-        '--dry-run',
-        action='store_true',
-        help='Show what would be restored without applying changes'
+        "--dry-run",
+        action="store_true",
+        help="Show what would be restored without applying changes",
     )
     parser.add_argument(
-        '--force',
-        action='store_true',
-        help='Skip confirmation prompt (use with caution!)'
+        "--force", action="store_true", help="Skip confirmation prompt (use with caution!)"
     )
 
     args = parser.parse_args()
@@ -232,9 +228,9 @@ def main() -> int:
         file_size = args.backup_file.stat().st_size
 
         # Display configuration
-        print(f"\n{'='*60}")
-        print(f"Database Restore")
-        print(f"{'='*60}")
+        print(f"\n{'=' * 60}")
+        print("Database Restore")
+        print(f"{'=' * 60}")
         print(f"Type:     {backup_type}")
         print(f"File:     {args.backup_file.name}")
         print(f"Size:     {format_size(file_size)}")
@@ -242,29 +238,29 @@ def main() -> int:
         print(f"Database: {db_config['name']}")
         print(f"Host:     {db_config['host']}:{db_config['port']}")
         if args.dry_run:
-            print(f"Mode:     DRY RUN (no changes will be made)")
-        print(f"{'='*60}\n")
+            print("Mode:     DRY RUN (no changes will be made)")
+        print(f"{'=' * 60}\n")
 
         # Confirm restore (unless force or dry-run)
         if not args.dry_run and not args.force:
-            if not confirm_restore(args.backup_file, db_config['name']):
+            if not confirm_restore(args.backup_file, db_config["name"]):
                 print("Restore cancelled by user.")
                 return 0
 
         # Perform restore
-        if backup_type == 'django':
+        if backup_type == "django":
             restore_django(args.backup_file, args.dry_run)
         else:
             restore_postgres(args.backup_file, args.dry_run)
 
         # Display summary
         if not args.dry_run:
-            print(f"\n{'='*60}")
-            print(f"Restore Completed Successfully")
-            print(f"{'='*60}")
+            print(f"\n{'=' * 60}")
+            print("Restore Completed Successfully")
+            print(f"{'=' * 60}")
             print(f"Database: {db_config['name']}")
             print(f"From:     {args.backup_file.name}")
-            print(f"{'='*60}\n")
+            print(f"{'=' * 60}\n")
 
         return 0
 

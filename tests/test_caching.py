@@ -50,7 +50,7 @@ class CacheHitMissTests(TestCase):
         self.assertIsNone(cache.get(cache_key))
 
         # Act
-        with patch('studies.services.StudyService._get_filter_options_from_db') as mock_db:
+        with patch("studies.services.StudyService._get_filter_options_from_db") as mock_db:
             mock_db.return_value = CacheTestHelper.mock_filter_options()
             result = StudyService.get_filter_options()
 
@@ -66,7 +66,7 @@ class CacheHitMissTests(TestCase):
         self.assertIsNotNone(cache.get(cache_key))
 
         # Act - Second call should hit cache
-        with patch('studies.services.StudyService._get_filter_options_from_db') as mock_db:
+        with patch("studies.services.StudyService._get_filter_options_from_db") as mock_db:
             second_result = StudyService.get_filter_options()
 
         # Assert - Database should NOT be called on cache hit
@@ -82,10 +82,10 @@ class CacheHitMissTests(TestCase):
         cache_key = ServiceConfig.FILTER_OPTIONS_CACHE_KEY
         cached_data = cache.get(cache_key)
         self.assertIsNotNone(cached_data)
-        self.assertIn('exam_statuses', cached_data)
-        self.assertIn('exam_sources', cached_data)
-        self.assertIn('exam_items', cached_data)
-        self.assertIn('equipment_types', cached_data)
+        self.assertIn("exam_statuses", cached_data)
+        self.assertIn("exam_sources", cached_data)
+        self.assertIn("exam_items", cached_data)
+        self.assertIn("equipment_types", cached_data)
 
 
 class CacheGracefulDegradationTests(TestCase):
@@ -100,7 +100,7 @@ class CacheGracefulDegradationTests(TestCase):
         """Clear cache after each test."""
         cache.clear()
 
-    @patch('django.core.cache.cache.get')
+    @patch("django.core.cache.cache.get")
     def test_cache_get_failure_falls_back_to_database(self, mock_get):
         """Test that cache.get() failure results in database fallback."""
         # Arrange - Simulate cache.get() failure
@@ -111,11 +111,11 @@ class CacheGracefulDegradationTests(TestCase):
 
         # Assert - Should return valid data from database
         self.assertIsNotNone(result)
-        self.assertIn('exam_statuses', result)
-        self.assertIn('exam_sources', result)
+        self.assertIn("exam_statuses", result)
+        self.assertIn("exam_sources", result)
 
-    @patch('django.core.cache.cache.set')
-    @patch('django.core.cache.cache.get')
+    @patch("django.core.cache.cache.set")
+    @patch("django.core.cache.cache.get")
     def test_cache_set_failure_still_returns_data(self, mock_get, mock_set):
         """Test that cache.set() failure doesn't prevent data return."""
         # Arrange - Simulate cache operations failure
@@ -127,10 +127,10 @@ class CacheGracefulDegradationTests(TestCase):
 
         # Assert - Should still return valid data from database
         self.assertIsNotNone(result)
-        self.assertIn('exam_statuses', result)
+        self.assertIn("exam_statuses", result)
 
-    @patch('django.core.cache.cache.get')
-    @patch('django.core.cache.cache.set')
+    @patch("django.core.cache.cache.get")
+    @patch("django.core.cache.cache.set")
     def test_complete_cache_unavailability_still_works(self, mock_set, mock_get):
         """Test that complete cache unavailability results in database-only operation."""
         # Arrange - Simulate complete cache failure
@@ -143,8 +143,8 @@ class CacheGracefulDegradationTests(TestCase):
         # Assert - Should still return valid data
         self.assertIsNotNone(result)
         # Verify we got real data from database
-        self.assertIsInstance(result['exam_statuses'], list)
-        self.assertGreater(len(result['exam_statuses']), 0)
+        self.assertIsInstance(result["exam_statuses"], list)
+        self.assertGreater(len(result["exam_statuses"]), 0)
 
 
 class CacheTTLTests(TestCase):
@@ -164,7 +164,7 @@ class CacheTTLTests(TestCase):
     def test_cache_uses_correct_ttl_from_config(self):
         """Test that cache is set with correct TTL from ServiceConfig."""
         # Act
-        with patch('django.core.cache.cache.set') as mock_set:
+        with patch("django.core.cache.cache.set") as mock_set:
             StudyService.get_filter_options()
 
         # Assert - Verify TTL is from config
@@ -181,7 +181,7 @@ class CacheTTLTests(TestCase):
 
         # Assert
         cache_key = ServiceConfig.FILTER_OPTIONS_CACHE_KEY
-        self.assertEqual(cache_key, 'study_filter_options')
+        self.assertEqual(cache_key, "study_filter_options")
         cached_value = cache.get(cache_key)
         self.assertIsNotNone(cached_value)
 
@@ -212,7 +212,7 @@ class CacheInvalidationTests(TestCase):
         self.assertIsNone(cache.get(cache_key))
 
         # Second call should query database
-        with patch('studies.services.StudyService._get_filter_options_from_db') as mock_db:
+        with patch("studies.services.StudyService._get_filter_options_from_db") as mock_db:
             mock_db.return_value = CacheTestHelper.mock_filter_options()
             StudyService.get_filter_options()
 
@@ -226,13 +226,11 @@ class CacheInvalidationTests(TestCase):
 
         # Act - Clear cache and add new study with different source
         cache.clear()
-        Study.objects.create(
-            **MockDataGenerator.study_with_source("PET", "NEWPET001")
-        )
+        Study.objects.create(**MockDataGenerator.study_with_source("PET", "NEWPET001"))
 
         # Get fresh data (should include new source)
         refreshed_result = StudyService.get_filter_options()
-        refreshed_sources = refreshed_result['exam_sources']
+        refreshed_sources = refreshed_result["exam_sources"]
 
         # Assert - Should include the new source
         self.assertIn("PET", refreshed_sources)
