@@ -76,17 +76,18 @@ class PaginationStructureTestCase(TestCase):
         data = json.loads(response.content)
 
         required_fields = [
-            "exam_id", "medical_record_no", "patient_name",
-            "exam_status", "exam_source", "order_datetime"
+            "exam_id",
+            "medical_record_no",
+            "patient_name",
+            "exam_status",
+            "exam_source",
+            "order_datetime",
         ]
 
         if data["items"]:  # Only check if items exist
             for item in data["items"]:
                 for field in required_fields:
-                    self.assertIn(
-                        field, item,
-                        f"Item missing required field: {field}"
-                    )
+                    self.assertIn(field, item, f"Item missing required field: {field}")
 
 
 class DefaultPaginationTestCase(TestCase):
@@ -240,10 +241,7 @@ class OffsetTestCase(TestCase):
 
         # Items at offset 10-15 should differ from items at offset 0-5
         if data1["items"] and data2["items"]:
-            self.assertNotEqual(
-                data1["items"][0]["exam_id"],
-                data2["items"][0]["exam_id"]
-            )
+            self.assertNotEqual(data1["items"][0]["exam_id"], data2["items"][0]["exam_id"])
 
     def test_negative_offset_uses_zero(self):
         """Test negative offset is treated as 0."""
@@ -255,10 +253,7 @@ class OffsetTestCase(TestCase):
 
         # Should be same items
         if data1["items"] and data2["items"]:
-            self.assertEqual(
-                data1["items"][0]["exam_id"],
-                data2["items"][0]["exam_id"]
-            )
+            self.assertEqual(data1["items"][0]["exam_id"], data2["items"][0]["exam_id"])
 
     def test_pagination_count_consistent(self):
         """Test count is consistent across different offsets."""

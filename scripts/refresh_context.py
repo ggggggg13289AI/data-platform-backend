@@ -18,6 +18,7 @@ Usage:
 Exit codes:
   0 on success, non-zero on failure.
 """
+
 from __future__ import annotations
 
 import json
@@ -80,7 +81,9 @@ def load_previous_state(state_file: Path) -> dict[str, float]:
         return {}
 
 
-def diff_states(prev: dict[str, float], curr: dict[str, FileInfo]) -> tuple[list[FileInfo], list[str]]:
+def diff_states(
+    prev: dict[str, float], curr: dict[str, FileInfo]
+) -> tuple[list[FileInfo], list[str]]:
     added_or_modified: list[FileInfo] = []
     removed: list[str] = []
 
@@ -108,7 +111,7 @@ def write_state(state_file: Path, curr: dict[str, FileInfo]) -> None:
 def render_sync_mdc(added_or_modified: list[FileInfo], removed: list[str]) -> str:
     now = datetime.now().astimezone().isoformat()
     lines: list[str] = []
-    lines.append("# Context Sync Status\n# glob pattern(s) for applicable files: \"**/*\"\n")
+    lines.append('# Context Sync Status\n# glob pattern(s) for applicable files: "**/*"\n')
     lines.append(f"**Last Sync**: {now}\n")
 
     if not added_or_modified and not removed:
@@ -124,7 +127,9 @@ def render_sync_mdc(added_or_modified: list[FileInfo], removed: list[str]) -> st
                 lines.append(f"- {rel}\n")
 
         lines.append("\n## 使用指引\n")
-        lines.append("- 若此清單非空，請優先參考上述變更的文件與 `_tasks`/`docs` 來源，再更新 `.cursor/rules` 中對應規則檔（如 pagination 或 projects）。\n")
+        lines.append(
+            "- 若此清單非空，請優先參考上述變更的文件與 `_tasks`/`docs` 來源，再更新 `.cursor/rules` 中對應規則檔（如 pagination 或 projects）。\n"
+        )
         lines.append("- 任何與上述文件有衝突的舊敘述，應以最新來源文件為準。\n")
 
     return "".join(lines)
@@ -146,7 +151,9 @@ def main() -> int:
     write_sync_mdc(SYNC_MDC, render_sync_mdc(changed, removed))
 
     # Console summary
-    print(f"Scanned {len(current)} files under: {', '.join(str(d.relative_to(REPO_ROOT)) for d in SCAN_DIRS)}")
+    print(
+        f"Scanned {len(current)} files under: {', '.join(str(d.relative_to(REPO_ROOT)) for d in SCAN_DIRS)}"
+    )
     print(f"Changed: {len(changed)}, Removed: {len(removed)}")
     print(f"Updated: {SYNC_MDC.relative_to(REPO_ROOT)}")
 

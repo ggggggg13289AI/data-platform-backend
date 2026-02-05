@@ -225,19 +225,67 @@ NINJA_JWT = {
     "SLIDING_TOKEN_REFRESH_LIFETIME": timedelta(days=1),
 }
 
-# AI Configuration - Ollama LLM Integration
+# AI Configuration - Multi-Provider LLM Integration
+# Supports: Ollama, LM Studio, vLLM, LocalAI, Text Generation WebUI, etc.
 AI_CONFIG = {
-    # LLM Provider Settings
+    # Default LLM Provider (ollama, lmstudio, vllm, localai, openai_compatible)
     "PROVIDER": os.getenv("AI_PROVIDER", "ollama"),
+    # Default Model (provider-specific)
     "MODEL": os.getenv("AI_MODEL", "qwen2.5:7b"),
-    "API_BASE": os.getenv("OLLAMA_API_BASE", "http://localhost:11434"),
+    # Default API Base URL (provider-specific)
+    "API_BASE": os.getenv("AI_API_BASE", os.getenv("OLLAMA_API_BASE", "http://localhost:11434")),
+    # Optional API Key (for OpenAI-compatible providers)
+    "API_KEY": os.getenv("AI_API_KEY", ""),
     # Request Settings
-    "TIMEOUT": int(os.getenv("AI_TIMEOUT", "60")),
+    "TIMEOUT": int(os.getenv("AI_TIMEOUT", "120")),
     "MAX_TOKENS": int(os.getenv("AI_MAX_TOKENS", "4096")),
     "TEMPERATURE": float(os.getenv("AI_TEMPERATURE", "0.7")),
     # Rate Limiting
-    "MAX_CONCURRENT_REQUESTS": int(os.getenv("AI_MAX_CONCURRENT", "3")),
+    "MAX_CONCURRENT_REQUESTS": int(os.getenv("AI_MAX_CONCURRENT", "5")),
     # Retry Settings
-    "MAX_RETRIES": int(os.getenv("AI_MAX_RETRIES", "2")),
-    "RETRY_DELAY": float(os.getenv("AI_RETRY_DELAY", "1.0")),
+    "MAX_RETRIES": int(os.getenv("AI_MAX_RETRIES", "3")),
+    "RETRY_DELAY": float(os.getenv("AI_RETRY_DELAY", "2.0")),
 }
+
+# Provider-specific configurations (optional overrides)
+# Each provider can have its own API_BASE, MODEL, and other settings
+AI_PROVIDERS = {
+    "ollama": {
+        "API_BASE": os.getenv("OLLAMA_API_BASE", "http://localhost:11434"),
+        "MODEL": os.getenv("OLLAMA_MODEL", os.getenv("AI_MODEL", "qwen2.5:7b")),
+    },
+    "lmstudio": {
+        "API_BASE": os.getenv("LMSTUDIO_API_BASE", "http://localhost:1234/v1"),
+        "MODEL": os.getenv("LMSTUDIO_MODEL", "local-model"),
+    },
+    "vllm": {
+        "API_BASE": os.getenv("VLLM_API_BASE", "http://localhost:8000/v1"),
+        "MODEL": os.getenv("VLLM_MODEL", "default"),
+        "API_KEY": os.getenv("VLLM_API_KEY", ""),
+    },
+    "localai": {
+        "API_BASE": os.getenv("LOCALAI_API_BASE", "http://localhost:8080/v1"),
+        "MODEL": os.getenv("LOCALAI_MODEL", "default"),
+    },
+    "text_generation_webui": {
+        "API_BASE": os.getenv("TGWUI_API_BASE", "http://localhost:5000/v1"),
+        "MODEL": os.getenv("TGWUI_MODEL", "default"),
+    },
+}
+
+# Funboost Configuration - Distributed Task Framework
+# See: https://github.com/ydf0509/funboost
+FUNBOOST_CONFIG = {
+    # Broker type: SQLITE_QUEUE for dev, REDIS_ACK_ABLE for production
+    "BROKER_KIND": os.getenv("FUNBOOST_BROKER", "SQLITE_QUEUE"),
+    # Concurrent workers for batch analysis
+    "CONCURRENT_NUM": int(os.getenv("FUNBOOST_CONCURRENT", "3")),
+    # Rate limit for LLM calls (queries per second)
+    "QPS": float(os.getenv("FUNBOOST_QPS", "2")),
+    # Retry configuration
+    "MAX_RETRY_TIMES": int(os.getenv("FUNBOOST_MAX_RETRY", "3")),
+    "RETRY_INTERVAL": int(os.getenv("FUNBOOST_RETRY_INTERVAL", "5")),
+}
+
+# Redis URL for production funboost (reuses existing REDIS_URL if available)
+FUNBOOST_REDIS_URL = os.getenv("REDIS_URL", "redis://127.0.0.1:6379/0")

@@ -51,6 +51,7 @@ dependencies = [
     "pandas==2.3.3",
     "openpyxl==3.1.5",
     "numpy==2.3.5",
+    "funboost==53.4",
 ]
 
 [tool.setuptools]

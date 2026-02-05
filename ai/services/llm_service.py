@@ -1,69 +1,80 @@
 """
-LLM Service - Ollama integration for AI chat and analysis.
+LLM Service - Unified interface for AI/LLM operations.
 
-Provides async LLM communication with proper error handling,
-timeout management, and rate limiting.
+This module provides a high-level interface for LLM operations using the
+provider factory pattern. It maintains backward compatibility with existing
+code while enabling multi-provider support.
+
+Usage:
+    # Get default service (uses settings.AI_CONFIG)
+    service = get_llm_service()
+
+    # Chat
+    response = await service.chat([{"role": "user", "content": "Hello"}])
+
+    # Quick chat
+    response = await service.quick_chat("Hello", system_prompt="You are helpful")
+
+    # Health check
+    health = await service.health_check()
+
+    # List models
+    models = await service.list_models()
 """
 
-import asyncio
 import logging
-import time
-from dataclasses import dataclass
 from typing import Any
 
-import httpx
-from django.conf import settings
+from ai.services.providers import (
+    LLMProviderFactory,
+    BaseLLMProvider,
+    LLMResponse,
+    LLMConnectionError,
+    LLMTimeoutError,
+    ModelInfo,
+)
 
 logger = logging.getLogger(__name__)
 
-
-class LLMConnectionError(Exception):
-    """Raised when unable to connect to LLM service."""
-
-    pass
-
-
-class LLMTimeoutError(Exception):
-    """Raised when LLM request times out."""
-
-    pass
-
-
-@dataclass
-class LLMResponse:
-    """Response from LLM service."""
-
-    content: str
-    model: str
-    latency_ms: int
-    tokens_used: int | None = None
-    finish_reason: str | None = None
+# Re-export for backward compatibility
+__all__ = [
+    "LLMService",
+    "LLMResponse",
+    "LLMConnectionError",
+    "LLMTimeoutError",
+    "ModelInfo",
+    "get_llm_service",
+]
 
 
 class LLMService:
     """
-    LLM Service for Ollama integration.
+    High-level LLM service with provider abstraction.
 
-    Provides chat completion with:
-    - Async HTTP communication
-    - Timeout handling
-    - Connection error handling
-    - Rate limiting via semaphore
-    - Retry logic
+    This class wraps the provider factory to provide a clean interface
+    for LLM operations. It supports multiple providers and maintains
+    backward compatibility with the original Ollama-only implementation.
+
+    Attributes:
+        provider: The underlying LLM provider instance
     """
 
-    def __init__(self):
-        self.config = settings.AI_CONFIG
-        self.base_url = self.config["API_BASE"]
-        self.model = self.config["MODEL"]
-        self.timeout = self.config["TIMEOUT"]
-        self.max_tokens = self.config["MAX_TOKENS"]
-        self.temperature = self.config["TEMPERATURE"]
-        self.max_retries = self.config["MAX_RETRIES"]
-        self.retry_delay = self.config["RETRY_DELAY"]
+    def __init__(
+        self,
+        provider_name: str | None = None,
+        config: dict | None = None,
+    ):
+        """
+        Initialize LLM service.
 
-        # Rate limiting semaphore
-        self._semaphore = asyncio.Semaphore(self.config["MAX_CONCURRENT_REQUESTS"])
+        Args:
+            provider_name: Provider to use (defaults to settings.AI_CONFIG["PROVIDER"])
+            config: Custom configuration (defaults to settings.AI_CONFIG)
+        """
+        self.provider: BaseLLMProvider = LLMProviderFactory.create(
+            provider_name=provider_name,
+            config=config,
+        )
 
     async def chat(
         self,
@@ -71,205 +82,159 @@ class LLMService:
         temperature: float | None = None,
         max_tokens: int | None = None,
         model: str | None = None,
+        **kwargs: Any,
     ) -> LLMResponse:
         """
-        Send chat completion request to Ollama.
+        Send chat completion request.
 
         Args:
             messages: List of message dicts with 'role' and 'content'
             temperature: Override default temperature
             max_tokens: Override default max tokens
             model: Override default model
+            **kwargs: Provider-specific parameters
 
         Returns:
             LLMResponse with content and metadata
 
         Raises:
-            LLMConnectionError: Cannot connect to Ollama
+            LLMConnectionError: Cannot connect to provider
             LLMTimeoutError: Request timed out
         """
-        async with self._semaphore:
-            return await self._chat_with_retry(
-                messages=messages,
-                temperature=temperature or self.temperature,
-                max_tokens=max_tokens or self.max_tokens,
-                model=model or self.model,
-            )
-
-    async def _chat_with_retry(
-        self,
-        messages: list[dict[str, str]],
-        temperature: float,
-        max_tokens: int,
-        model: str,
-    ) -> LLMResponse:
-        """Execute chat with retry logic."""
-        last_error: Exception | None = None
-
-        for attempt in range(self.max_retries + 1):
-            try:
-                return await self._execute_chat(
-                    messages=messages,
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                    model=model,
-                )
-            except (LLMConnectionError, LLMTimeoutError) as e:
-                last_error = e
-                if attempt < self.max_retries:
-                    logger.warning(
-                        f"LLM request failed (attempt {attempt + 1}/{self.max_retries + 1}): {e}"
-                    )
-                    await asyncio.sleep(self.retry_delay * (attempt + 1))
-
-        raise last_error  # type: ignore
-
-    async def _execute_chat(
-        self,
-        messages: list[dict[str, str]],
-        temperature: float,
-        max_tokens: int,
-        model: str,
-    ) -> LLMResponse:
-        """Execute single chat request."""
-        start_time = time.time()
-
-        payload = {
-            "model": model,
-            "messages": messages,
-            "stream": False,
-            "options": {
-                "temperature": temperature,
-                "num_predict": max_tokens,
-            },
-        }
-
-        try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.post(
-                    f"{self.base_url}/api/chat",
-                    json=payload,
-                )
-                response.raise_for_status()
-                data = response.json()
-
-        except httpx.TimeoutException as e:
-            logger.error(f"LLM request timed out: {e}")
-            raise LLMTimeoutError(f"Request timed out after {self.timeout}s") from e
-
-        except httpx.ConnectError as e:
-            logger.error(f"Cannot connect to LLM service: {e}")
-            raise LLMConnectionError(
-                f"Cannot connect to Ollama at {self.base_url}. Is it running?"
-            ) from e
-
-        except httpx.HTTPStatusError as e:
-            # Try to get error message from response body
-            error_msg = f"LLM service error: {e.response.status_code}"
-            try:
-                error_data = e.response.json()
-                if "error" in error_data:
-                    error_msg = error_data["error"]
-                    # Model not found is a common issue
-                    if "not found" in error_msg.lower():
-                        error_msg = f"模型 '{model}' 不存在。請執行 'ollama pull {model}' 或更新 AI_MODEL 設定。"
-            except Exception:
-                pass
-            logger.error(f"LLM HTTP error: {error_msg}")
-            raise LLMConnectionError(error_msg) from e
-
-        latency_ms = int((time.time() - start_time) * 1000)
-
-        # Extract response
-        content = data.get("message", {}).get("content", "")
-        tokens_used = data.get("eval_count")
-        finish_reason = data.get("done_reason")
-
-        return LLMResponse(
-            content=content,
+        return await self.provider.chat(
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
             model=model,
-            latency_ms=latency_ms,
-            tokens_used=tokens_used,
-            finish_reason=finish_reason,
+            **kwargs,
         )
 
-    async def quick_chat(self, message: str, system_prompt: str | None = None) -> LLMResponse:
+    async def quick_chat(
+        self,
+        message: str,
+        system_prompt: str | None = None,
+        **kwargs: Any,
+    ) -> LLMResponse:
         """
         Quick single-turn chat.
 
         Args:
             message: User message
             system_prompt: Optional system prompt
+            **kwargs: Additional parameters passed to chat()
 
         Returns:
             LLMResponse
         """
-        messages = []
-        if system_prompt:
-            messages.append({"role": "system", "content": system_prompt})
-        messages.append({"role": "user", "content": message})
-
-        return await self.chat(messages)
+        return await self.provider.quick_chat(
+            message=message,
+            system_prompt=system_prompt,
+            **kwargs,
+        )
 
     async def health_check(self) -> dict[str, Any]:
         """
-        Check Ollama service health.
+        Check provider health status.
 
         Returns:
             Dict with health status and available models
         """
-        try:
-            async with httpx.AsyncClient(timeout=5) as client:
-                response = await client.get(f"{self.base_url}/api/tags")
-                response.raise_for_status()
-                data = response.json()
+        return await self.provider.health_check()
 
-                models = [m["name"] for m in data.get("models", [])]
-                model_available = self.model in models or any(
-                    self.model.split(":")[0] in m for m in models
-                )
+    async def list_models(self) -> list[ModelInfo]:
+        """
+        List available models from current provider.
 
-                return {
-                    "status": "healthy",
-                    "provider": "ollama",
-                    "base_url": self.base_url,
-                    "model": self.model,
-                    "model_available": model_available,
-                    "available_models": models[:5],  # First 5 models
-                }
+        Returns:
+            List of ModelInfo objects
+        """
+        return await self.provider.list_models()
 
-        except httpx.TimeoutException:
-            return {
-                "status": "unhealthy",
-                "error": "Connection timeout",
-                "provider": "ollama",
-                "base_url": self.base_url,
-            }
+    def get_provider_name(self) -> str:
+        """Get current provider name."""
+        return self.provider.provider_name
 
-        except httpx.ConnectError:
-            return {
-                "status": "unhealthy",
-                "error": "Cannot connect to Ollama",
-                "provider": "ollama",
-                "base_url": self.base_url,
-            }
+    def get_default_model(self) -> str:
+        """Get default model for current provider."""
+        return self.provider.get_default_model()
 
-        except Exception as e:
-            return {
-                "status": "unhealthy",
-                "error": str(e),
-                "provider": "ollama",
-                "base_url": self.base_url,
-            }
+    def get_base_url(self) -> str:
+        """Get base URL for current provider."""
+        return self.provider.get_base_url()
+
+    @staticmethod
+    def list_available_providers() -> list[str]:
+        """List all available provider names."""
+        return LLMProviderFactory.list_providers()
+
+    @staticmethod
+    def create_for_provider(
+        provider_name: str,
+        config: dict | None = None,
+    ) -> "LLMService":
+        """
+        Create service for specific provider.
+
+        Args:
+            provider_name: Provider identifier (e.g., "ollama", "lmstudio")
+            config: Custom configuration
+
+        Returns:
+            LLMService instance configured for the provider
+        """
+        return LLMService(provider_name=provider_name, config=config)
 
 
-# Singleton instance
+# Singleton instance cache
 _llm_service: LLMService | None = None
 
 
-def get_llm_service() -> LLMService:
-    """Get singleton LLM service instance."""
+def get_llm_service(
+    provider_name: str | None = None,
+    config: dict | None = None,
+    use_singleton: bool = True,
+) -> LLMService:
+    """
+    Get LLM service instance.
+
+    Args:
+        provider_name: Provider to use (defaults to settings)
+        config: Custom configuration
+        use_singleton: Whether to use/update singleton instance
+
+    Returns:
+        LLMService instance
+
+    Example:
+        # Default provider from settings
+        service = get_llm_service()
+
+        # Specific provider
+        service = get_llm_service("lmstudio")
+
+        # Custom configuration
+        service = get_llm_service("ollama", {"MODEL": "llama2:7b"})
+    """
     global _llm_service
-    if _llm_service is None:
-        _llm_service = LLMService()
-    return _llm_service
+
+    # Return new instance if custom config or specific provider requested
+    if config is not None or provider_name is not None:
+        service = LLMService(provider_name=provider_name, config=config)
+        if use_singleton and provider_name is None and config is None:
+            _llm_service = service
+        return service
+
+    # Return or create singleton
+    if use_singleton:
+        if _llm_service is None:
+            _llm_service = LLMService()
+        return _llm_service
+
+    return LLMService()
+
+
+def clear_llm_service_cache() -> None:
+    """Clear the singleton service cache."""
+    global _llm_service
+    _llm_service = None
+    LLMProviderFactory.clear_cache()

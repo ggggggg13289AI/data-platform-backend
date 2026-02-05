@@ -36,7 +36,7 @@ class RequestTimingMiddlewareBasicTests(TestCase):
     def test_middleware_processes_request(self):
         """Test that middleware successfully processes request."""
         # Arrange
-        request = self.factory.get('/api/v1/studies/search')
+        request = self.factory.get("/api/v1/studies/search")
 
         # Act
         response = self.middleware(request)
@@ -48,37 +48,40 @@ class RequestTimingMiddlewareBasicTests(TestCase):
     def test_middleware_measures_request_duration(self):
         """Test that middleware measures and logs request duration."""
         # Arrange
-        request = self.factory.get('/api/v1/studies/search')
+        request = self.factory.get("/api/v1/studies/search")
 
         # Act
-        with patch('studies.middleware.logger') as mock_logger:
+        with patch("studies.middleware.logger") as mock_logger:
             self.middleware(request)
 
         # Assert - Logger should be called with timing information
         mock_logger.info.assert_called_once()
         log_message = mock_logger.info.call_args[0][0]
-        self.assertIn('[', log_message)  # Contains timing in brackets
-        self.assertIn('ms]', log_message)  # Ends with milliseconds
+        self.assertIn("[", log_message)  # Contains timing in brackets
+        self.assertIn("ms]", log_message)  # Ends with milliseconds
 
     def test_middleware_calculates_response_time(self):
         """Test that middleware calculates response time accurately."""
         # Arrange
-        request = self.factory.get('/api/v1/studies/search')
+        request = self.factory.get("/api/v1/studies/search")
+
         # Simulate slow response
         def slow_response(req):
             time.sleep(0.1)  # 100ms delay
             return HttpResponse("Slow response")
+
         middleware = RequestTimingMiddleware(slow_response)
 
         # Act
-        with patch('studies.middleware.logger') as mock_logger:
+        with patch("studies.middleware.logger") as mock_logger:
             middleware(request)
 
         # Assert
         log_message = mock_logger.info.call_args[0][0]
         # Extract duration from log (format: [XXXms])
         import re
-        match = re.search(r'\[(\d+)ms\]', log_message)
+
+        match = re.search(r"\[(\d+)ms\]", log_message)
         self.assertIsNotNone(match)
         assert match is not None  # Type narrowing for mypy
         duration = int(match.group(1))
@@ -99,52 +102,52 @@ class RequestTimingMiddlewareLogFormatTests(TestCase):
     def test_log_format_includes_http_method(self):
         """Test that log includes HTTP method (GET, POST, etc.)."""
         # Arrange
-        request = self.factory.get('/api/v1/studies/search')
+        request = self.factory.get("/api/v1/studies/search")
 
         # Act
-        with patch('studies.middleware.logger') as mock_logger:
+        with patch("studies.middleware.logger") as mock_logger:
             self.middleware(request)
 
         # Assert
         log_message = mock_logger.info.call_args[0][0]
-        self.assertIn('GET', log_message)
+        self.assertIn("GET", log_message)
 
     def test_log_format_includes_full_path(self):
         """Test that log includes full request path with query string."""
         # Arrange
-        request = self.factory.get('/api/v1/studies/search?q=test&limit=10')
+        request = self.factory.get("/api/v1/studies/search?q=test&limit=10")
 
         # Act
-        with patch('studies.middleware.logger') as mock_logger:
+        with patch("studies.middleware.logger") as mock_logger:
             self.middleware(request)
 
         # Assert
         log_message = mock_logger.info.call_args[0][0]
-        self.assertIn('/api/v1/studies/search?q=test&limit=10', log_message)
+        self.assertIn("/api/v1/studies/search?q=test&limit=10", log_message)
 
     def test_log_format_includes_status_code(self):
         """Test that log includes HTTP status code."""
         # Arrange
-        request = self.factory.get('/api/v1/studies/search')
+        request = self.factory.get("/api/v1/studies/search")
         self.get_response.return_value = HttpResponse("OK", status=200)
 
         # Act
-        with patch('studies.middleware.logger') as mock_logger:
+        with patch("studies.middleware.logger") as mock_logger:
             self.middleware(request)
 
         # Assert
         log_message = mock_logger.info.call_args[0][0]
-        self.assertIn('200', log_message)
+        self.assertIn("200", log_message)
 
     def test_log_format_includes_content_length(self):
         """Test that log includes response content length."""
         # Arrange
-        request = self.factory.get('/api/v1/studies/search')
+        request = self.factory.get("/api/v1/studies/search")
         response_content = b"This is test content with known length"
         self.get_response.return_value = HttpResponse(response_content)
 
         # Act
-        with patch('studies.middleware.logger') as mock_logger:
+        with patch("studies.middleware.logger") as mock_logger:
             self.middleware(request)
 
         # Assert
@@ -166,7 +169,7 @@ class RequestTimingMiddlewarePerformanceTests(TestCase):
     def test_middleware_overhead_is_minimal(self):
         """Test that middleware adds <1ms overhead for fast responses."""
         # Arrange
-        request = self.factory.get('/api/v1/studies/search')
+        request = self.factory.get("/api/v1/studies/search")
 
         # Act - Measure total time including middleware
         start = time.time()

@@ -96,10 +96,10 @@ class StudyModelCreationTests(TestCase):
 
         # Assert
         self.assertEqual(study.exam_id, "EMPTY001")
-        self.assertEqual(study.exam_equipment, '')
-        self.assertEqual(study.exam_description, '')
-        self.assertEqual(study.exam_room, '')
-        self.assertEqual(study.application_order_no, '')
+        self.assertEqual(study.exam_equipment, "")
+        self.assertEqual(study.exam_description, "")
+        self.assertEqual(study.exam_room, "")
+        self.assertEqual(study.application_order_no, "")
 
 
 class StudyModelToDictTests(TestCase):
@@ -115,11 +115,11 @@ class StudyModelToDictTests(TestCase):
         result = study.to_dict()
 
         # Assert
-        self.assertEqual(result['exam_id'], "TODICT001")
-        self.assertEqual(result['patient_name'], "Test Patient")
-        self.assertEqual(result['exam_status'], "completed")
-        self.assertIn('order_datetime', result)
-        self.assertIn('check_in_datetime', result)
+        self.assertEqual(result["exam_id"], "TODICT001")
+        self.assertEqual(result["patient_name"], "Test Patient")
+        self.assertEqual(result["exam_status"], "completed")
+        self.assertIn("order_datetime", result)
+        self.assertIn("check_in_datetime", result)
 
     def test_to_dict_datetime_iso_format(self):
         """Test that datetime fields are converted to ISO 8601 format."""
@@ -131,13 +131,13 @@ class StudyModelToDictTests(TestCase):
         result = study.to_dict()
 
         # Assert - ISO format is YYYY-MM-DDTHH:MM:SS (no timezone)
-        self.assertIsInstance(result['order_datetime'], str)
-        self.assertRegex(result['order_datetime'], r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}')
-        self.assertNotIn('+', result['order_datetime'])  # No timezone offset
+        self.assertIsInstance(result["order_datetime"], str)
+        self.assertRegex(result["order_datetime"], r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}")
+        self.assertNotIn("+", result["order_datetime"])  # No timezone offset
 
-        if result['check_in_datetime']:
-            self.assertIsInstance(result['check_in_datetime'], str)
-            self.assertRegex(result['check_in_datetime'], r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}')
+        if result["check_in_datetime"]:
+            self.assertIsInstance(result["check_in_datetime"], str)
+            self.assertRegex(result["check_in_datetime"], r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}")
 
     def test_to_dict_null_datetime_handling(self):
         """Test that NULL datetime fields return None, not raise exception."""
@@ -149,9 +149,9 @@ class StudyModelToDictTests(TestCase):
         result = study.to_dict()
 
         # Assert
-        self.assertIsNone(result['check_in_datetime'])
-        self.assertIsNone(result['report_certification_datetime'])
-        self.assertIsNone(result['data_load_time'])
+        self.assertIsNone(result["check_in_datetime"])
+        self.assertIsNone(result["report_certification_datetime"])
+        self.assertIsNone(result["data_load_time"])
 
 
 class StudyModelValidationTests(TestCase):
@@ -188,9 +188,7 @@ class StudyModelValidationTests(TestCase):
     def test_valid_exam_status_choices(self):
         """Test that valid exam status choices are accepted."""
         # Arrange & Act
-        pending = Study.objects.create(
-            **MockDataGenerator.study_with_status("pending", "PEND001")
-        )
+        pending = Study.objects.create(**MockDataGenerator.study_with_status("pending", "PEND001"))
         completed = Study.objects.create(
             **MockDataGenerator.study_with_status("completed", "COMP001")
         )
@@ -214,9 +212,9 @@ class StudyModelQuerySetTests(TestCase):
         for i in range(5):
             Study.objects.create(
                 **StudyFactory.create_complete_study(
-                    exam_id=f"QS{str(i+1).zfill(3)}",
+                    exam_id=f"QS{str(i + 1).zfill(3)}",
                     exam_status=["pending", "completed", "cancelled", "pending", "completed"][i],
-                    order_datetime=datetime(2024, 11, i+1, 9, 0, 0)
+                    order_datetime=datetime(2024, 11, i + 1, 9, 0, 0),
                 )
             )
 
@@ -246,10 +244,7 @@ class StudyModelQuerySetTests(TestCase):
         """Test filtering by patient_name."""
         # Arrange
         Study.objects.create(
-            **StudyFactory.create_complete_study(
-                exam_id="NAMETEST001",
-                patient_name="John Doe"
-            )
+            **StudyFactory.create_complete_study(exam_id="NAMETEST001", patient_name="John Doe")
         )
 
         # Act
@@ -272,11 +267,9 @@ class StudyModelEdgeCaseTests(TestCase):
         for study_data in special_names:
             study = Study.objects.create(**study_data)
             self.assertIsNotNone(study.patient_name)
-            self.assertIn(study.patient_name, [
-                "O'Brien, Patrick",
-                "García, José",
-                "李明 (Li Ming)"
-            ])
+            self.assertIn(
+                study.patient_name, ["O'Brien, Patrick", "García, José", "李明 (Li Ming)"]
+            )
 
     def test_edge_case_dates(self):
         """Test handling of edge case datetime values."""
@@ -287,7 +280,7 @@ class StudyModelEdgeCaseTests(TestCase):
         study = Study.objects.create(**study_data)
 
         # Assert
-        self.assertEqual(study.patient_birth_date, '1900-01-01')
+        self.assertEqual(study.patient_birth_date, "1900-01-01")
         self.assertEqual(study.patient_age, 124)
         self.assertEqual(study.order_datetime.year, 2024)
         self.assertEqual(study.order_datetime.month, 1)
