@@ -23,16 +23,15 @@ import sys
 import django
 
 # Fix Unicode encoding for Windows
-if sys.platform == 'win32':
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+if sys.platform == "win32":
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
 
 # Setup Django
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 django.setup()
 
-from studies.services import StudyService  # noqa: E402
-
 from studies.models import Study  # noqa: E402
+from studies.services import StudyService  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +54,7 @@ def migrate_from_duckdb():
     print()
 
     # Get DuckDB path
-    duckdb_path = os.getenv('DUCKDB_PATH', '../backend/medical_imaging.duckdb')
+    duckdb_path = os.getenv("DUCKDB_PATH", "../backend/medical_imaging.duckdb")
 
     if not os.path.exists(duckdb_path):
         print(f"❌ ERROR: DuckDB file not found at {duckdb_path}")
@@ -68,6 +67,7 @@ def migrate_from_duckdb():
     # Connect to DuckDB
     try:
         import duckdb
+
         conn = duckdb.connect(duckdb_path, read_only=True)
         print("✓ Connected to DuckDB")
     except Exception as e:
@@ -77,7 +77,7 @@ def migrate_from_duckdb():
     # Count records in DuckDB
     try:
         duckdb_count_result = conn.execute(
-            'SELECT COUNT(*) as count FROM medical_examinations_fact'
+            "SELECT COUNT(*) as count FROM medical_examinations_fact"
         ).fetchall()
         duckdb_count = duckdb_count_result[0][0] if duckdb_count_result else 0
         print(f"✓ DuckDB contains {duckdb_count:,} examination records")
@@ -99,9 +99,9 @@ def migrate_from_duckdb():
     try:
         result = StudyService.import_studies_from_duckdb(conn)
 
-        imported = result.get('imported', 0)
-        failed = result.get('failed', 0)
-        errors = result.get('errors', [])
+        imported = result.get("imported", 0)
+        failed = result.get("failed", 0)
+        errors = result.get("errors", [])
 
         print("✓ Import complete:")
         print(f"  - Imported: {imported:,} records")
@@ -153,9 +153,10 @@ def migrate_from_duckdb():
     print("Checking for duplicates...")
     try:
         from django.db.models import Count
-        duplicates = Study.objects.values('exam_id').annotate(
-            count=Count('exam_id')
-        ).filter(count__gt=1)
+
+        duplicates = (
+            Study.objects.values("exam_id").annotate(count=Count("exam_id")).filter(count__gt=1)
+        )
 
         duplicate_count = duplicates.count()
 
@@ -187,6 +188,6 @@ def migrate_from_duckdb():
     return True
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     success = migrate_from_duckdb()
     sys.exit(0 if success else 1)

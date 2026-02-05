@@ -19,7 +19,7 @@ from study.api import router as studies_router
 
 # Create Ninja API
 api = NinjaAPI(
-    title="医疗影像管理系统 API",  # Medical Imaging Management System API
+    title="影像管理系统 API",  # Medical Imaging Management System API
     version=settings.APP_VERSION,
     description="REST API for medical imaging examination and report management",
 )
@@ -51,7 +51,7 @@ urlpatterns = [
         "",
         lambda request: JsonResponse(
             {
-                "app": "医疗影像管理系统",
+                "app": "影像管理系统",
                 "version": settings.APP_VERSION,
                 "docs": "/api/v1/docs",
             }

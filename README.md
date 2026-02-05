@@ -56,6 +56,10 @@ export UV_PROJECT_ENVIRONMENT=.venv-linux && uv run manage.py test tests.test_pa
 
 
 ```
+```bash
+docker exec -it ollama bash
+
+```
 
 ### API 文件 / API Documentation
 

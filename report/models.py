@@ -1261,6 +1261,7 @@ class AIAnnotation(models.Model):
     - 完整審計追蹤: 記錄誰在何時進行了什麼操作
     - 靈活的內容格式: 支援 JSON 字符串或純文本內容
     - 動態元資料: 使用 JSON 欄位儲存額外信息
+    - 版本控制: 關聯分類指南版本，支援廢棄標記
 
     與 Report 模型的關聯:
     - 多對一關係: 一個 Report 可有多個 AIAnnotation
@@ -1287,6 +1288,20 @@ class AIAnnotation(models.Model):
     created_by : ForeignKey
         註解的創建者 (用戶)，可為空
         若用戶被刪除，此欄位設為 NULL
+    guideline : ForeignKey
+        關聯的分類指南 (用於批次分析)
+    guideline_version : IntegerField
+        建立時的指南版本號
+    batch_task : ForeignKey
+        關聯的批次分析任務
+    confidence_score : FloatField
+        AI 分類的信心度分數 (0.0-1.0)
+    is_deprecated : BooleanField
+        是否已廢棄 (重新分析後舊結果會被標記為廢棄)
+    deprecated_at : DateTimeField
+        廢棄時間戳
+    deprecated_reason : CharField
+        廢棄原因說明
 
     支援的註解類型
     ---------------
@@ -1398,6 +1413,70 @@ class AIAnnotation(models.Model):
     )
     """建立者 (用戶)"""
 
+    # ============================================================================
+    # 分類指南關聯欄位 - 用於批次分析和版本控制
+    # ============================================================================
+
+    guideline = models.ForeignKey(
+        "ai.ClassificationGuideline",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="annotations",
+        help_text="關聯的分類指南，用於批次分析",
+    )
+    """分類指南外鍵"""
+
+    guideline_version = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="建立時的指南版本號，用於追蹤版本",
+    )
+    """指南版本號"""
+
+    batch_task = models.ForeignKey(
+        "ai.BatchAnalysisTask",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="annotations",
+        help_text="關聯的批次分析任務",
+    )
+    """批次分析任務外鍵"""
+
+    confidence_score = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="AI 分類的信心度分數 (0.0-1.0)",
+    )
+    """信心度分數"""
+
+    # ============================================================================
+    # 廢棄標記欄位 - 支援版本控制和結果追蹤
+    # ============================================================================
+
+    is_deprecated = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text="是否已廢棄，重新分析後舊結果會被標記為廢棄",
+    )
+    """是否已廢棄"""
+
+    deprecated_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="廢棄時間戳",
+    )
+    """廢棄時間"""
+
+    deprecated_reason = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        help_text="廢棄原因說明，如 'Re-analyzed with guideline v2'",
+    )
+    """廢棄原因"""
+
     class Meta:
         """Django 模型元選項 - AI 註解配置。"""
 
@@ -1417,6 +1496,18 @@ class AIAnnotation(models.Model):
             models.Index(
                 fields=["created_at"],
                 name="idx_annotation_created_at",
+            ),
+            models.Index(
+                fields=["guideline", "-created_at"],
+                name="idx_annotation_guideline",
+            ),
+            models.Index(
+                fields=["is_deprecated", "-created_at"],
+                name="idx_annotation_deprecated",
+            ),
+            models.Index(
+                fields=["batch_task"],
+                name="idx_annotation_batch_task",
             ),
         ]
 
@@ -1461,6 +1552,13 @@ class AIAnnotation(models.Model):
             - created_at (str): 建立時間 (ISO 格式)
             - updated_at (str): 更新時間 (ISO 格式 或 None)
             - created_by (str): 創建者全名 (或 None)
+            - guideline_id (str): 分類指南 ID (或 None)
+            - guideline_version (int): 指南版本號 (或 None)
+            - batch_task_id (str): 批次任務 ID (或 None)
+            - confidence_score (float): 信心度分數 (或 None)
+            - is_deprecated (bool): 是否已廢棄
+            - deprecated_at (str): 廢棄時間 (ISO 格式 或 None)
+            - deprecated_reason (str): 廢棄原因
 
         Examples
         --------
@@ -1484,4 +1582,13 @@ class AIAnnotation(models.Model):
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
             "created_by": self.created_by.get_full_name() if self.created_by else None,
+            # Guideline and batch task tracking
+            "guideline_id": str(self.guideline_id) if self.guideline_id else None,
+            "guideline_version": self.guideline_version,
+            "batch_task_id": str(self.batch_task_id) if self.batch_task_id else None,
+            "confidence_score": self.confidence_score,
+            # Deprecation tracking
+            "is_deprecated": self.is_deprecated,
+            "deprecated_at": self.deprecated_at.isoformat() if self.deprecated_at else None,
+            "deprecated_reason": self.deprecated_reason,
         }

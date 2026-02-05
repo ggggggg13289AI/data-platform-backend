@@ -48,6 +48,7 @@ from project.schemas import (
 from project.service import ProjectBatchLimitExceeded, ProjectService
 from project.services.resource_aggregator import ResourceAggregator
 from project.services.search_registry import ProjectSearchRegistry
+from project.services.search_utils import highlight_query_snippet
 from report.api import ReportDetailResponse
 from study.services import StudyService
 
@@ -1086,16 +1087,45 @@ def advanced_search_project_resources(
     report_ids = [report.report_id for report in paginated_reports if report.report_id]
     study_map = ReportService._batch_load_studies(report_ids) if report_ids else {}
 
+    # Extract search value from tree for snippet highlighting
+    def extract_search_value(node) -> str:
+        """Recursively extract the first text search value from the query tree."""
+        if node is None:
+            return ""
+        # Handle dict (from .dict()) or object with attributes
+        if isinstance(node, dict):
+            value = node.get("value")
+            conditions = node.get("conditions")
+        else:
+            value = getattr(node, "value", None)
+            conditions = getattr(node, "conditions", None)
+
+        if value and isinstance(value, str):
+            return value
+        if conditions:
+            for cond in conditions:
+                val = extract_search_value(cond)
+                if val:
+                    return val
+        return ""
+
+    search_value = extract_search_value(payload.tree) if payload.tree else ""
+
     # Convert to SearchResult format for consistent response
     items = []
     for report in paginated_reports:
         report_data = ReportService._serialize_report(report, study_map=study_map)
+        # Generate snippet from report content with search term highlighting
+        if search_value and report.content_raw:
+            snippet = highlight_query_snippet(report.content_raw, search_value)
+        else:
+            snippet = report.title or ""
         items.append(
             {
                 "resource_type": "report",
                 "accession_number": report.report_id or "",
                 "score": 1.0,
-                "snippet": report.title or "",
+                "snippet": snippet,
                 "resource_payload": report_data,
                 "resource_timestamp": report.verified_at.isoformat() if report.verified_at else "",
             }

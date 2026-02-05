@@ -22,9 +22,9 @@ class ReportServiceSortingTests(TestCase):
             title="Report 1",
             report_type="PDF",
             content_raw="Content 1",
-            verified_at=base_time - timedelta(days=2), # Oldest
+            verified_at=base_time - timedelta(days=2),  # Oldest
             is_latest=True,
-            version_number=1
+            version_number=1,
         )
 
         cls.r2 = Report.objects.create(
@@ -33,9 +33,9 @@ class ReportServiceSortingTests(TestCase):
             title="Report 2",
             report_type="PDF",
             content_raw="Content 2",
-            verified_at=base_time - timedelta(days=1), # Middle
+            verified_at=base_time - timedelta(days=1),  # Middle
             is_latest=True,
-            version_number=1
+            version_number=1,
         )
 
         cls.r3 = Report.objects.create(
@@ -44,9 +44,9 @@ class ReportServiceSortingTests(TestCase):
             title="Report 3",
             report_type="PDF",
             content_raw="Content 3",
-            verified_at=base_time, # Newest
+            verified_at=base_time,  # Newest
             is_latest=True,
-            version_number=1
+            version_number=1,
         )
 
     def test_sort_by_verified_at_desc_default(self):
@@ -84,4 +84,3 @@ class ReportServiceSortingTests(TestCase):
         self.assertEqual(reports[0].title, "Report 1")
         self.assertEqual(reports[1].title, "Report 2")
         self.assertEqual(reports[2].title, "Report 3")
-

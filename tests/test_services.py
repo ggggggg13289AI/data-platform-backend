@@ -144,9 +144,7 @@ class StudyServiceQuerySetFilterTests(TestCase):
     def test_filter_by_exam_room_multi_select(self):
         """Test multi-select filtering for exam_room."""
         # Act
-        queryset = StudyService.get_studies_queryset(
-            exam_room=["CT-ROOM-1", "MRI-ROOM-1"]
-        )
+        queryset = StudyService.get_studies_queryset(exam_room=["CT-ROOM-1", "MRI-ROOM-1"])
 
         # Assert
         self.assertGreater(queryset.count(), 0)
@@ -178,10 +176,7 @@ class StudyServiceQuerySetFilterTests(TestCase):
     def test_filter_by_age_range_both_min_and_max(self):
         """Test filtering by both minimum and maximum patient age."""
         # Act
-        queryset = StudyService.get_studies_queryset(
-            patient_age_min=30,
-            patient_age_max=50
-        )
+        queryset = StudyService.get_studies_queryset(patient_age_min=30, patient_age_max=50)
 
         # Assert
         for study in queryset:
@@ -195,10 +190,7 @@ class StudyServiceQuerySetFilterTests(TestCase):
         start_date, end_date = DateTimeHelper.date_range(days=7)
 
         # Act
-        queryset = StudyService.get_studies_queryset(
-            start_date=start_date,
-            end_date=end_date
-        )
+        queryset = StudyService.get_studies_queryset(start_date=start_date, end_date=end_date)
 
         # Assert - should return studies without error
         self.assertIsNotNone(queryset)
@@ -207,8 +199,7 @@ class StudyServiceQuerySetFilterTests(TestCase):
         """Test that invalid date formats are handled gracefully."""
         # Act - should not raise exception
         queryset = StudyService.get_studies_queryset(
-            start_date="invalid-date",
-            end_date="2024-13-45"
+            start_date="invalid-date", end_date="2024-13-45"
         )
 
         # Assert - should return all studies when date parsing fails
@@ -222,7 +213,7 @@ class StudyServiceQuerySetFilterTests(TestCase):
             exam_source="CT",
             patient_gender=["M"],
             patient_age_min=20,
-            patient_age_max=60
+            patient_age_max=60,
         )
 
         # Assert
@@ -245,9 +236,9 @@ class StudyServiceQuerySetSortingTests(TestCase):
         for i in range(5):
             Study.objects.create(
                 **StudyFactory.create_complete_study(
-                    exam_id=f"SORT{str(i+1).zfill(3)}",
-                    patient_name=f"Patient {chr(65+i)}",  # A, B, C, D, E
-                    order_datetime=datetime(2024, 11, i+1, 9, 0, 0)
+                    exam_id=f"SORT{str(i + 1).zfill(3)}",
+                    patient_name=f"Patient {chr(65 + i)}",  # A, B, C, D, E
+                    order_datetime=datetime(2024, 11, i + 1, 9, 0, 0),
                 )
             )
 
@@ -297,9 +288,9 @@ class StudyServiceGetDetailTests(TestCase):
 
         # Assert
         self.assertIsNotNone(result)
-        self.assertEqual(result['exam_id'], "DETAIL001")
-        self.assertEqual(result['patient_name'], "Test Patient")
-        self.assertIn('order_datetime', result)
+        self.assertEqual(result["exam_id"], "DETAIL001")
+        self.assertEqual(result["patient_name"], "Test Patient")
+        self.assertIn("order_datetime", result)
 
     def test_get_study_detail_datetime_iso_format(self):
         """Test that datetime fields in detail are ISO formatted."""
@@ -307,8 +298,8 @@ class StudyServiceGetDetailTests(TestCase):
         result = StudyService.get_study_detail("DETAIL001")
 
         # Assert
-        self.assertIsInstance(result['order_datetime'], str)
-        self.assertRegex(result['order_datetime'], r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}')
+        self.assertIsInstance(result["order_datetime"], str)
+        self.assertRegex(result["order_datetime"], r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}")
 
     def test_get_study_detail_not_found_raises_exception(self):
         """Test that non-existent exam_id raises StudyNotFoundError."""
@@ -318,7 +309,7 @@ class StudyServiceGetDetailTests(TestCase):
 
         self.assertIn("NONEXISTENT", str(context.exception))
 
-    @patch('studies.models.Study.objects.get')
+    @patch("studies.models.Study.objects.get")
     def test_get_study_detail_database_error(self, mock_get):
         """Test that database errors raise DatabaseQueryError."""
         # Arrange
@@ -350,10 +341,10 @@ class StudyServiceFilterOptionsTests(TestCase):
 
         # Assert
         self.assertIsNotNone(result)
-        self.assertIn('exam_statuses', result)
-        self.assertIn('exam_sources', result)
-        self.assertIn('exam_items', result)
-        self.assertIn('equipment_types', result)
+        self.assertIn("exam_statuses", result)
+        self.assertIn("exam_sources", result)
+        self.assertIn("exam_items", result)
+        self.assertIn("equipment_types", result)
 
     def test_get_filter_options_cache_hit_skips_database(self):
         """Test that cache hit returns cached data without database query."""
@@ -361,7 +352,7 @@ class StudyServiceFilterOptionsTests(TestCase):
         first_result = StudyService.get_filter_options()
 
         # Act - Second call should hit cache
-        with patch('studies.services.StudyService._get_filter_options_from_db') as mock_db:
+        with patch("studies.services.StudyService._get_filter_options_from_db") as mock_db:
             second_result = StudyService.get_filter_options()
 
         # Assert - Database should not be called
@@ -375,12 +366,12 @@ class StudyServiceFilterOptionsTests(TestCase):
 
         # Assert
         # Should be sorted lists
-        self.assertEqual(result['exam_statuses'], sorted(result['exam_statuses']))
-        self.assertEqual(result['exam_sources'], sorted(result['exam_sources']))
+        self.assertEqual(result["exam_statuses"], sorted(result["exam_statuses"]))
+        self.assertEqual(result["exam_sources"], sorted(result["exam_sources"]))
 
         # Should have no duplicates
-        self.assertEqual(len(result['exam_statuses']), len(set(result['exam_statuses'])))
-        self.assertEqual(len(result['exam_sources']), len(set(result['exam_sources'])))
+        self.assertEqual(len(result["exam_statuses"]), len(set(result["exam_statuses"])))
+        self.assertEqual(len(result["exam_sources"]), len(set(result["exam_sources"])))
 
     def test_get_filter_options_exam_description_limit_enforced(self):
         """Test that EXAM_DESCRIPTION_LIMIT is enforced for exam_items."""
@@ -389,13 +380,10 @@ class StudyServiceFilterOptionsTests(TestCase):
 
         # Assert
         # exam_items should respect EXAM_DESCRIPTION_LIMIT from config
-        self.assertLessEqual(
-            len(result['exam_items']),
-            ServiceConfig.EXAM_DESCRIPTION_LIMIT
-        )
+        self.assertLessEqual(len(result["exam_items"]), ServiceConfig.EXAM_DESCRIPTION_LIMIT)
 
-    @patch('django.core.cache.cache.get')
-    @patch('django.core.cache.cache.set')
+    @patch("django.core.cache.cache.get")
+    @patch("django.core.cache.cache.set")
     def test_get_filter_options_cache_failure_graceful_degradation(self, mock_set, mock_get):
         """Test that cache failures are handled gracefully (graceful degradation)."""
         # Arrange - Simulate cache failure
@@ -407,9 +395,9 @@ class StudyServiceFilterOptionsTests(TestCase):
 
         # Assert - Should still return valid data from database
         self.assertIsNotNone(result)
-        self.assertIn('exam_statuses', result)
+        self.assertIn("exam_statuses", result)
 
-    @patch('studies.services.StudyService._get_filter_options_from_db')
+    @patch("studies.services.StudyService._get_filter_options_from_db")
     def test_get_filter_options_database_error_raises_exception(self, mock_db):
         """Test that database errors raise DatabaseQueryError."""
         # Arrange
@@ -432,7 +420,7 @@ class StudyServiceFilterOptionsTests(TestCase):
         """Test that cache TTL matches ServiceConfig.FILTER_OPTIONS_CACHE_TTL."""
         # This test verifies the TTL value is used correctly
         # Act
-        with patch('django.core.cache.cache.set') as mock_set:
+        with patch("django.core.cache.cache.set") as mock_set:
             StudyService.get_filter_options()
 
         # Assert
