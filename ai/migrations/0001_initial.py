@@ -60,7 +60,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('project', '__first__'),
-        ('report', '0010_create_aiannotation_with_new_fields'),  # Depends on AIAnnotation table
+        ('report', '0009_rename_report_ai_a_report__b98221_idx_idx_report_annotation_type_and_more'),  # Creates AIAnnotation table
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
