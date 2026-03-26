@@ -4,9 +4,14 @@ from typing import Any
 from django.db.models import Q
 
 from common.models import StudyProjectAssignment
-from project.schemas import ProjectResourceAssignment, ProjectResourceItem, UserInfo
+from project.schemas import (
+    AIAnnotationSummary,
+    ProjectResourceAssignment,
+    ProjectResourceItem,
+    UserInfo,
+)
 from project.services.accession_resolver import AccessionKeyResolver
-from report.models import Report
+from report.models import AIAnnotation, Report
 from report.schemas import ReportResponse
 from study.models import Study
 from study.schemas import StudyListItem
@@ -164,6 +169,23 @@ class ResourceAggregator:
                     continue
                 reports[report_accession] = report
 
+        # Batch-fetch latest non-deprecated AI annotations for all reports
+        annotations_map: dict[str, AIAnnotation] = {}
+        if reports:
+            report_ids = [r.uid for r in reports.values()]
+            ann_qs = (
+                AIAnnotation.objects.filter(
+                    report_id__in=report_ids,
+                    is_deprecated=False,
+                    annotation_type="Classification",
+                )
+                .select_related("guideline")
+                .order_by("report_id", "-created_at")
+            )
+            for ann in ann_qs:
+                if ann.report_id not in annotations_map:
+                    annotations_map[ann.report_id] = ann
+
         results: list[ProjectResourceItem] = []
         for assign in assignments:
             accession = AccessionKeyResolver.resolve_accession(assign.study_id, "study")
@@ -191,6 +213,22 @@ class ResourceAggregator:
                     )
                 report_item = cls._build_report_item(report_model)
 
+            # Build annotation summary if available
+            annotation_summary: AIAnnotationSummary | None = None
+            if report_model and report_model.uid in annotations_map:
+                ann = annotations_map[report_model.uid]
+                annotation_summary = AIAnnotationSummary(
+                    id=str(ann.id),
+                    classification=ann.content,
+                    confidence_score=ann.confidence_score,
+                    guideline_name=ann.guideline.name if ann.guideline else None,
+                    guideline_version=ann.guideline_version,
+                    structured_answers=(
+                        ann.metadata.get("structured_answers") if ann.metadata else None
+                    ),
+                    created_at=ann.created_at,
+                )
+
             primary_type = "study" if study_item else "report" if report_item else "ai_annotation"
 
             timestamp = cls._derive_timestamp(assign.study, report_model, assign.assigned_at)
@@ -201,6 +239,7 @@ class ResourceAggregator:
                     resource_timestamp=timestamp,
                     study=study_item,
                     report=report_item,
+                    annotation=annotation_summary,
                     assignment=assignment_info,
                 )
             )

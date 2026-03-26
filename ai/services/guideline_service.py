@@ -69,6 +69,7 @@ class GuidelineService:
         user: Any,
         description: str = "",
         model_config: dict | None = None,
+        questions: list[dict] | None = None,
     ) -> ClassificationGuideline:
         """
         Create a new classification guideline.
@@ -99,6 +100,7 @@ class GuidelineService:
             description=description,
             prompt_template=prompt_template,
             categories=categories,
+            questions=questions or [],
             model_config=model_config or {},
             created_by=user,
             status=ClassificationGuideline.STATUS_DRAFT,
@@ -174,6 +176,7 @@ class GuidelineService:
         description: str | None = None,
         prompt_template: str | None = None,
         categories: list[str] | None = None,
+        questions: list[dict] | None = None,
         model_config: dict | None = None,
     ) -> ClassificationGuideline:
         """
@@ -213,6 +216,8 @@ class GuidelineService:
             if len(categories) < 2:
                 raise GuidelineServiceError("At least 2 categories are required")
             guideline.categories = categories
+        if questions is not None:
+            guideline.questions = questions
         if model_config is not None:
             guideline.model_config = model_config
 

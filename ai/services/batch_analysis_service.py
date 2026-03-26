@@ -121,26 +121,35 @@ class BatchAnalysisService:
         """
         Start a batch analysis task asynchronously.
 
+        Falls back to synchronous execution if funboost is not available.
+
         Args:
             task_id: UUID of the BatchAnalysisTask
 
         Returns:
-            str: The funboost task tracking ID
+            str: The funboost task tracking ID or 'sync'
         """
-        from ai.tasks import start_batch_analysis
-
         task = cls.get_task(task_id)
         if task.status != BatchAnalysisTask.STATUS_PENDING:
             raise BatchAnalysisError(f"Task {task_id} is not pending. Status: {task.status}")
 
-        # Start async processing
-        funboost_task_id = start_batch_analysis(str(task_id))
+        try:
+            from ai.tasks import start_batch_analysis
 
-        # Update task with funboost ID
-        task.funboost_task_id = funboost_task_id
-        task.save(update_fields=["funboost_task_id"])
+            funboost_task_id = start_batch_analysis(str(task_id))
+            task.funboost_task_id = funboost_task_id
+            task.save(update_fields=["funboost_task_id"])
+            return funboost_task_id
+        except (ImportError, OSError, Exception) as e:
+            logger.warning(f"Funboost unavailable ({e}), executing synchronously")
+            import threading
 
-        return funboost_task_id
+            thread = threading.Thread(
+                target=cls.execute_batch_analysis, args=(str(task_id),)
+            )
+            thread.daemon = True
+            thread.start()
+            return "sync"
 
     @classmethod
     def get_task(cls, task_id: str) -> BatchAnalysisTask:
@@ -313,9 +322,10 @@ class BatchAnalysisService:
             finally:
                 loop.close()
 
-            # Parse response
-            classification, confidence = cls._parse_llm_response(
-                response.content, guideline.categories
+            # Parse response (multi-question or single-classification)
+            questions = getattr(guideline, "questions", None) or []
+            classification, confidence, structured_answers = cls._parse_llm_response(
+                response.content, guideline.categories, questions=questions or None
             )
 
             # Create annotation
@@ -326,21 +336,34 @@ class BatchAnalysisService:
                 classification=classification,
                 confidence=confidence,
                 raw_response=response.content,
+                structured_answers=structured_answers,
             )
 
-            return {
+            result: dict[str, Any] = {
                 "report_uid": report_uid,
                 "classification": classification,
                 "confidence": confidence,
                 "annotation_id": str(annotation.id),
             }
+            if structured_answers:
+                result["structured_answers"] = structured_answers
+            return result
 
         except (LLMConnectionError, LLMTimeoutError) as e:
             raise BatchAnalysisError(f"LLM error for report {report_uid}: {e}") from e
 
     @classmethod
     def _build_system_prompt(cls, guideline: ClassificationGuideline) -> str:
-        """Build the system prompt for classification."""
+        """Build the system prompt for classification.
+
+        Supports two modes:
+        - Single-classification: when guideline.questions is empty
+        - Multi-question: when guideline.questions is defined
+        """
+        questions = getattr(guideline, "questions", None) or []
+        if questions:
+            return cls._build_multi_question_prompt(guideline, questions)
+
         categories_str = ", ".join(guideline.categories)
         return (
             "你是專業的醫學影像報告分類助手。請根據報告內容進行分類。\n\n"
@@ -351,26 +374,80 @@ class BatchAnalysisService:
         )
 
     @classmethod
-    def _parse_llm_response(cls, response: str, categories: list[str]) -> tuple[str, float]:
+    def _build_multi_question_prompt(
+        cls, guideline: ClassificationGuideline, questions: list[dict[str, Any]]
+    ) -> str:
+        """Build a multi-question system prompt."""
+        lines = ["你是專業的醫學影像報告分類助手。請根據報告內容回答以下問題。\n"]
+        for q in questions:
+            opts = ", ".join(q["options"])
+            lines.append(f"- {q['key']}: {q['label']} (選項: {opts})")
+            dep = q.get("depends_on")
+            if dep:
+                lines.append(
+                    f"  (僅在 {dep['question_key']} = {dep['expected_value']} 時回答，否則回答 N/A)"
+                )
+        lines.append("\n請以下列 JSON 格式回應:")
+        # Build example answers
+        example_keys = ", ".join(f'"{q["key"]}": "<答案>"' for q in questions)
+        lines.append(
+            '{"answers": {' + example_keys + "}, "
+            '"confidence": <0.0-1.0的數值>, "reasoning": "<簡短理由>"}'
+        )
+        lines.append("\n只輸出 JSON，不要輸出其他文字。")
+        return "\n".join(lines)
+
+    @classmethod
+    def _parse_llm_response(
+        cls,
+        response: str,
+        categories: list[str],
+        questions: list[dict[str, Any]] | None = None,
+    ) -> tuple[str, float, dict[str, str] | None]:
         """
         Parse the LLM response to extract classification and confidence.
+
+        Supports two modes:
+        - Single-classification: returns (classification, confidence, None)
+        - Multi-question: returns (primary_answer, confidence, structured_answers)
 
         Args:
             response: Raw LLM response
             categories: Valid categories
+            questions: Optional multi-question config
 
         Returns:
-            tuple: (classification, confidence)
+            tuple: (classification, confidence, structured_answers_or_None)
         """
         try:
-            # Try to parse as JSON
             data = json.loads(response.strip())
+
+            # Multi-question mode
+            if questions and "answers" in data:
+                answers = data["answers"]
+                confidence = float(data.get("confidence", 0.5))
+                # Validate each answer against its question options
+                validated: dict[str, str] = {}
+                for q in questions:
+                    key = q["key"]
+                    answer = answers.get(key, "N/A")
+                    options = [o.lower() for o in q["options"]]
+                    if str(answer).lower() in options:
+                        # Preserve original casing from options
+                        for opt in q["options"]:
+                            if opt.lower() == str(answer).lower():
+                                answer = opt
+                                break
+                    validated[key] = str(answer)
+                # Primary classification from first question
+                primary = validated.get(questions[0]["key"], "unknown")
+                return primary, min(max(confidence, 0.0), 1.0), validated
+
+            # Single-classification mode
             classification = data.get("classification", "unknown")
             confidence = float(data.get("confidence", 0.5))
 
-            # Validate classification
             if classification not in categories:
-                # Try to match case-insensitively
                 for cat in categories:
                     if cat.lower() == classification.lower():
                         classification = cat
@@ -379,15 +456,14 @@ class BatchAnalysisService:
                     classification = "unknown"
                     confidence = 0.0
 
-            return classification, min(max(confidence, 0.0), 1.0)
+            return classification, min(max(confidence, 0.0), 1.0), None
 
         except (json.JSONDecodeError, ValueError, TypeError):
-            # Fallback: try to find category in response
             response_lower = response.lower()
             for cat in categories:
                 if cat.lower() in response_lower:
-                    return cat, 0.5
-            return "unknown", 0.0
+                    return cat, 0.5, None
+            return "unknown", 0.0, None
 
     @classmethod
     def _create_annotation(
@@ -398,16 +474,20 @@ class BatchAnalysisService:
         classification: str,
         confidence: float,
         raw_response: str,
+        structured_answers: dict[str, str] | None = None,
     ) -> AIAnnotation:
         """Create an AI annotation record."""
+        metadata: dict[str, Any] = {
+            "raw_response": raw_response,
+            "reasoning": cls._extract_reasoning(raw_response),
+        }
+        if structured_answers:
+            metadata["structured_answers"] = structured_answers
         return AIAnnotation.objects.create(
             report=report,
             annotation_type=cls.ANNOTATION_TYPE,
             content=classification,
-            metadata={
-                "raw_response": raw_response,
-                "reasoning": cls._extract_reasoning(raw_response),
-            },
+            metadata=metadata,
             guideline=guideline,
             guideline_version=guideline.version,
             batch_task_id=batch_task_id,
