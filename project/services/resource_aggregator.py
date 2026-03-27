@@ -1,13 +1,16 @@
+import logging
 from datetime import datetime
 from typing import Any
 
 from django.db.models import Q
 
+from ai.models import ReviewSample
 from common.models import StudyProjectAssignment
 from project.schemas import (
     AIAnnotationSummary,
     ProjectResourceAssignment,
     ProjectResourceItem,
+    ReviewSampleSummary,
     UserInfo,
 )
 from project.services.accession_resolver import AccessionKeyResolver
@@ -15,6 +18,8 @@ from report.models import AIAnnotation, Report
 from report.schemas import ReportResponse
 from study.models import Study
 from study.schemas import StudyListItem
+
+logger = logging.getLogger(__name__)
 
 
 class ResourceAggregator:
@@ -112,6 +117,8 @@ class ResourceAggregator:
         page: int,
         page_size: int,
         q: str = None,
+        review_status: str = None,
+        review_task_id: str = None,
     ) -> dict[str, Any]:
         """Fetch paginated resources for a project."""
 
@@ -134,6 +141,25 @@ class ResourceAggregator:
             filtered_qs = base_qs.filter(study_id__in=search_accessions)
         else:
             filtered_qs = base_qs
+
+        # Filter by review status (server-side)
+        if review_status:
+            status_map = {
+                "pending": [ReviewSample.STATUS_PENDING, ReviewSample.STATUS_NEEDS_SECOND_REVIEW],
+                "reviewed": [ReviewSample.STATUS_COMPLETED],
+            }
+            target_statuses = status_map.get(review_status, [])
+            if target_statuses:
+                rs_filter = ReviewSample.objects.filter(
+                    status__in=target_statuses,
+                    review_task__batch_task__project_id=project_id,
+                )
+                if review_task_id:
+                    rs_filter = rs_filter.filter(review_task_id=review_task_id)
+                matching_accessions = set(
+                    rs_filter.values_list("ai_annotation__report__report_id", flat=True).distinct()
+                )
+                filtered_qs = filtered_qs.filter(study_id__in=matching_accessions)
 
         assignments_qs = filtered_qs.select_related("project", "study", "assigned_by").order_by(
             "-assigned_at"
@@ -173,6 +199,9 @@ class ResourceAggregator:
         annotations_map: dict[str, AIAnnotation] = {}
         if reports:
             report_ids = [r.uid for r in reports.values()]
+            logger.info(
+                f"Annotation enrichment: {len(report_ids)} reports, UIDs sample: {report_ids[:3]}"
+            )
             ann_qs = (
                 AIAnnotation.objects.filter(
                     report_id__in=report_ids,
@@ -182,9 +211,27 @@ class ResourceAggregator:
                 .select_related("guideline")
                 .order_by("report_id", "-created_at")
             )
+            ann_count = ann_qs.count()
+            logger.info(f"Annotation query returned {ann_count} results")
             for ann in ann_qs:
                 if ann.report_id not in annotations_map:
                     annotations_map[ann.report_id] = ann
+            logger.info(f"Annotations mapped: {len(annotations_map)} entries")
+
+        # Batch-fetch ReviewSamples for annotations in this project
+        review_samples_map: dict[str, ReviewSample] = {}  # key = annotation.id (str)
+        if annotations_map:
+            ann_ids = [str(ann.id) for ann in annotations_map.values()]
+            rs_qs = ReviewSample.objects.filter(
+                ai_annotation_id__in=ann_ids,
+                review_task__batch_task__project_id=project_id,
+            ).select_related("review_task")
+            if review_task_id:
+                rs_qs = rs_qs.filter(review_task_id=review_task_id)
+            for rs in rs_qs:
+                key = str(rs.ai_annotation_id)
+                if key not in review_samples_map:
+                    review_samples_map[key] = rs
 
         results: list[ProjectResourceItem] = []
         for assign in assignments:
@@ -229,6 +276,19 @@ class ResourceAggregator:
                     created_at=ann.created_at,
                 )
 
+            # Build review sample summary if available
+            review_sample_summary: ReviewSampleSummary | None = None
+            if annotation_summary and report_model and report_model.uid in annotations_map:
+                ann_id_str = str(annotations_map[report_model.uid].id)
+                if ann_id_str in review_samples_map:
+                    rs = review_samples_map[ann_id_str]
+                    review_sample_summary = ReviewSampleSummary(
+                        id=str(rs.id),
+                        status=rs.status,
+                        review_task_id=str(rs.review_task_id),
+                        is_correct=rs.final_is_correct,
+                    )
+
             primary_type = "study" if study_item else "report" if report_item else "ai_annotation"
 
             timestamp = cls._derive_timestamp(assign.study, report_model, assign.assigned_at)
@@ -240,15 +300,63 @@ class ResourceAggregator:
                     study=study_item,
                     report=report_item,
                     annotation=annotation_summary,
+                    review_sample=review_sample_summary,
                     assignment=assignment_info,
                 )
             )
 
         results.sort(key=lambda item: item.resource_timestamp or datetime.min, reverse=True)
 
+        # Compute review counts for this project
+        review_counts: dict[str, int] = {"pending": 0, "reviewed": 0}
+        if project_exam_ids:
+            base_rs = ReviewSample.objects.filter(
+                review_task__batch_task__project_id=project_id,
+                ai_annotation__report__report_id__in=project_exam_ids,
+            )
+            review_counts["pending"] = (
+                base_rs.filter(
+                    status__in=[
+                        ReviewSample.STATUS_PENDING,
+                        ReviewSample.STATUS_NEEDS_SECOND_REVIEW,
+                    ]
+                )
+                .values("ai_annotation__report__report_id")
+                .distinct()
+                .count()
+            )
+            review_counts["reviewed"] = (
+                base_rs.filter(status=ReviewSample.STATUS_COMPLETED)
+                .values("ai_annotation__report__report_id")
+                .distinct()
+                .count()
+            )
+
+        # Count total annotations for ALL project reports (not just current page)
+        annotation_count = 0
+        if project_exam_ids:
+            all_report_uids = list(
+                Report.objects.filter(
+                    report_id__in=project_exam_ids, is_latest=True
+                ).values_list("uid", flat=True)
+            )
+            if all_report_uids:
+                annotation_count = (
+                    AIAnnotation.objects.filter(
+                        report_id__in=all_report_uids,
+                        is_deprecated=False,
+                        annotation_type="Classification",
+                    )
+                    .values("report_id")
+                    .distinct()
+                    .count()
+                )
+
         return {
             "items": results,
             "count": total_assignments,
             "page": safe_page,
             "page_size": safe_page_size,
+            "annotation_count": annotation_count,
+            "review_counts": review_counts,
         }
