@@ -316,6 +316,7 @@ class BatchAnalysisService:
                 response = loop.run_until_complete(
                     llm.chat(
                         messages=messages,
+                        model=model_config.get("model"),
                         temperature=model_config.get("temperature", 0.3),
                     )
                 )
