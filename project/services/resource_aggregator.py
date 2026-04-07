@@ -119,6 +119,10 @@ class ResourceAggregator:
         q: str = None,
         review_status: str = None,
         review_task_id: str = None,
+        classification: str = None,
+        confidence_min: float = None,
+        confidence_max: float = None,
+        answers_filter: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         """Fetch paginated resources for a project."""
 
@@ -305,6 +309,37 @@ class ResourceAggregator:
                 )
             )
 
+        # Post-filter by AI annotation fields (page-scoped)
+        ai_filter_active = bool(
+            classification
+            or confidence_min is not None
+            or confidence_max is not None
+            or answers_filter
+        )
+        if ai_filter_active:
+            filtered: list[ProjectResourceItem] = []
+            for item in results:
+                ann = item.annotation
+                if not ann:
+                    continue
+                if classification and ann.classification != classification:
+                    continue
+                score = ann.confidence_score or 0
+                if confidence_min is not None and score < confidence_min:
+                    continue
+                if confidence_max is not None and score > confidence_max:
+                    continue
+                if answers_filter:
+                    sa = ann.structured_answers or {}
+                    if not all(
+                        str(sa.get(k, "")).lower() == str(v).lower()
+                        for k, v in answers_filter.items()
+                    ):
+                        continue
+                filtered.append(item)
+            results = filtered
+            total_assignments = len(filtered)
+
         results.sort(key=lambda item: item.resource_timestamp or datetime.min, reverse=True)
 
         # Compute review counts for this project
@@ -336,9 +371,9 @@ class ResourceAggregator:
         annotation_count = 0
         if project_exam_ids:
             all_report_uids = list(
-                Report.objects.filter(
-                    report_id__in=project_exam_ids, is_latest=True
-                ).values_list("uid", flat=True)
+                Report.objects.filter(report_id__in=project_exam_ids, is_latest=True).values_list(
+                    "uid", flat=True
+                )
             )
             if all_report_uids:
                 annotation_count = (
