@@ -357,6 +357,36 @@ class GuidelineService:
         return guideline
 
     @classmethod
+    def restore_guideline(cls, guideline_id: str, user: Any) -> ClassificationGuideline:
+        """
+        Restore an archived (soft-deleted) guideline back to draft.
+
+        Used by the frontend soft-delete UX: archiving a guideline hides it
+        from the default list view ("刪除"), and restore brings it back as
+        an editable draft.
+
+        Args:
+            guideline_id: UUID of the guideline
+            user: User performing the action
+
+        Returns:
+            ClassificationGuideline: Restored guideline (now draft)
+
+        Raises:
+            GuidelineStatusError: If the guideline is not archived
+        """
+        guideline = cls.get_guideline(guideline_id)
+
+        if guideline.status != ClassificationGuideline.STATUS_ARCHIVED:
+            raise GuidelineStatusError("Only archived guidelines can be restored")
+
+        guideline.status = ClassificationGuideline.STATUS_DRAFT
+        guideline.save(update_fields=["status", "updated_at"])
+
+        logger.info(f"Guideline {guideline_id} restored to draft")
+        return guideline
+
+    @classmethod
     def render_prompt(
         cls,
         guideline: ClassificationGuideline,

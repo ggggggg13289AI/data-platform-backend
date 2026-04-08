@@ -627,9 +627,24 @@ def approve_guideline(request, guideline_id: str):
     response={200: GuidelineDetailResponse, 400: dict, 404: dict},
 )
 def archive_guideline(request, guideline_id: str):
-    """封存分類指南"""
+    """封存分類指南（前端語意: 軟刪除）"""
     try:
         guideline = GuidelineService.archive_guideline(guideline_id, request.user)
+        return 200, _guideline_to_response(guideline)
+    except GuidelineNotFoundError:
+        return 404, {"error": "Guideline not found"}
+    except GuidelineStatusError as e:
+        return 400, {"error": str(e)}
+
+
+@router.post(
+    "/guidelines/{guideline_id}/restore",
+    response={200: GuidelineDetailResponse, 400: dict, 404: dict},
+)
+def restore_guideline(request, guideline_id: str):
+    """還原已封存（軟刪除）的分類指南為草稿"""
+    try:
+        guideline = GuidelineService.restore_guideline(guideline_id, request.user)
         return 200, _guideline_to_response(guideline)
     except GuidelineNotFoundError:
         return 404, {"error": "Guideline not found"}
