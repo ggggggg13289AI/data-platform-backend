@@ -921,14 +921,39 @@ def list_project_resources(
     page: int = 1,
     page_size: int = 20,
     q: str = None,
+    review_status: str = None,
+    review_task_id: str = None,
+    classification: str = None,
+    confidence_min: float = None,
+    confidence_max: float = None,
+    answers: str = None,
     project=None,
 ):
     """
     Unified project resources list (Studies + Reports).
     Aggregates resources based on StudyProjectAssignment (Accession Number).
+
+    Optional review_status filter:
+      - "pending": resources with ReviewSample status pending/needs_second_review
+      - "reviewed": resources with ReviewSample status completed
+
+    Optional AI annotation filters:
+      - classification: exact match on AI classification (e.g. "yes" / "no")
+      - confidence_min / confidence_max: range filter on confidence_score (0~1)
+      - answers: JSON dict of structured_answers to match,
+        e.g. '{"Q1": "yes", "Q4": "left"}' (dynamic Q1~Qn keys)
     """
     if project is None:
         raise Http404("專案不存在")
+
+    answers_filter: dict[str, str] | None = None
+    if answers:
+        try:
+            parsed = json.loads(answers)
+            if isinstance(parsed, dict):
+                answers_filter = {str(k): str(v) for k, v in parsed.items() if v not in (None, "")}
+        except json.JSONDecodeError:
+            answers_filter = None
 
     try:
         return ResourceAggregator.get_project_resources(
@@ -937,6 +962,12 @@ def list_project_resources(
             page=page,
             page_size=page_size,
             q=q,
+            review_status=review_status,
+            review_task_id=review_task_id,
+            classification=classification,
+            confidence_min=confidence_min,
+            confidence_max=confidence_max,
+            answers_filter=answers_filter,
         )
     except ValueError as exc:
         raise HttpError(400, str(exc)) from exc

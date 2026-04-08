@@ -208,6 +208,15 @@ class ClassificationGuideline(models.Model):
         verbose_name="分類類別",
         help_text='分類標籤列表，例如: ["positive", "negative", "uncertain"]',
     )
+    questions = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name="結構化問題",
+        help_text=(
+            "多問題配置列表，例如: "
+            '[{"key":"Q1","label":"是否提及AD?","options":["yes","no"],"depends_on":null}]'
+        ),
+    )
 
     # Version control
     version = models.IntegerField(

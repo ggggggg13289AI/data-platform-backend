@@ -54,6 +54,7 @@ from ai.schemas import (
     ProviderModelsResponse,
     QuickChatRequest,
     QuickChatResponse,
+    QuickFeedbackRequest,
     ResolveFeedbackRequest,
     ReviewerAssignmentResponse,
     ReviewFeedbackResponse,
@@ -493,6 +494,7 @@ def list_guidelines(
                 status=g.status,
                 status_display=g.get_status_display(),
                 categories=g.categories,
+                questions=getattr(g, "questions", []) or [],
                 created_at=g.created_at,
                 updated_at=g.updated_at,
                 created_by=UserInfo(
@@ -516,6 +518,7 @@ def create_guideline(request, data: CreateGuidelineRequest):
             user=request.user,
             description=data.description,
             model_config=data.llm_config,
+            questions=data.questions,
         )
         return 200, _guideline_to_response(guideline)
     except GuidelineServiceError as e:
@@ -546,6 +549,7 @@ def update_guideline(request, guideline_id: str, data: UpdateGuidelineRequest):
             description=data.description,
             prompt_template=data.prompt_template,
             categories=data.categories,
+            questions=data.questions,
             model_config=data.llm_config,
         )
         return 200, _guideline_to_response(guideline)
@@ -708,6 +712,7 @@ def _guideline_to_response(g: ClassificationGuideline) -> GuidelineDetailRespons
         description=g.description,
         prompt_template=g.prompt_template,
         categories=g.categories,
+        questions=getattr(g, "questions", []) or [],
         version=g.version,
         parent_version_id=str(g.parent_version_id) if g.parent_version_id else None,
         is_current=g.is_current,
@@ -806,6 +811,10 @@ def get_batch_analysis_results(
                 report_uid=ann.report.uid,
                 classification=ann.content,
                 confidence_score=ann.confidence_score,
+                structured_answers=(
+                    ann.metadata.get("structured_answers") if ann.metadata else None
+                ),
+                reasoning=(ann.metadata.get("reasoning") if ann.metadata else None),
                 created_at=ann.created_at,
             )
             for ann in page_annotations
@@ -1242,6 +1251,28 @@ def delete_annotation(request, annotation_id: str):
     annotation.save(update_fields=["is_deprecated", "deprecated_at", "deprecated_reason"])
 
     return {"message": "Annotation marked as deprecated"}
+
+
+@router.post("/annotations/{annotation_id}/quick-feedback")
+def submit_quick_feedback(request, annotation_id: str, data: QuickFeedbackRequest):
+    """醫師快速回饋（正確/錯誤）"""
+    annotation = get_object_or_404(AIAnnotation, id=annotation_id)
+
+    feedback = {
+        "is_correct": data.is_correct,
+        "confidence_level": data.confidence_level,
+        "notes": data.notes,
+        "submitted_by": request.user.get_full_name() or request.user.username,
+    }
+    if not data.is_correct and data.correct_category:
+        feedback["correct_category"] = data.correct_category
+
+    metadata = annotation.metadata or {}
+    metadata["physician_feedback"] = feedback
+    annotation.metadata = metadata
+    annotation.save(update_fields=["metadata", "updated_at"])
+
+    return {"message": "Feedback submitted", "annotation_id": str(annotation.id)}
 
 
 # ============================================================================
