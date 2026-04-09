@@ -110,6 +110,37 @@ class ResourceAggregator:
         return timestamp
 
     @classmethod
+    def _apply_ai_filters(
+        cls,
+        items: list[ProjectResourceItem],
+        classification: str | None = None,
+        confidence_min: float | None = None,
+        confidence_max: float | None = None,
+        answers_filter: dict[str, str] | None = None,
+    ) -> list[ProjectResourceItem]:
+        """Filter resource items by AI annotation fields (case-insensitive)."""
+        filtered: list[ProjectResourceItem] = []
+        for item in items:
+            ann = item.annotation
+            if not ann:
+                continue
+            if classification and ann.classification != classification:
+                continue
+            score = ann.confidence_score or 0
+            if confidence_min is not None and score < confidence_min:
+                continue
+            if confidence_max is not None and score > confidence_max:
+                continue
+            if answers_filter:
+                sa = ann.structured_answers or {}
+                if not all(
+                    str(sa.get(k, "")).lower() == str(v).lower() for k, v in answers_filter.items()
+                ):
+                    continue
+            filtered.append(item)
+        return filtered
+
+    @classmethod
     def get_project_resources(
         cls,
         project_id: str,
@@ -310,35 +341,20 @@ class ResourceAggregator:
             )
 
         # Post-filter by AI annotation fields (page-scoped)
-        ai_filter_active = bool(
+        if (
             classification
             or confidence_min is not None
             or confidence_max is not None
             or answers_filter
-        )
-        if ai_filter_active:
-            filtered: list[ProjectResourceItem] = []
-            for item in results:
-                ann = item.annotation
-                if not ann:
-                    continue
-                if classification and ann.classification != classification:
-                    continue
-                score = ann.confidence_score or 0
-                if confidence_min is not None and score < confidence_min:
-                    continue
-                if confidence_max is not None and score > confidence_max:
-                    continue
-                if answers_filter:
-                    sa = ann.structured_answers or {}
-                    if not all(
-                        str(sa.get(k, "")).lower() == str(v).lower()
-                        for k, v in answers_filter.items()
-                    ):
-                        continue
-                filtered.append(item)
-            results = filtered
-            total_assignments = len(filtered)
+        ):
+            results = cls._apply_ai_filters(
+                results,
+                classification=classification,
+                confidence_min=confidence_min,
+                confidence_max=confidence_max,
+                answers_filter=answers_filter,
+            )
+            total_assignments = len(results)
 
         results.sort(key=lambda item: item.resource_timestamp or datetime.min, reverse=True)
 
