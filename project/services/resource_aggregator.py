@@ -93,6 +93,8 @@ class ResourceAggregator:
             "verified_at": report.verified_at.isoformat() if report.verified_at else None,
             "content_preview": preview,
             "content_raw": report.content_raw,
+            "imaging_findings": report.imaging_findings,
+            "impression": report.impression,
         }
         return ReportResponse(**report_data)
 

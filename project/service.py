@@ -33,7 +33,7 @@ class ProjectService:
     """專案服務類別"""
 
     DEFAULT_SORT = "-updated_at"
-    MAX_BATCH_SIZE = 500
+    MAX_BATCH_SIZE = 9999
 
     ALLOWED_SORT_FIELDS = {
         "name",

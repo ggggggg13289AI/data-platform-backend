@@ -45,7 +45,7 @@ class BatchAnalysisService:
     integrating with funboost for async processing.
     """
 
-    MAX_BATCH_SIZE = 500
+    MAX_BATCH_SIZE = 9999
     ANNOTATION_TYPE = "Classification"
 
     @classmethod
