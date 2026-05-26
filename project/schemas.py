@@ -204,6 +204,27 @@ class ProjectResourceAssignment(Schema):
     assigned_by: UserInfo
 
 
+class AIAnnotationSummary(Schema):
+    """AI 分類結果摘要（嵌入在專案資源中）"""
+
+    id: str
+    classification: str
+    confidence_score: float | None = None
+    guideline_name: str | None = None
+    guideline_version: int | None = None
+    structured_answers: dict | None = None
+    created_at: datetime
+
+
+class ReviewSampleSummary(Schema):
+    """Review sample 狀態摘要（嵌入在專案資源中）"""
+
+    id: str
+    status: str
+    review_task_id: str
+    is_correct: bool | None = None
+
+
 class ProjectResourceItem(Schema):
     """
     Unified resource item (Study or Report) keyed by Accession Number.
@@ -215,6 +236,8 @@ class ProjectResourceItem(Schema):
 
     study: BaseStudyListItem | None = None
     report: ReportResponse | None = None
+    annotation: AIAnnotationSummary | None = None
+    review_sample: ReviewSampleSummary | None = None
 
     assignment: ProjectResourceAssignment | None = None
 

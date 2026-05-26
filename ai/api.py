@@ -54,6 +54,7 @@ from ai.schemas import (
     ProviderModelsResponse,
     QuickChatRequest,
     QuickChatResponse,
+    QuickFeedbackRequest,
     ResolveFeedbackRequest,
     ReviewerAssignmentResponse,
     ReviewFeedbackResponse,
@@ -493,6 +494,7 @@ def list_guidelines(
                 status=g.status,
                 status_display=g.get_status_display(),
                 categories=g.categories,
+                questions=getattr(g, "questions", []) or [],
                 created_at=g.created_at,
                 updated_at=g.updated_at,
                 created_by=UserInfo(
@@ -505,7 +507,7 @@ def list_guidelines(
     return guidelines
 
 
-@router.post("/guidelines", response=GuidelineDetailResponse)
+@router.post("/guidelines", response={200: GuidelineDetailResponse, 400: dict})
 def create_guideline(request, data: CreateGuidelineRequest):
     """建立分類指南"""
     try:
@@ -516,23 +518,27 @@ def create_guideline(request, data: CreateGuidelineRequest):
             user=request.user,
             description=data.description,
             model_config=data.llm_config,
+            questions=data.questions,
         )
-        return _guideline_to_response(guideline)
+        return 200, _guideline_to_response(guideline)
     except GuidelineServiceError as e:
-        return router.create_response(request, {"error": str(e)}, status=400)
+        return 400, {"error": str(e)}
 
 
-@router.get("/guidelines/{guideline_id}", response=GuidelineDetailResponse)
+@router.get("/guidelines/{guideline_id}", response={200: GuidelineDetailResponse, 404: dict})
 def get_guideline(request, guideline_id: str):
     """獲取分類指南詳情"""
     try:
         guideline = GuidelineService.get_guideline(guideline_id)
-        return _guideline_to_response(guideline)
+        return 200, _guideline_to_response(guideline)
     except GuidelineNotFoundError:
-        return router.create_response(request, {"error": "Guideline not found"}, status=404)
+        return 404, {"error": "Guideline not found"}
 
 
-@router.put("/guidelines/{guideline_id}", response=GuidelineDetailResponse)
+@router.put(
+    "/guidelines/{guideline_id}",
+    response={200: GuidelineDetailResponse, 400: dict, 404: dict},
+)
 def update_guideline(request, guideline_id: str, data: UpdateGuidelineRequest):
     """更新分類指南（僅草稿狀態）"""
     try:
@@ -543,18 +549,22 @@ def update_guideline(request, guideline_id: str, data: UpdateGuidelineRequest):
             description=data.description,
             prompt_template=data.prompt_template,
             categories=data.categories,
+            questions=data.questions,
             model_config=data.llm_config,
         )
-        return _guideline_to_response(guideline)
+        return 200, _guideline_to_response(guideline)
     except GuidelineNotFoundError:
-        return router.create_response(request, {"error": "Guideline not found"}, status=404)
+        return 404, {"error": "Guideline not found"}
     except GuidelineStatusError as e:
-        return router.create_response(request, {"error": str(e)}, status=400)
+        return 400, {"error": str(e)}
     except GuidelineServiceError as e:
-        return router.create_response(request, {"error": str(e)}, status=400)
+        return 400, {"error": str(e)}
 
 
-@router.post("/guidelines/{guideline_id}/test", response=TestGuidelineResponse)
+@router.post(
+    "/guidelines/{guideline_id}/test",
+    response={200: TestGuidelineResponse, 404: dict},
+)
 def test_guideline(request, guideline_id: str, data: TestGuidelineRequest):
     """測試分類指南（使用樣本報告）"""
     try:
@@ -577,57 +587,84 @@ def test_guideline(request, guideline_id: str, data: TestGuidelineRequest):
                     }
                 )
 
-        return TestGuidelineResponse(
+        return 200, TestGuidelineResponse(
             guideline_id=str(guideline.id),
             test_count=len(results),
             results=results,
         )
     except GuidelineNotFoundError:
-        return router.create_response(request, {"error": "Guideline not found"}, status=404)
+        return 404, {"error": "Guideline not found"}
 
 
-@router.post("/guidelines/{guideline_id}/testing", response=GuidelineDetailResponse)
+@router.post(
+    "/guidelines/{guideline_id}/testing",
+    response={200: GuidelineDetailResponse, 400: dict, 404: dict},
+)
 def set_guideline_testing(request, guideline_id: str):
     """將指南設為測試中狀態"""
     try:
         guideline = GuidelineService.set_status_testing(guideline_id, request.user)
-        return _guideline_to_response(guideline)
+        return 200, _guideline_to_response(guideline)
     except GuidelineNotFoundError:
-        return router.create_response(request, {"error": "Guideline not found"}, status=404)
+        return 404, {"error": "Guideline not found"}
     except GuidelineStatusError as e:
-        return router.create_response(request, {"error": str(e)}, status=400)
+        return 400, {"error": str(e)}
 
 
-@router.post("/guidelines/{guideline_id}/approve", response=GuidelineDetailResponse)
+@router.post(
+    "/guidelines/{guideline_id}/approve",
+    response={200: GuidelineDetailResponse, 400: dict, 404: dict},
+)
 def approve_guideline(request, guideline_id: str):
     """核准分類指南"""
     try:
         guideline = GuidelineService.approve_guideline(guideline_id, request.user)
-        return _guideline_to_response(guideline)
+        return 200, _guideline_to_response(guideline)
     except GuidelineNotFoundError:
-        return router.create_response(request, {"error": "Guideline not found"}, status=404)
+        return 404, {"error": "Guideline not found"}
     except GuidelineStatusError as e:
-        return router.create_response(request, {"error": str(e)}, status=400)
+        return 400, {"error": str(e)}
 
 
-@router.post("/guidelines/{guideline_id}/archive", response=GuidelineDetailResponse)
+@router.post(
+    "/guidelines/{guideline_id}/archive",
+    response={200: GuidelineDetailResponse, 400: dict, 404: dict},
+)
 def archive_guideline(request, guideline_id: str):
-    """封存分類指南"""
+    """封存分類指南（前端語意: 軟刪除）"""
     try:
         guideline = GuidelineService.archive_guideline(guideline_id, request.user)
-        return _guideline_to_response(guideline)
+        return 200, _guideline_to_response(guideline)
     except GuidelineNotFoundError:
-        return router.create_response(request, {"error": "Guideline not found"}, status=404)
+        return 404, {"error": "Guideline not found"}
     except GuidelineStatusError as e:
-        return router.create_response(request, {"error": str(e)}, status=400)
+        return 400, {"error": str(e)}
 
 
-@router.get("/guidelines/{guideline_id}/versions", response=list[GuidelineVersionItem])
+@router.post(
+    "/guidelines/{guideline_id}/restore",
+    response={200: GuidelineDetailResponse, 400: dict, 404: dict},
+)
+def restore_guideline(request, guideline_id: str):
+    """還原已封存（軟刪除）的分類指南為草稿"""
+    try:
+        guideline = GuidelineService.restore_guideline(guideline_id, request.user)
+        return 200, _guideline_to_response(guideline)
+    except GuidelineNotFoundError:
+        return 404, {"error": "Guideline not found"}
+    except GuidelineStatusError as e:
+        return 400, {"error": str(e)}
+
+
+@router.get(
+    "/guidelines/{guideline_id}/versions",
+    response={200: list[GuidelineVersionItem], 404: dict},
+)
 def get_guideline_versions(request, guideline_id: str):
     """獲取指南版本歷史"""
     try:
         versions = GuidelineService.get_version_history(guideline_id)
-        return [
+        return 200, [
             GuidelineVersionItem(
                 id=str(v.id),
                 version=v.version,
@@ -643,10 +680,13 @@ def get_guideline_versions(request, guideline_id: str):
             for v in versions
         ]
     except GuidelineNotFoundError:
-        return router.create_response(request, {"error": "Guideline not found"}, status=404)
+        return 404, {"error": "Guideline not found"}
 
 
-@router.post("/guidelines/{guideline_id}/versions", response=GuidelineDetailResponse)
+@router.post(
+    "/guidelines/{guideline_id}/versions",
+    response={200: GuidelineDetailResponse, 400: dict, 404: dict},
+)
 def create_guideline_version(request, guideline_id: str, data: CreateGuidelineVersionRequest):
     """建立新版本"""
     try:
@@ -657,11 +697,11 @@ def create_guideline_version(request, guideline_id: str, data: CreateGuidelineVe
             categories=data.categories,
             model_config=data.llm_config,
         )
-        return _guideline_to_response(guideline)
+        return 200, _guideline_to_response(guideline)
     except GuidelineNotFoundError:
-        return router.create_response(request, {"error": "Guideline not found"}, status=404)
+        return 404, {"error": "Guideline not found"}
     except GuidelineStatusError as e:
-        return router.create_response(request, {"error": str(e)}, status=400)
+        return 400, {"error": str(e)}
 
 
 def _guideline_to_response(g: ClassificationGuideline) -> GuidelineDetailResponse:
@@ -672,6 +712,7 @@ def _guideline_to_response(g: ClassificationGuideline) -> GuidelineDetailRespons
         description=g.description,
         prompt_template=g.prompt_template,
         categories=g.categories,
+        questions=getattr(g, "questions", []) or [],
         version=g.version,
         parent_version_id=str(g.parent_version_id) if g.parent_version_id else None,
         is_current=g.is_current,
@@ -703,7 +744,7 @@ def _guideline_to_response(g: ClassificationGuideline) -> GuidelineDetailRespons
 # ============================================================================
 
 
-@router.post("/batch-analysis", response=BatchAnalysisTaskResponse)
+@router.post("/batch-analysis", response={200: BatchAnalysisTaskResponse, 400: dict})
 def create_batch_analysis_task(request, data: CreateBatchAnalysisRequest):
     """建立批次分析任務"""
     try:
@@ -717,22 +758,28 @@ def create_batch_analysis_task(request, data: CreateBatchAnalysisRequest):
         # Start async processing
         BatchAnalysisService.start_task(str(task.id))
 
-        return _batch_task_to_response(task)
+        return 200, _batch_task_to_response(task)
     except BatchAnalysisError as e:
-        return router.create_response(request, {"error": str(e)}, status=400)
+        return 400, {"error": str(e)}
 
 
-@router.get("/batch-analysis/{task_id}", response=BatchAnalysisTaskResponse)
+@router.get(
+    "/batch-analysis/{task_id}",
+    response={200: BatchAnalysisTaskResponse, 404: dict},
+)
 def get_batch_analysis_task(request, task_id: str):
     """獲取批次分析任務狀態"""
     try:
         task = BatchAnalysisService.get_task(task_id)
-        return _batch_task_to_response(task)
+        return 200, _batch_task_to_response(task)
     except BatchAnalysisTaskNotFoundError:
-        return router.create_response(request, {"error": "Task not found"}, status=404)
+        return 404, {"error": "Task not found"}
 
 
-@router.get("/batch-analysis/{task_id}/results", response=list[BatchAnalysisResultItem])
+@router.get(
+    "/batch-analysis/{task_id}/results",
+    response={200: list[BatchAnalysisResultItem], 404: dict},
+)
 def get_batch_analysis_results(
     request,
     task_id: str,
@@ -758,30 +805,37 @@ def get_batch_analysis_results(
         end = start + page_size
         page_annotations = annotations[start:end]
 
-        return [
+        return 200, [
             BatchAnalysisResultItem(
                 annotation_id=str(ann.id),
                 report_uid=ann.report.uid,
                 classification=ann.content,
                 confidence_score=ann.confidence_score,
+                structured_answers=(
+                    ann.metadata.get("structured_answers") if ann.metadata else None
+                ),
+                reasoning=(ann.metadata.get("reasoning") if ann.metadata else None),
                 created_at=ann.created_at,
             )
             for ann in page_annotations
         ]
     except BatchAnalysisTaskNotFoundError:
-        return router.create_response(request, {"error": "Task not found"}, status=404)
+        return 404, {"error": "Task not found"}
 
 
-@router.post("/batch-analysis/{task_id}/cancel", response=BatchAnalysisTaskResponse)
+@router.post(
+    "/batch-analysis/{task_id}/cancel",
+    response={200: BatchAnalysisTaskResponse, 400: dict, 404: dict},
+)
 def cancel_batch_analysis_task(request, task_id: str):
     """取消批次分析任務"""
     try:
         task = BatchAnalysisService.cancel_task(task_id)
-        return _batch_task_to_response(task)
+        return 200, _batch_task_to_response(task)
     except BatchAnalysisTaskNotFoundError:
-        return router.create_response(request, {"error": "Task not found"}, status=404)
+        return 404, {"error": "Task not found"}
     except BatchAnalysisError as e:
-        return router.create_response(request, {"error": str(e)}, status=400)
+        return 400, {"error": str(e)}
 
 
 def _batch_task_to_response(task: BatchAnalysisTask) -> BatchAnalysisTaskResponse:
@@ -817,7 +871,7 @@ def _batch_task_to_response(task: BatchAnalysisTask) -> BatchAnalysisTaskRespons
 # ============================================================================
 
 
-@router.post("/reviews", response=ReviewTaskResponse)
+@router.post("/reviews", response={200: ReviewTaskResponse, 400: dict})
 def create_review_task(request, data: CreateReviewTaskRequest):
     """建立審核任務"""
     try:
@@ -837,22 +891,25 @@ def create_review_task(request, data: CreateReviewTaskRequest):
 
         start_sample_generation(str(task.id))
 
-        return _review_task_to_response(task)
+        return 200, _review_task_to_response(task)
     except ReviewServiceError as e:
-        return router.create_response(request, {"error": str(e)}, status=400)
+        return 400, {"error": str(e)}
 
 
-@router.get("/reviews/{task_id}", response=ReviewTaskResponse)
+@router.get("/reviews/{task_id}", response={200: ReviewTaskResponse, 404: dict})
 def get_review_task(request, task_id: str):
     """獲取審核任務詳情"""
     try:
         task = ReviewService.get_review_task(task_id)
-        return _review_task_to_response(task)
+        return 200, _review_task_to_response(task)
     except ReviewTaskNotFoundError:
-        return router.create_response(request, {"error": "Task not found"}, status=404)
+        return 404, {"error": "Task not found"}
 
 
-@router.post("/reviews/{task_id}/assign", response=list[ReviewerAssignmentResponse])
+@router.post(
+    "/reviews/{task_id}/assign",
+    response={200: list[ReviewerAssignmentResponse], 400: dict, 404: dict},
+)
 def assign_reviewers(request, task_id: str, data: AssignReviewersRequest):
     """分配審核者"""
     try:
@@ -861,7 +918,7 @@ def assign_reviewers(request, task_id: str, data: AssignReviewersRequest):
             reviewer_ids=data.reviewer_ids,
             arbitrator_id=data.arbitrator_id,
         )
-        return [
+        return 200, [
             ReviewerAssignmentResponse(
                 id=str(a.id),
                 reviewer=UserInfo(
@@ -880,12 +937,15 @@ def assign_reviewers(request, task_id: str, data: AssignReviewersRequest):
             for a in assignments
         ]
     except ReviewTaskNotFoundError:
-        return router.create_response(request, {"error": "Task not found"}, status=404)
+        return 404, {"error": "Task not found"}
     except ReviewServiceError as e:
-        return router.create_response(request, {"error": str(e)}, status=400)
+        return 400, {"error": str(e)}
 
 
-@router.get("/reviews/{task_id}/samples", response=list[ReviewSampleResponse])
+@router.get(
+    "/reviews/{task_id}/samples",
+    response={200: list[ReviewSampleResponse], 400: dict, 404: dict},
+)
 def get_review_samples(
     request,
     task_id: str,
@@ -898,7 +958,7 @@ def get_review_samples(
             reviewer_id=str(request.user.id),
             status=status,
         )
-        return [
+        return 200, [
             ReviewSampleResponse(
                 id=str(s.id),
                 review_task_id=str(s.review_task_id),
@@ -916,14 +976,14 @@ def get_review_samples(
             for s in samples[:100]  # Limit to 100
         ]
     except ReviewTaskNotFoundError:
-        return router.create_response(request, {"error": "Task not found"}, status=404)
+        return 404, {"error": "Task not found"}
     except ReviewServiceError as e:
-        return router.create_response(request, {"error": str(e)}, status=400)
+        return 400, {"error": str(e)}
 
 
 @router.post(
     "/reviews/{task_id}/samples/{sample_id}/feedback",
-    response=ReviewFeedbackResponse,
+    response={200: ReviewFeedbackResponse, 400: dict, 404: dict},
 )
 def submit_feedback(
     request,
@@ -942,7 +1002,7 @@ def submit_feedback(
             confidence_level=data.confidence_level,
             notes=data.notes,
         )
-        return ReviewFeedbackResponse(
+        return 200, ReviewFeedbackResponse(
             id=str(feedback.id),
             review_sample_id=str(feedback.review_sample_id),
             reviewer=UserInfo(
@@ -958,18 +1018,21 @@ def submit_feedback(
             submitted_at=feedback.submitted_at,
         )
     except ReviewTaskNotFoundError:
-        return router.create_response(request, {"error": "Task not found"}, status=404)
+        return 404, {"error": "Task not found"}
     except ReviewServiceError as e:
-        return router.create_response(request, {"error": str(e)}, status=400)
+        return 400, {"error": str(e)}
 
 
-@router.get("/reviews/{task_id}/statistics", response=ReviewMetricsResponse)
+@router.get(
+    "/reviews/{task_id}/statistics",
+    response={200: ReviewMetricsResponse, 404: dict},
+)
 def get_review_statistics(request, task_id: str):
     """獲取審核統計指標"""
     try:
         metrics = ReviewService.calculate_metrics(task_id)
         task = ReviewService.get_review_task(task_id)
-        return ReviewMetricsResponse(
+        return 200, ReviewMetricsResponse(
             task_id=str(task_id),
             total_samples=metrics["total_samples"],
             completed_samples=metrics["completed_samples"],
@@ -981,15 +1044,18 @@ def get_review_statistics(request, task_id: str):
             completion_rate=metrics["completion_rate"],
         )
     except ReviewTaskNotFoundError:
-        return router.create_response(request, {"error": "Task not found"}, status=404)
+        return 404, {"error": "Task not found"}
 
 
-@router.get("/reviews/{task_id}/conflicts", response=list[ReviewSampleResponse])
+@router.get(
+    "/reviews/{task_id}/conflicts",
+    response={200: list[ReviewSampleResponse], 404: dict},
+)
 def get_review_conflicts(request, task_id: str):
     """獲取待仲裁的衝突樣本"""
     try:
         conflicts = ReviewService.get_conflicts(task_id)
-        return [
+        return 200, [
             ReviewSampleResponse(
                 id=str(s.id),
                 review_task_id=str(s.review_task_id),
@@ -1007,12 +1073,12 @@ def get_review_conflicts(request, task_id: str):
             for s in conflicts
         ]
     except ReviewTaskNotFoundError:
-        return router.create_response(request, {"error": "Task not found"}, status=404)
+        return 404, {"error": "Task not found"}
 
 
 @router.post(
     "/reviews/{task_id}/samples/{sample_id}/resolve",
-    response=ReviewSampleResponse,
+    response={200: ReviewSampleResponse, 400: dict, 404: dict},
 )
 def resolve_conflict(
     request,
@@ -1030,7 +1096,7 @@ def resolve_conflict(
             correct_category=data.correct_category,
             notes=data.notes,
         )
-        return ReviewSampleResponse(
+        return 200, ReviewSampleResponse(
             id=str(sample.id),
             review_task_id=str(sample.review_task_id),
             ai_annotation_id=str(sample.ai_annotation_id),
@@ -1045,9 +1111,9 @@ def resolve_conflict(
             final_correct_category=sample.final_correct_category,
         )
     except ReviewTaskNotFoundError:
-        return router.create_response(request, {"error": "Task not found"}, status=404)
+        return 404, {"error": "Task not found"}
     except ReviewServiceError as e:
-        return router.create_response(request, {"error": str(e)}, status=400)
+        return 400, {"error": str(e)}
 
 
 def _review_task_to_response(task: ReviewTask) -> ReviewTaskResponse:
@@ -1187,6 +1253,28 @@ def delete_annotation(request, annotation_id: str):
     return {"message": "Annotation marked as deprecated"}
 
 
+@router.post("/annotations/{annotation_id}/quick-feedback")
+def submit_quick_feedback(request, annotation_id: str, data: QuickFeedbackRequest):
+    """醫師快速回饋（正確/錯誤）"""
+    annotation = get_object_or_404(AIAnnotation, id=annotation_id)
+
+    feedback = {
+        "is_correct": data.is_correct,
+        "confidence_level": data.confidence_level,
+        "notes": data.notes,
+        "submitted_by": request.user.get_full_name() or request.user.username,
+    }
+    if not data.is_correct and data.correct_category:
+        feedback["correct_category"] = data.correct_category
+
+    metadata = annotation.metadata or {}
+    metadata["physician_feedback"] = feedback
+    annotation.metadata = metadata
+    annotation.save(update_fields=["metadata", "updated_at"])
+
+    return {"message": "Feedback submitted", "annotation_id": str(annotation.id)}
+
+
 # ============================================================================
 # LLM Provider Management Endpoints
 # ============================================================================
@@ -1243,21 +1331,21 @@ def list_providers(request):
     )
 
 
-@router.get("/providers/{provider_name}", response=ProviderInfo, auth=None)
+@router.get(
+    "/providers/{provider_name}",
+    response={200: ProviderInfo, 404: dict},
+    auth=None,
+)
 def get_provider(request, provider_name: str):
     """獲取特定提供者資訊"""
     if not LLMProviderFactory.is_registered(provider_name):
-        return router.create_response(
-            request,
-            {"error": f"Provider '{provider_name}' not found"},
-            status=404,
-        )
+        return 404, {"error": f"Provider '{provider_name}' not found"}
 
     default_provider = settings.AI_CONFIG.get("PROVIDER", "ollama")
 
     try:
         provider = LLMProviderFactory.create(provider_name, use_cache=False)
-        return ProviderInfo(
+        return 200, ProviderInfo(
             name=provider_name,
             display_name=provider_name.replace("_", " ").title(),
             description=PROVIDER_DESCRIPTIONS.get(provider_name, f"{provider_name} LLM provider"),
@@ -1268,7 +1356,7 @@ def get_provider(request, provider_name: str):
         )
     except Exception as e:
         logger.warning(f"Failed to get provider {provider_name}: {e}")
-        return ProviderInfo(
+        return 200, ProviderInfo(
             name=provider_name,
             display_name=provider_name.replace("_", " ").title(),
             description=PROVIDER_DESCRIPTIONS.get(provider_name, f"{provider_name} LLM provider"),
@@ -1279,15 +1367,15 @@ def get_provider(request, provider_name: str):
         )
 
 
-@router.get("/providers/{provider_name}/models", response=ProviderModelsResponse, auth=None)
+@router.get(
+    "/providers/{provider_name}/models",
+    response={200: ProviderModelsResponse, 404: dict, 500: dict, 503: dict},
+    auth=None,
+)
 def list_provider_models(request, provider_name: str):
     """列出提供者的可用模型"""
     if not LLMProviderFactory.is_registered(provider_name):
-        return router.create_response(
-            request,
-            {"error": f"Provider '{provider_name}' not found"},
-            status=404,
-        )
+        return 404, {"error": f"Provider '{provider_name}' not found"}
 
     try:
         provider = LLMProviderFactory.create(provider_name)
@@ -1299,7 +1387,7 @@ def list_provider_models(request, provider_name: str):
         finally:
             loop.close()
 
-        return ProviderModelsResponse(
+        return 200, ProviderModelsResponse(
             provider=provider_name,
             models=[
                 ModelInfoResponse(
@@ -1318,29 +1406,21 @@ def list_provider_models(request, provider_name: str):
         )
 
     except LLMConnectionError as e:
-        return router.create_response(
-            request,
-            {"error": f"Cannot connect to provider: {e}"},
-            status=503,
-        )
+        return 503, {"error": f"Cannot connect to provider: {e}"}
     except Exception as e:
         logger.error(f"Failed to list models for {provider_name}: {e}")
-        return router.create_response(
-            request,
-            {"error": f"Failed to list models: {e}"},
-            status=500,
-        )
+        return 500, {"error": f"Failed to list models: {e}"}
 
 
-@router.get("/providers/{provider_name}/health", response=ProviderHealthResponse, auth=None)
+@router.get(
+    "/providers/{provider_name}/health",
+    response={200: ProviderHealthResponse, 404: dict},
+    auth=None,
+)
 def provider_health_check(request, provider_name: str):
     """提供者健康檢查"""
     if not LLMProviderFactory.is_registered(provider_name):
-        return router.create_response(
-            request,
-            {"error": f"Provider '{provider_name}' not found"},
-            status=404,
-        )
+        return 404, {"error": f"Provider '{provider_name}' not found"}
 
     try:
         provider = LLMProviderFactory.create(provider_name)
@@ -1352,11 +1432,11 @@ def provider_health_check(request, provider_name: str):
         finally:
             loop.close()
 
-        return ProviderHealthResponse(**health)
+        return 200, ProviderHealthResponse(**health)
 
     except Exception as e:
         logger.error(f"Health check failed for {provider_name}: {e}")
-        return ProviderHealthResponse(
+        return 200, ProviderHealthResponse(
             provider=provider_name,
             status="unhealthy",
             base_url="",
@@ -1364,15 +1444,15 @@ def provider_health_check(request, provider_name: str):
         )
 
 
-@router.post("/providers/{provider_name}/test", response=TestProviderResponse, auth=None)
+@router.post(
+    "/providers/{provider_name}/test",
+    response={200: TestProviderResponse, 404: dict},
+    auth=None,
+)
 def test_provider(request, provider_name: str, data: TestProviderRequest):
     """測試提供者連接"""
     if not LLMProviderFactory.is_registered(provider_name):
-        return router.create_response(
-            request,
-            {"error": f"Provider '{provider_name}' not found"},
-            status=404,
-        )
+        return 404, {"error": f"Provider '{provider_name}' not found"}
 
     # Build custom config if provided
     config = dict(settings.AI_CONFIG)
@@ -1402,7 +1482,7 @@ def test_provider(request, provider_name: str, data: TestProviderRequest):
 
         latency_ms = int((time.time() - start_time) * 1000)
 
-        return TestProviderResponse(
+        return 200, TestProviderResponse(
             success=True,
             provider=provider_name,
             message="Provider connection successful",
@@ -1412,14 +1492,14 @@ def test_provider(request, provider_name: str, data: TestProviderRequest):
         )
 
     except LLMConnectionError as e:
-        return TestProviderResponse(
+        return 200, TestProviderResponse(
             success=False,
             provider=provider_name,
             message=f"Connection failed: {e}",
         )
 
     except LLMTimeoutError as e:
-        return TestProviderResponse(
+        return 200, TestProviderResponse(
             success=False,
             provider=provider_name,
             message=f"Request timeout: {e}",
@@ -1427,7 +1507,7 @@ def test_provider(request, provider_name: str, data: TestProviderRequest):
 
     except Exception as e:
         logger.error(f"Provider test failed for {provider_name}: {e}")
-        return TestProviderResponse(
+        return 200, TestProviderResponse(
             success=False,
             provider=provider_name,
             message=f"Test failed: {e}",
