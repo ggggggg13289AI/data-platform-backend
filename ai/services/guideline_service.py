@@ -69,6 +69,7 @@ class GuidelineService:
         user: Any,
         description: str = "",
         model_config: dict | None = None,
+        questions: list[dict] | None = None,
     ) -> ClassificationGuideline:
         """
         Create a new classification guideline.
@@ -99,6 +100,7 @@ class GuidelineService:
             description=description,
             prompt_template=prompt_template,
             categories=categories,
+            questions=questions or [],
             model_config=model_config or {},
             created_by=user,
             status=ClassificationGuideline.STATUS_DRAFT,
@@ -174,6 +176,7 @@ class GuidelineService:
         description: str | None = None,
         prompt_template: str | None = None,
         categories: list[str] | None = None,
+        questions: list[dict] | None = None,
         model_config: dict | None = None,
     ) -> ClassificationGuideline:
         """
@@ -213,6 +216,8 @@ class GuidelineService:
             if len(categories) < 2:
                 raise GuidelineServiceError("At least 2 categories are required")
             guideline.categories = categories
+        if questions is not None:
+            guideline.questions = questions
         if model_config is not None:
             guideline.model_config = model_config
 
@@ -354,6 +359,36 @@ class GuidelineService:
         guideline.save(update_fields=["status", "is_current", "updated_at"])
 
         logger.info(f"Guideline {guideline_id} archived")
+        return guideline
+
+    @classmethod
+    def restore_guideline(cls, guideline_id: str, user: Any) -> ClassificationGuideline:
+        """
+        Restore an archived (soft-deleted) guideline back to draft.
+
+        Used by the frontend soft-delete UX: archiving a guideline hides it
+        from the default list view ("刪除"), and restore brings it back as
+        an editable draft.
+
+        Args:
+            guideline_id: UUID of the guideline
+            user: User performing the action
+
+        Returns:
+            ClassificationGuideline: Restored guideline (now draft)
+
+        Raises:
+            GuidelineStatusError: If the guideline is not archived
+        """
+        guideline = cls.get_guideline(guideline_id)
+
+        if guideline.status != ClassificationGuideline.STATUS_ARCHIVED:
+            raise GuidelineStatusError("Only archived guidelines can be restored")
+
+        guideline.status = ClassificationGuideline.STATUS_DRAFT
+        guideline.save(update_fields=["status", "updated_at"])
+
+        logger.info(f"Guideline {guideline_id} restored to draft")
         return guideline
 
     @classmethod

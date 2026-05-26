@@ -127,6 +127,38 @@ def index_exists(connection, index_name):
         return cursor.fetchone()[0]
 ```
 
+### 環境已知問題
+
+| 問題 | 解決 |
+|------|------|
+| `manage.py` 指令 crash（ninja_jwt ConfigError） | 用 `uv run python -c "..."` + psycopg2 繞過 |
+| Funboost import OSError（nb_log PYTHONPATH） | `start_task()` 已加 try/except fallback 用 threading |
+| DB 表名用底線（如 `ai_classification_guidelines`） | 寫 SQL 前先查 `pg_tables` 確認 |
+| 必須用 `uv run python` 不能用 `python` | testing backend 的 .venv 由 uv 管理 |
+| Docker Ollama 容器佔 port 11434 | `docker stop ollama` 後本機 Ollama 才能接管 |
+
+### DB 直接連線
+```bash
+uv run python -c "
+import psycopg2
+conn = psycopg2.connect(dbname='medical_imaging', user='rag_user', password='secure_password', host='localhost', port='5432')
+cur = conn.cursor()
+cur.execute('SELECT ...')
+conn.close()
+"
+```
+
+### 重要表名對照
+
+| Django Model | 實際表名 |
+|-------------|---------|
+| ClassificationGuideline | `ai_classification_guidelines` |
+| BatchAnalysisTask | `ai_batch_analysis_tasks` |
+| AIAnnotation | `report_ai_annotations` |
+| Report | `one_page_text_report_v2` |
+| Study | `medical_examinations_fact` |
+| StudyProjectAssignment | `study_project_assignments` |
+
 ---
 
 ## Architecture

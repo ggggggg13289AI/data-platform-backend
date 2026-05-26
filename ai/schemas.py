@@ -239,6 +239,7 @@ class GuidelineListItem(Schema):
     status: str
     status_display: str
     categories: list[str]
+    questions: list[dict] = []
     created_at: datetime
     updated_at: datetime
     created_by: UserInfo
@@ -252,6 +253,7 @@ class GuidelineDetailResponse(Schema):
     description: str
     prompt_template: str
     categories: list[str]
+    questions: list[dict] = []
     version: int
     parent_version_id: str | None = None
     is_current: bool
@@ -271,6 +273,7 @@ class CreateGuidelineRequest(Schema):
     name: str
     prompt_template: str
     categories: list[str]
+    questions: list[dict] = []
     description: str = ""
     llm_config: dict | None = None
 
@@ -282,6 +285,7 @@ class UpdateGuidelineRequest(Schema):
     description: str | None = None
     prompt_template: str | None = None
     categories: list[str] | None = None
+    questions: list[dict] | None = None
     llm_config: dict | None = None
 
 
@@ -290,6 +294,7 @@ class CreateGuidelineVersionRequest(Schema):
 
     prompt_template: str | None = None
     categories: list[str] | None = None
+    questions: list[dict] | None = None
     llm_config: dict | None = None
 
 
@@ -361,7 +366,18 @@ class BatchAnalysisResultItem(Schema):
     report_uid: str
     classification: str
     confidence_score: float | None = None
+    structured_answers: dict | None = None
+    reasoning: str | None = None
     created_at: datetime
+
+
+class QuickFeedbackRequest(Schema):
+    """醫師快速回饋請求"""
+
+    is_correct: bool
+    correct_category: str | None = None
+    confidence_level: str = "high"  # high, medium, low
+    notes: str = ""
 
 
 # ============================================================================

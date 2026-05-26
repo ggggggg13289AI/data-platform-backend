@@ -9,7 +9,6 @@ The factory pattern allows:
 """
 
 import logging
-from typing import Type
 
 from django.conf import settings
 
@@ -39,11 +38,11 @@ class LLMProviderFactory:
         providers = LLMProviderFactory.list_providers()
     """
 
-    _providers: dict[str, Type[BaseLLMProvider]] = {}
+    _providers: dict[str, type[BaseLLMProvider]] = {}
     _instances: dict[str, BaseLLMProvider] = {}
 
     @classmethod
-    def register(cls, name: str, provider_class: Type[BaseLLMProvider]) -> None:
+    def register(cls, name: str, provider_class: type[BaseLLMProvider]) -> None:
         """
         Register a provider class.
 
@@ -132,7 +131,7 @@ class LLMProviderFactory:
         return sorted(cls._providers.keys())
 
     @classmethod
-    def get_provider_class(cls, name: str) -> Type[BaseLLMProvider] | None:
+    def get_provider_class(cls, name: str) -> type[BaseLLMProvider] | None:
         """
         Get provider class by name.
 

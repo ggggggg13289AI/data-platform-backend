@@ -236,6 +236,12 @@ class ReportResponse(Schema):
     content_raw: str | None = None
     """完整原始內容，可為空"""
 
+    imaging_findings: str | None = None
+    """影像發現，可為空"""
+
+    impression: str | None = None
+    """診斷意見/結論，可為空"""
+
     study: StudyInfoResponse | None = None
     """相關檢查信息，可為空"""
 

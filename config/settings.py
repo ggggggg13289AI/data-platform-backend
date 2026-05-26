@@ -19,7 +19,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Security settings
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-secret-key-change-in-production")
 DEBUG = os.getenv("DEBUG", "False") == "True"
-ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1,0.0.0.0,10.103.51.2").split(",")
 
 # URL Configuration - CRITICAL for Django
 ROOT_URLCONF = "config.urls"
@@ -59,9 +59,13 @@ MIDDLEWARE = [
 # CORS configuration
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
+    "http://localhost:4173",
     "http://localhost:5173",
     "http://127.0.0.1:3000",
+    "http://127.0.0.1:4173",
     "http://127.0.0.1:5173",
+    "http://10.103.51.2:3000",
+    "http://10.103.51.2:4173",
 ]
 CORS_ALLOW_CREDENTIALS = True
 
@@ -199,7 +203,7 @@ APP_VERSION = "1.1.0"
 # JWT Configuration
 NINJA_JWT = {
     # Token Lifetimes
-    "ACCESS_TOKEN_LIFETIME": timedelta(hours=1),  # 1 hour access token
+    "ACCESS_TOKEN_LIFETIME": timedelta(days=1),  # 1 day access token
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),  # 7 days refresh token
     "ROTATE_REFRESH_TOKENS": True,  # Issue new refresh token on refresh
     "BLACKLIST_AFTER_ROTATION": True,  # Blacklist old refresh tokens for security
