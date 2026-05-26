@@ -721,3 +721,35 @@ class ReportExportRequest(Schema):
 
     filters: AdvancedSearchFilters | None = None
     """預留欄位：未來支援依篩選條件匯出"""
+
+
+class ImagingPlatformExportRequest(Schema):
+    """影像平台匯出請求 - POST /reports/imaging-platform-export 的請求負載。"""
+
+    accession_numbers: list[str]
+    """要匯出的 AccessionNumber（report_id）清單"""
+
+
+class ImagingPlatformExportItem(Schema):
+    """單筆要丟給影像平台特定組的資料。"""
+
+    AccessionNumber: str
+    """檢查號 (report_id)"""
+
+    content: str | None = None
+    """完整報告原文 (content_raw)"""
+
+    imaging_findings: str | None = None
+    """影像發現"""
+
+    impression: str | None = None
+    """診斷意見/結論"""
+
+    category: str | None = None
+    """AI 分類結果（最新未棄用的 Classification 標註）"""
+
+    confidence: float | None = None
+    """AI 分類信心度 (0~1)"""
+
+    guideline: str | None = None
+    """產生分類的指南名稱與版本"""

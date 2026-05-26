@@ -17,6 +17,8 @@ from report.schemas import (
     AdvancedSearchRequest,
     AdvancedSearchResponse,
     AIAnnotationResponse,
+    ImagingPlatformExportItem,
+    ImagingPlatformExportRequest,
     ImportResponse,
     ReportDetailResponse,
     ReportExportRequest,
@@ -463,3 +465,14 @@ def get_report_annotations(request, uid: str):
     except Exception as e:
         logger.error(f"Fetch annotations failed: {str(e)}")
         raise
+
+
+@report_router.post("/imaging-platform-export", response=list[ImagingPlatformExportItem])
+def imaging_platform_export(request, payload: ImagingPlatformExportRequest):
+    """Build the imaging-platform group payload for the given AccessionNumbers.
+
+    Returns a JSON array of {AccessionNumber, content, imaging_findings, impression,
+    category, confidence, guideline}. This only produces the payload; pushing it to the
+    imaging platform's specific group will be wired once that API endpoint is available.
+    """
+    return ReportService.build_imaging_platform_items(payload.accession_numbers)
