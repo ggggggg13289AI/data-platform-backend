@@ -127,11 +127,18 @@ def index_exists(connection, index_name):
         return cursor.fetchone()[0]
 ```
 
+### API curl 注意事項
+
+| 端點 | 正確用法 | 常見錯誤 |
+|------|----------|---------|
+| `POST /api/v1/auth/login` | `-F 'username=user' -F 'password=user'`（multipart，**無 trailing slash**） | `-d 'username=...'` 加 `/login/` 會 404 redirect 漏 token |
+
 ### 環境已知問題
 
 | 問題 | 解決 |
 |------|------|
-| `manage.py` 指令 crash（ninja_jwt ConfigError） | 用 `uv run python -c "..."` + psycopg2 繞過 |
+| `manage.py` 跑不起來 | `.env` 的 `DB_PORT=15433` 是 stale。inline 覆寫：`DB_USER=rag_user DB_PASSWORD=secure_password DB_HOST=localhost DB_PORT=5432 uv run python manage.py runserver 8001` |
+| `manage.py test` 因 `auth_user does not exist` 失敗 | `project/` 和 `common/` apps 沒 migrations，sync 順序錯誤。改用 `SimpleTestCase`（不需 DB），ORM-heavy 邏輯先抽成可測試的 classmethod |
 | Funboost import OSError（nb_log PYTHONPATH） | `start_task()` 已加 try/except fallback 用 threading |
 | DB 表名用底線（如 `ai_classification_guidelines`） | 寫 SQL 前先查 `pg_tables` 確認 |
 | 必須用 `uv run python` 不能用 `python` | testing backend 的 .venv 由 uv 管理 |
