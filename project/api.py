@@ -1191,9 +1191,15 @@ def advanced_search_project_resources(
             if wanted and (ann.content or "").lower() != wanted.lower():
                 return False
             score = ann.confidence_score or 0
-            if ai_filters.get("confidence_min") is not None and score < ai_filters["confidence_min"]:
+            if (
+                ai_filters.get("confidence_min") is not None
+                and score < ai_filters["confidence_min"]
+            ):
                 return False
-            if ai_filters.get("confidence_max") is not None and score > ai_filters["confidence_max"]:
+            if (
+                ai_filters.get("confidence_max") is not None
+                and score > ai_filters["confidence_max"]
+            ):
                 return False
             for ans_key, ans_val in (ai_filters.get("answers") or {}).items():
                 answers = (ann.metadata or {}).get("structured_answers") or {}
