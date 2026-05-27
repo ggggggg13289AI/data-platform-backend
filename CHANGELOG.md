@@ -5,6 +5,26 @@ will be documented in this file. Format based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- `POST /api/v1/reports/imaging-platform-export`: returns
+  `[{AccessionNumber, content, imaging_findings, impression, category,
+  confidence, guideline}]` for pushing classification results to an imaging
+  platform group (payload only; outbound push wired later).
+- AI annotation conditions in project resource advanced-search
+  (`POST /api/v1/projects/{id}/search/advanced`): `annotation.classification`,
+  `annotation.confidence_score`, `annotation.answer` are extracted from the
+  multi-condition tree and applied against each report's latest Classification
+  annotation.
+- `SearchResultItem.annotation` (`AIAnnotationSummary`): advanced-search rows
+  now carry the latest AI annotation so AI columns render inline.
+
+### Fixed
+- Advanced-search AI filter matches a report's *latest* non-deprecated
+  Classification annotation (consistent with the displayed value), instead of
+  any historical/other-guideline annotation.
+
 ## [1.5.0] - 2026-05-26
 
 ### Added
