@@ -143,6 +143,8 @@ def index_exists(connection, index_name):
 | DB 表名用底線（如 `ai_classification_guidelines`） | 寫 SQL 前先查 `pg_tables` 確認 |
 | 必須用 `uv run python` 不能用 `python` | testing backend 的 .venv 由 uv 管理 |
 | Docker Ollama 容器佔 port 11434 | `docker stop ollama` 後本機 Ollama 才能接管 |
+| `uvx ruff format <module>` 會改到**已提交的 migration** + 動到 `uv.lock` | 只 format 你改的檔案（`uvx ruff format report/api.py`），別丟整個 module |
+| 登入全部 500 / `5432` 沒程序在聽 | postgres 跑在 Docker(`medical_rag_postgres`)。清 port 時**別 kill `com.docker*`**（會關掉 Docker＋DB）；修復：`open -a Docker` |
 
 ### DB 直接連線
 ```bash
@@ -165,6 +167,8 @@ conn.close()
 | Report | `one_page_text_report_v2` |
 | Study | `medical_examinations_fact` |
 | StudyProjectAssignment | `study_project_assignments` |
+
+- `AIAnnotation` 欄位（非直覺）：分類結果存在 **`content`**（非獨立欄位）、結構化答案存在 **`metadata.structured_answers`**、信心度 `confidence_score`；`report.annotations`(related_name)、FK `report_id`=`Report.uid`；取最新分類用 `annotation_type="Classification", is_deprecated=False`。
 
 ---
 

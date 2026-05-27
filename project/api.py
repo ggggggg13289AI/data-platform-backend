@@ -27,6 +27,7 @@ from project.models import Project, ProjectMember
 from project.schemas import (
     AddMemberRequest,
     AddStudiesRequest,
+    AIAnnotationSummary,
     BatchAssignByQueryDetail,
     BatchAssignByQueryRequest,
     BatchAssignByQueryResponse,
@@ -1020,6 +1021,67 @@ def search_project_resources(
     }
 
 
+def _split_annotation_conditions(node: dict | None) -> tuple[dict, dict | None]:
+    """Separate ``annotation.*`` leaf conditions from a multi-condition tree.
+
+    AI classification data lives on AIAnnotation, not on Report, so these conditions
+    cannot be expressed in the report ORM tree that AdvancedQueryBuilder builds. We
+    pull them out here and apply them as a DB-level annotation filter instead.
+
+    Returns ``(ai_filters, pruned_node)`` where ai_filters may contain
+    ``classification`` (str), ``confidence_min`` / ``confidence_max`` (float) and
+    ``answers`` (dict[str, str]); pruned_node is the tree with annotation leaves
+    removed (None if nothing remains), safe to hand to AdvancedQueryBuilder.
+    """
+    if not node:
+        return {}, None
+
+    field = node.get("field")
+    if field and field.startswith("annotation."):
+        ai: dict = {}
+        key = field.split(".", 1)[1]
+        operator = node.get("operator")
+        value = node.get("value")
+        if key == "classification" and value not in (None, ""):
+            ai["classification"] = value
+        elif key == "confidence_score":
+            if operator == "gte" and value not in (None, ""):
+                ai["confidence_min"] = float(value)
+            elif operator == "lte" and value not in (None, ""):
+                ai["confidence_max"] = float(value)
+            elif operator == "between" and isinstance(value, dict):
+                if value.get("start") not in (None, ""):
+                    ai["confidence_min"] = float(value["start"])
+                if value.get("end") not in (None, ""):
+                    ai["confidence_max"] = float(value["end"])
+        elif key == "answer" and isinstance(value, str) and "=" in value:
+            ans_key, ans_val = (part.strip() for part in value.split("=", 1))
+            if ans_key and ans_val:
+                ai["answers"] = {ans_key: ans_val}
+        return ai, None
+
+    conditions = node.get("conditions")
+    if conditions:
+        merged: dict = {}
+        kept: list = []
+        for child in conditions:
+            child_ai, child_pruned = _split_annotation_conditions(child)
+            for ai_key, ai_val in child_ai.items():
+                if ai_key == "answers":
+                    merged.setdefault("answers", {}).update(ai_val)
+                else:
+                    merged[ai_key] = ai_val
+            if child_pruned is not None:
+                kept.append(child_pruned)
+        if kept:
+            pruned = dict(node)
+            pruned["conditions"] = kept
+            return merged, pruned
+        return merged, None
+
+    return {}, node
+
+
 @router.post("/{project_id}/search/advanced", response=ProjectSearchResponse)
 @require_view
 def advanced_search_project_resources(
@@ -1046,7 +1108,7 @@ def advanced_search_project_resources(
 
     from django.contrib.postgres.search import SearchQuery
 
-    from report.models import Report
+    from report.models import AIAnnotation, Report
     from report.service import ReportService
     from report.services import AdvancedQueryBuilder, AdvancedQueryValidationError
 
@@ -1058,12 +1120,19 @@ def advanced_search_project_resources(
     # Start with Reports scoped to this project
     queryset = Report.objects.filter(report_id__in=project_exam_ids, is_latest=True)
 
+    # Pull AI-annotation conditions out of the multi-condition tree; the remaining non-AI
+    # tree goes to AdvancedQueryBuilder (which doesn't understand annotation fields). The
+    # AI filter itself is applied further down, against each report's *latest*
+    # Classification annotation, so it matches the row's displayed result (and the
+    # param-based resource list) rather than any historical/other-guideline annotation.
+    tree_dict = payload.tree.dict(exclude_none=True) if payload.tree else None
+    ai_filters, pruned_tree = _split_annotation_conditions(tree_dict)
+
     extra_search_query = None
 
-    if payload.mode == "multi" and payload.tree:
+    if payload.mode == "multi" and pruned_tree:
         try:
-            builder_payload = payload.tree.dict(exclude_none=True)
-            builder = AdvancedQueryBuilder(builder_payload)
+            builder = AdvancedQueryBuilder(pruned_tree)
             result = builder.build()
 
             # Apply structured DSL filters (gender, age, date ranges, etc.)
@@ -1074,7 +1143,7 @@ def advanced_search_project_resources(
             extra_search_query = result.search_query
         except AdvancedQueryValidationError as exc:
             raise HttpError(400, str(exc)) from exc
-    else:
+    elif payload.mode != "multi":
         # Basic text search mode
         text = ""
         if payload.tree:
@@ -1103,6 +1172,44 @@ def advanced_search_project_resources(
     # Apply full-text search filter
     if extra_search_query is not None:
         queryset = queryset.filter(search_vector=extra_search_query)
+
+    # Apply AI-annotation filter on each report's latest non-deprecated Classification
+    # annotation (so "classification = X" matches the row's displayed result, not just
+    # any historical/other-guideline annotation). Done before pagination so counts hold.
+    if ai_filters:
+        candidate_uids = list(queryset.values_list("uid", flat=True))
+        latest_ann: dict[str, AIAnnotation] = {}
+        for ann in AIAnnotation.objects.filter(
+            report_id__in=candidate_uids,
+            is_deprecated=False,
+            annotation_type="Classification",
+        ).order_by("report_id", "-created_at"):
+            latest_ann.setdefault(ann.report_id, ann)
+
+        def _ann_matches(ann: AIAnnotation) -> bool:
+            wanted = ai_filters.get("classification")
+            if wanted and (ann.content or "").lower() != wanted.lower():
+                return False
+            score = ann.confidence_score or 0
+            if (
+                ai_filters.get("confidence_min") is not None
+                and score < ai_filters["confidence_min"]
+            ):
+                return False
+            if (
+                ai_filters.get("confidence_max") is not None
+                and score > ai_filters["confidence_max"]
+            ):
+                return False
+            for ans_key, ans_val in (ai_filters.get("answers") or {}).items():
+                answers = (ann.metadata or {}).get("structured_answers") or {}
+                if str(answers.get(ans_key, "")).lower() != str(ans_val).lower():
+                    return False
+            return True
+
+        queryset = queryset.filter(
+            uid__in=[uid for uid, ann in latest_ann.items() if _ann_matches(ann)]
+        )
 
     # Order by verification date (most recent first)
     queryset = queryset.order_by("-verified_at")
@@ -1142,6 +1249,24 @@ def advanced_search_project_resources(
 
     search_value = extract_search_value(payload.tree) if payload.tree else ""
 
+    # Enrich with each report's latest non-deprecated Classification annotation so the
+    # result rows carry AI 分類/信心度 like the normal resource list (otherwise an
+    # AI-filtered search shows blank AI columns and looks like it never ran).
+    report_uids = [report.uid for report in paginated_reports]
+    annotations_map: dict[str, AIAnnotation] = {}
+    if report_uids:
+        for ann in (
+            AIAnnotation.objects.filter(
+                report_id__in=report_uids,
+                is_deprecated=False,
+                annotation_type="Classification",
+            )
+            .select_related("guideline")
+            .order_by("report_id", "-created_at")
+        ):
+            if ann.report_id not in annotations_map:
+                annotations_map[ann.report_id] = ann
+
     # Convert to SearchResult format for consistent response
     items = []
     for report in paginated_reports:
@@ -1151,6 +1276,22 @@ def advanced_search_project_resources(
             snippet = highlight_query_snippet(report.content_raw, search_value)
         else:
             snippet = report.title or ""
+
+        annotation_summary = None
+        ann = annotations_map.get(report.uid)
+        if ann:
+            annotation_summary = AIAnnotationSummary(
+                id=str(ann.id),
+                classification=ann.content,
+                confidence_score=ann.confidence_score,
+                guideline_name=ann.guideline.name if ann.guideline else None,
+                guideline_version=ann.guideline_version,
+                structured_answers=(
+                    ann.metadata.get("structured_answers") if ann.metadata else None
+                ),
+                created_at=ann.created_at,
+            )
+
         items.append(
             {
                 "resource_type": "report",
@@ -1159,6 +1300,7 @@ def advanced_search_project_resources(
                 "snippet": snippet,
                 "resource_payload": report_data,
                 "resource_timestamp": report.verified_at.isoformat() if report.verified_at else "",
+                "annotation": annotation_summary,
             }
         )
 

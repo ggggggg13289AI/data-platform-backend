@@ -249,6 +249,7 @@ class SearchResultItem(Schema):
     snippet: str
     resource_payload: dict[str, Any]
     resource_timestamp: str
+    annotation: AIAnnotationSummary | None = None
 
 
 class ProjectSearchResponse(Schema):

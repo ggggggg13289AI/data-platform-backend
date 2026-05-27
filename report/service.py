@@ -161,6 +161,52 @@ class ReportService:
             return {}
 
     @classmethod
+    def build_imaging_platform_items(cls, accession_numbers: list[str]) -> list[dict[str, Any]]:
+        """Build the imaging-platform group payload for the given AccessionNumbers.
+
+        For each accession (report_id) returns the report text plus its latest
+        non-deprecated AI Classification result. This only produces the JSON; pushing
+        it to the imaging platform is wired separately once that API is available.
+        Missing accessions are skipped. Order follows the input list.
+        """
+        if not accession_numbers:
+            return []
+
+        reports = Report.objects.filter(report_id__in=accession_numbers, is_latest=True)
+        report_map = {report.report_id: report for report in reports}
+
+        items: list[dict[str, Any]] = []
+        for accession in accession_numbers:
+            report = report_map.get(accession)
+            if report is None:
+                continue
+
+            ann = (
+                report.annotations.filter(annotation_type="Classification", is_deprecated=False)
+                .select_related("guideline")
+                .order_by("-created_at")
+                .first()
+            )
+
+            guideline_label = None
+            if ann and ann.guideline:
+                version = ann.guideline_version or ann.guideline.version
+                guideline_label = f"{ann.guideline.name} v{version}"
+
+            items.append(
+                {
+                    "AccessionNumber": report.report_id,
+                    "content": report.content_raw,
+                    "imaging_findings": report.imaging_findings,
+                    "impression": report.impression,
+                    "category": ann.content if ann else None,
+                    "confidence": ann.confidence_score if ann else None,
+                    "guideline": guideline_label,
+                }
+            )
+        return items
+
+    @classmethod
     def _resolve_sort_fields(cls, sort_key: str | None) -> tuple[str, ...]:
         """Map sort key to deterministic ordering tuple."""
         if not sort_key:
